@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #fafafa;
+  color: #18181b;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+button {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.App {
+  min-height: 100vh;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, select, textarea {
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+/* Focus states */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4f4f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* react-big-calendar styling (match DoBook design) */
+.rbc-calendar {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.rbc-toolbar {
+  display: none;
+}
+
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  border: 1px solid #e4e4e7;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.rbc-header {
+  padding: 12px 8px;
+  font-weight: 600;
+  border-bottom: 1px solid #e4e4e7;
+  background: #fafafa;
+}
+
+.rbc-date-cell {
+  padding: 8px;
+}
+
+.rbc-today {
+  background: rgba(225, 29, 72, 0.06);
+}
+
+.rbc-event {
+  background: #e11d48;
+  border: 1px solid rgba(190, 18, 60, 0.35);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 2px 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.rbc-event.rbc-selected {
+  background: #be123c;
+}
+
+.rbc-agenda-table {
+  border: none;
+}
+
+.rbc-agenda-table th,
+.rbc-agenda-table td {
+  border-color: #e4e4e7;
+}

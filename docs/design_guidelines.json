@@ -1,0 +1,154 @@
+{
+  "identity": {
+    "persona": "E1",
+    "role": "Anti-AI Creative Designer",
+    "principles": [
+      "Fusion over Imitation",
+      "Emotion First",
+      "Content is King",
+      "Zoom In",
+      "Negative Space",
+      "Contrast"
+    ]
+  },
+  "project": {
+    "name": "DoBook",
+    "type": "SaaS Booking System",
+    "theme": "Light Mode (Classic Professional)",
+    "vibe": "Efficient, Trustworthy, Classic yet Modern"
+  },
+  "typography": {
+    "strategy": "Soft Utility",
+    "fonts": {
+      "heading": {
+        "family": "Manrope",
+        "weights": ["600", "700", "800"],
+        "usage": "Headings, Hero Text, Big Numbers"
+      },
+      "body": {
+        "family": "Inter",
+        "weights": ["400", "500"],
+        "usage": "Paragraphs, UI Labels, Data"
+      }
+    },
+    "rules": [
+      "Headings > 32px must use tracking-tight",
+      "Overlines must be uppercase + tracking-widest + text-xs",
+      "Never use Inter for main headings"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "name": "Classic Red",
+        "tailwind": "rose-600",
+        "hex": "#e11d48",
+        "usage": "Primary Actions, 'Book Now' Buttons, Important Alerts"
+      },
+      "secondary": {
+        "name": "Trust Green",
+        "tailwind": "emerald-600",
+        "hex": "#059669",
+        "usage": "Success States, Confirmations, Safe Actions, Price Tags"
+      },
+      "neutral": {
+        "name": "Zinc",
+        "tailwind": "zinc",
+        "usage": "Text, Borders, Backgrounds"
+      },
+      "background": {
+        "app": "bg-zinc-50",
+        "card": "bg-white",
+        "sidebar": "bg-white"
+      }
+    },
+    "rules": [
+      "No gradients for backgrounds. Use solid colors or subtle noise.",
+      "Text must never be pure black (#000000). Use zinc-900 or zinc-800.",
+      "Primary buttons should be Rose-600 with white text.",
+      "Secondary buttons should be Zinc-100 with Zinc-900 text."
+    ]
+  },
+  "layout": {
+    "spacing_scale": "Generous (2x standard)",
+    "grid_systems": {
+      "marketing": {
+        "mode": "Tetris Grid",
+        "cols": "grid-cols-1 md:grid-cols-12",
+        "gap": "gap-8 md:gap-12",
+        "rules": "Asymmetry is key. Never fill 100% perfectly."
+      },
+      "dashboard": {
+        "mode": "High Density Grid",
+        "cols": "grid-cols-1 md:grid-cols-4",
+        "gap": "gap-4",
+        "rules": "Dense, information-rich. Use 'Grid Borders' style."
+      }
+    },
+    "container": {
+      "max_width": "max-w-7xl",
+      "padding": "px-6 md:px-12"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Pill-shaped or Rounded-md",
+      "size": "Big (h-12 or h-14 for main actions)",
+      "classes": "rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+    },
+    "cards": {
+      "style": "Flat & Clean",
+      "classes": "bg-white border border-zinc-200 shadow-sm rounded-xl hover:border-rose-200 transition-colors"
+    },
+    "inputs": {
+      "style": "Minimal",
+      "classes": "bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+    },
+    "calendar": {
+      "style": "Planner Look",
+      "notes": "Use Shadcn Calendar but style selected dates with Rose-600 and today with Emerald-600 dot."
+    }
+  },
+  "assets": {
+    "logo_placeholder": "https://images.unsplash.com/photo-1767481626778-1a1b18976eaf?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "hero_image": "https://images.unsplash.com/photo-1765366417046-f46361a7f26f?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "icons": "Lucide React (default) or Phosphor Icons (for dashboard)"
+  },
+  "pages": {
+    "landing": {
+      "strategy": "Trust & Clarity",
+      "sections": [
+        "Hero: Big bold value prop, 'Book Now' Rose button, abstract 3D shape or clean UI screenshot.",
+        "Features: Bento grid layout showing Calendar, Invoice, and Email features.",
+        "Testimonials: Clean typography, minimal cards.",
+        "CTA: Large Rose background section."
+      ]
+    },
+    "dashboard": {
+      "strategy": "Command Center",
+      "layout": "Sidebar navigation (left), Top header (search/profile), Main content area (grid).",
+      "widgets": "Upcoming Bookings (List), Revenue (Chart), Quick Actions (Grid)."
+    },
+    "booking_flow": {
+      "strategy": "Step-by-Step Focus",
+      "layout": "Centered card or split screen (Info left, Form right).",
+      "steps": ["Service Selection", "Date & Time", "Details", "Confirmation"]
+    }
+  },
+  "universal_guidelines": [
+    "Use 'sonner' for toasts.",
+    "All interactive elements must have `data-testid`.",
+    "Do not use 'Inter' for headings.",
+    "Avoid gradients on text.",
+    "Use 'subgrid' where possible for alignment.",
+    "Ensure 4.5:1 contrast ratio for text.",
+    "Mobile images max-height: 80vh."
+  ],
+  "instructions_to_main_agent": [
+    "Implement the 'DoBook' brand using the Rose/Emerald/Zinc palette.",
+    "Focus on the 'Booking Widget' being embeddable (iframe friendly design).",
+    "Ensure the Invoice templates look distinct (Classic, Modern, Minimal).",
+    "Use the 'Tetris Grid' for the landing page to make it stand out.",
+    "Don't ask clarifying questions. Use your best judgment based on this guide."
+  ]
+}

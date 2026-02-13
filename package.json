@@ -1,0 +1,10 @@
+{
+  "name": "dobook",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "start": "npm --prefix apps/web run start",
+    "build": "npm --prefix apps/web run build",
+    "install:web": "npm --prefix apps/web install"
+  }
+}
