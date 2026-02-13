@@ -33,6 +33,8 @@ Runs the production server (requires `npm run build` first).
 
 No separate backend is required. The app uses same-origin `/api/*` routes and persists to `apps/web/localdb.json`.
 
+Note for Vercel: the filesystem is ephemeral, so `localdb.json` won’t persist reliably in production. Use an external store (DB/KV) for real deployments.
+
 ## Routes
 
 - `/` landing page + auth dialog
