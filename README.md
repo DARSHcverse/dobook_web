@@ -10,7 +10,7 @@ This app is backendless: the Next.js app includes API routes and persists data t
 
 ## Deploy (Vercel)
 
-This repo is configured for Vercel via `vercel.json` (Next.js app lives in `apps/web`).
+Deploy on Vercel by setting the Project **Root Directory** to `apps/web` (Framework: Next.js).
 
 Important: writing to `apps/web/localdb.json` will **not** persist on Vercel (serverless/ephemeral filesystem). For production you’ll want to move storage to an external database/KV.
 
