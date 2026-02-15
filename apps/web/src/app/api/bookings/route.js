@@ -3,12 +3,25 @@ import { randomUUID } from "node:crypto";
 import { requireSession } from "../_utils/auth";
 import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
 
 function formatYYYYMMDD(date) {
   const y = String(date.getFullYear());
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}${m}${d}`;
+}
+
+function normalizeCustomFields(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    const key = String(k || "").trim();
+    if (!key) continue;
+    if (v === undefined) continue;
+    out[key] = v === null ? "" : v;
+  }
+  return out;
 }
 
 export async function GET(request) {
@@ -42,7 +55,7 @@ export async function POST(request) {
     const sb = supabaseAdmin();
     const { data: business, error: businessError } = await sb
       .from("businesses")
-      .select("id,booking_count")
+      .select("*")
       .eq("id", businessId)
       .maybeSingle();
     if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
@@ -58,6 +71,7 @@ export async function POST(request) {
     const bookingDateStr = String(body?.booking_date || "").trim();
     const bookingTimeStr = String(body?.booking_time || "").trim();
     const endTimeStr = body?.end_time ? String(body.end_time).trim() : "";
+    const custom_fields = normalizeCustomFields(body?.custom_fields);
 
     const booking = {
       id: randomUUID(),
@@ -81,6 +95,11 @@ export async function POST(request) {
       invoice_id,
       invoice_date: invoiceDate.toISOString(),
       due_date: new Date(invoiceDate.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      custom_fields,
+      confirmation_sent_at: null,
+      business_notice_sent_at: null,
+      reminder_5d_sent_at: null,
+      reminder_1d_sent_at: null,
       created_at: new Date().toISOString(),
     };
 
@@ -96,6 +115,19 @@ export async function POST(request) {
       .from("businesses")
       .update({ booking_count: Number(business.booking_count || 0) + 1 })
       .eq("id", businessId);
+
+    // Best-effort: send confirmation + invoice to customer and business.
+    try {
+      const emailResults = await sendBookingCreatedEmails({ booking: inserted, business });
+      const updates = {};
+      if (emailResults?.customer?.ok) updates.confirmation_sent_at = new Date().toISOString();
+      if (emailResults?.business?.ok) updates.business_notice_sent_at = new Date().toISOString();
+      if (Object.keys(updates).length) {
+        await sb.from("bookings").update(updates).eq("id", inserted.id).eq("business_id", businessId);
+      }
+    } catch {
+      // ignore email failures
+    }
 
     return NextResponse.json(inserted);
   }
@@ -131,6 +163,11 @@ export async function POST(request) {
     invoice_id,
     invoice_date: invoiceDate.toISOString(),
     due_date: new Date(invoiceDate.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    custom_fields: normalizeCustomFields(body?.custom_fields),
+    confirmation_sent_at: null,
+    business_notice_sent_at: null,
+    reminder_5d_sent_at: null,
+    reminder_1d_sent_at: null,
     created_at: new Date().toISOString(),
   };
 
@@ -138,5 +175,16 @@ export async function POST(request) {
   business.booking_count = Number(business.booking_count || 0) + 1;
 
   writeDb(db);
+
+  try {
+    const emailResults = await sendBookingCreatedEmails({ booking, business });
+    const now = new Date().toISOString();
+    if (emailResults?.customer?.ok) booking.confirmation_sent_at = now;
+    if (emailResults?.business?.ok) booking.business_notice_sent_at = now;
+    writeDb(db);
+  } catch {
+    // ignore email failures
+  }
+
   return NextResponse.json(booking);
 }

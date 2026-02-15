@@ -17,12 +17,31 @@ export async function PUT(request) {
     "bsb",
     "account_number",
     "payment_link",
+    "booth_types",
+    "booking_custom_fields",
   ];
 
   if (auth.mode === "supabase") {
     const updates = {};
     for (const key of allowed) {
-      if (key in body) updates[key] = body[key] ?? "";
+      if (!(key in body)) continue;
+      if (key === "booth_types") {
+        updates.booth_types = Array.isArray(body.booth_types)
+          ? body.booth_types.map((v) => String(v || "").trim()).filter(Boolean)
+          : [];
+        continue;
+      }
+      if (key === "booking_custom_fields") {
+        updates.booking_custom_fields = Array.isArray(body.booking_custom_fields)
+          ? body.booking_custom_fields.map((f) => ({
+            key: String(f?.key || "").trim(),
+            label: String(f?.label || "").trim(),
+            type: String(f?.type || "text").trim(),
+          })).filter((f) => f.key && f.label)
+          : [];
+        continue;
+      }
+      updates[key] = body[key] ?? "";
     }
 
     const { data: updated, error } = await auth.supabase
@@ -40,7 +59,24 @@ export async function PUT(request) {
   }
 
   for (const key of allowed) {
-    if (key in body) auth.business[key] = body[key] ?? "";
+    if (!(key in body)) continue;
+    if (key === "booth_types") {
+      auth.business.booth_types = Array.isArray(body.booth_types)
+        ? body.booth_types.map((v) => String(v || "").trim()).filter(Boolean)
+        : [];
+      continue;
+    }
+    if (key === "booking_custom_fields") {
+      auth.business.booking_custom_fields = Array.isArray(body.booking_custom_fields)
+        ? body.booking_custom_fields.map((f) => ({
+          key: String(f?.key || "").trim(),
+          label: String(f?.label || "").trim(),
+          type: String(f?.type || "text").trim(),
+        })).filter((f) => f.key && f.label)
+        : [];
+      continue;
+    }
+    auth.business[key] = body[key] ?? "";
   }
 
   auth.saveDb(auth.db);

@@ -460,6 +460,14 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
                 <p className="font-semibold">{booking.customer_email}</p>
               </div>
               <div>
+                <Label className="text-zinc-600">Phone</Label>
+                <p className="font-semibold">{booking.customer_phone || '—'}</p>
+              </div>
+              <div>
+                <Label className="text-zinc-600">Address</Label>
+                <p className="font-semibold">{booking.event_location || '—'}</p>
+              </div>
+              <div>
                 <Label className="text-zinc-600">Booth Type</Label>
                 <p className="font-semibold">{booking.booth_type || booking.service_type}</p>
               </div>
@@ -491,6 +499,20 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
               <div>
                 <Label className="text-zinc-600">Notes</Label>
                 <p className="mt-1 text-sm">{booking.notes}</p>
+              </div>
+            )}
+
+            {booking.custom_fields && typeof booking.custom_fields === 'object' && Object.keys(booking.custom_fields).length > 0 && (
+              <div>
+                <Label className="text-zinc-600">Additional Fields</Label>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  {Object.entries(booking.custom_fields).map(([k, v]) => (
+                    <div key={k} className="p-3 bg-zinc-50 rounded-lg border border-zinc-100">
+                      <div className="text-xs text-zinc-500">{k}</div>
+                      <div className="text-sm font-semibold text-zinc-800">{String(v ?? '') || '—'}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1037,7 +1059,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeTab === 'bookings' && <BookingsTab bookings={bookings} onRefresh={loadBookings} />}
+        {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
@@ -1060,7 +1082,9 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
     account_name: business?.account_name || '',
     bsb: business?.bsb || '',
     account_number: business?.account_number || '',
-    payment_link: business?.payment_link || ''
+    payment_link: business?.payment_link || '',
+    booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
+    booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
   });
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -1078,7 +1102,9 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
         account_name: business.account_name || '',
         bsb: business.bsb || '',
         account_number: business.account_number || '',
-        payment_link: business.payment_link || ''
+        payment_link: business.payment_link || '',
+        booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
+        booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
       });
       setSubscriptionInfo({
         plan: business.subscription_plan || 'free',
@@ -1123,7 +1149,40 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('dobook_token');
-      const response = await axios.put(`${API}/business/profile`, formData, {
+      const slugKey = (label) =>
+        String(label || '')
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .slice(0, 40) || 'field';
+
+      const booth_types = Array.isArray(formData.booth_types)
+        ? formData.booth_types.map((t) => String(t || '').trim()).filter(Boolean)
+        : [];
+
+      const defsRaw = Array.isArray(formData.booking_custom_fields) ? formData.booking_custom_fields : [];
+      const used = new Set();
+      const booking_custom_fields = defsRaw
+        .map((f) => ({
+          label: String(f?.label || '').trim(),
+          type: String(f?.type || 'text'),
+        }))
+        .filter((f) => f.label)
+        .map((f) => {
+          let key = slugKey(f.label);
+          let i = 2;
+          while (used.has(key)) {
+            key = `${slugKey(f.label)}_${i}`;
+            i += 1;
+          }
+          used.add(key);
+          return { key, label: f.label, type: f.type };
+        });
+
+      const payload = { ...formData, booth_types, booking_custom_fields };
+
+      const response = await axios.put(`${API}/business/profile`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -1341,6 +1400,118 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
         </CardContent>
       </Card>
 
+      {/* Booking Editor Configuration */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Booking Editor</CardTitle>
+          <CardDescription>Customize booth types and extra fields</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label className="text-zinc-700">Booth Types</Label>
+            <div className="space-y-2">
+              {(formData.booth_types || []).map((t, idx) => (
+                <div key={`${t}-${idx}`} className="flex items-center gap-2">
+                  <Input
+                    value={t}
+                    onChange={(e) => {
+                      const next = [...(formData.booth_types || [])];
+                      next[idx] = e.target.value;
+                      setFormData({ ...formData, booth_types: next });
+                    }}
+                    className="bg-zinc-50"
+                    placeholder="Booth type"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10"
+                    onClick={() => {
+                      const next = (formData.booth_types || []).filter((_, i) => i !== idx);
+                      setFormData({ ...formData, booth_types: next.length ? next : ['Open Booth'] });
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => setFormData({ ...formData, booth_types: [...(formData.booth_types || []), ''] })}
+            >
+              Add Booth Type
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-zinc-700">Additional Booking Fields</Label>
+            <div className="space-y-2">
+              {(formData.booking_custom_fields || []).map((f, idx) => (
+                <div key={`${f?.key || f?.label || 'field'}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                  <div className="md:col-span-7">
+                    <Input
+                      value={f?.label || ''}
+                      onChange={(e) => {
+                        const next = [...(formData.booking_custom_fields || [])];
+                        next[idx] = { ...next[idx], label: e.target.value };
+                        setFormData({ ...formData, booking_custom_fields: next });
+                      }}
+                      className="bg-zinc-50"
+                      placeholder="Field label (e.g. Company Name)"
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <Select
+                      value={String(f?.type || 'text')}
+                      onValueChange={(val) => {
+                        const next = [...(formData.booking_custom_fields || [])];
+                        next[idx] = { ...next[idx], type: val };
+                        setFormData({ ...formData, booking_custom_fields: next });
+                      }}
+                    >
+                      <SelectTrigger className="bg-zinc-50 h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Text</SelectItem>
+                        <SelectItem value="textarea">Long Text</SelectItem>
+                        <SelectItem value="number">Number</SelectItem>
+                        <SelectItem value="date">Date</SelectItem>
+                        <SelectItem value="time">Time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full"
+                      onClick={() => {
+                        const next = (formData.booking_custom_fields || []).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, booking_custom_fields: next });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => setFormData({ ...formData, booking_custom_fields: [...(formData.booking_custom_fields || []), { label: '', type: 'text' }] })}
+            >
+              Add Field
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Button 
         data-testid="save-settings-btn"
         onClick={handleSave}
@@ -1353,9 +1524,347 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
   );
 };
 
+const BookingEditorDialog = ({ business, booking, open, onClose, onSaved }) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('dobook_token') : null;
+  const isEdit = Boolean(booking?.id);
+
+  const boothOptions = Array.isArray(business?.booth_types) && business.booth_types.length
+    ? business.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+
+  const customFieldDefs = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
+  const customFieldKeys = new Set(customFieldDefs.map((d) => d?.key).filter(Boolean));
+
+  const [section, setSection] = useState('basics');
+  const [saving, setSaving] = useState(false);
+  const [data, setData] = useState({
+    customer_name: booking?.customer_name || '',
+    customer_email: booking?.customer_email || '',
+    customer_phone: booking?.customer_phone || '',
+    event_location: booking?.event_location || '',
+    notes: booking?.notes || '',
+    price: booking?.price ?? '',
+    booking_date: booking?.booking_date || '',
+    booking_time: booking?.booking_time || '',
+    end_time: booking?.end_time || '',
+    booth_type: booking?.booth_type || boothOptions[0] || '',
+    service_type: booking?.service_type || 'Service',
+    package_duration: booking?.package_duration || '',
+    quantity: booking?.quantity ?? 1,
+    custom_fields: (booking?.custom_fields && typeof booking.custom_fields === 'object') ? booking.custom_fields : {},
+  });
+
+  useEffect(() => {
+    setData({
+      customer_name: booking?.customer_name || '',
+      customer_email: booking?.customer_email || '',
+      customer_phone: booking?.customer_phone || '',
+      event_location: booking?.event_location || '',
+      notes: booking?.notes || '',
+      price: booking?.price ?? '',
+      booking_date: booking?.booking_date || '',
+      booking_time: booking?.booking_time || '',
+      end_time: booking?.end_time || '',
+      booth_type: booking?.booth_type || boothOptions[0] || '',
+      service_type: booking?.service_type || 'Service',
+      package_duration: booking?.package_duration || '',
+      quantity: booking?.quantity ?? 1,
+      custom_fields: (booking?.custom_fields && typeof booking.custom_fields === 'object') ? booking.custom_fields : {},
+    });
+    setSection('basics');
+  }, [booking?.id]);
+
+  const save = async () => {
+    if (!data.customer_name || !data.customer_email || !data.event_location || !data.booking_date || !data.booking_time || data.price === '') {
+      toast.error('Required: name, email, address, date, start time, price.');
+      return;
+    }
+    if (!isEdit && !business?.id) {
+      toast.error('Missing business id. Please re-login.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (isEdit) {
+        const res = await axios.put(`${API}/bookings/${booking.id}`, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Booking updated!');
+        onSaved?.(res.data);
+      } else {
+        const res = await axios.post(`${API}/bookings`, { ...data, business_id: business?.id }, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        });
+        toast.success('Booking created!');
+        onSaved?.(res.data);
+      }
+      onClose?.();
+    } catch (e) {
+      toast.error('Failed to save booking');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderCustomField = (def) => {
+    const key = def?.key;
+    if (!key) return null;
+    const label = def?.label || key;
+    const type = String(def?.type || 'text');
+    const value = data.custom_fields?.[key] ?? '';
+
+    const setValue = (next) => setData({
+      ...data,
+      custom_fields: { ...(data.custom_fields || {}), [key]: next }
+    });
+
+    if (type === 'textarea') {
+      return (
+        <div key={key}>
+          <Label>{label}</Label>
+          <Textarea
+            value={String(value)}
+            onChange={(e) => setValue(e.target.value)}
+            className="bg-zinc-50 mt-2"
+            rows={3}
+          />
+        </div>
+      );
+    }
+
+    const inputType = (type === 'number' || type === 'date' || type === 'time') ? type : 'text';
+    return (
+      <div key={key}>
+        <Label>{label}</Label>
+        <Input
+          type={inputType}
+          value={String(value)}
+          onChange={(e) => setValue(e.target.value)}
+          className="bg-zinc-50 mt-2"
+        />
+      </div>
+    );
+  };
+
+  const nav = [
+    { id: 'basics', label: 'Basics' },
+    { id: 'event', label: 'Event' },
+    { id: 'booth', label: 'Booth' },
+    { id: 'pricing', label: 'Pricing' },
+    { id: 'custom', label: 'Custom' },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose?.()}>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle style={{fontFamily: 'Manrope'}}>{isEdit ? 'Edit Booking' : 'New Booking'}</DialogTitle>
+          <DialogDescription>Use the left nav to jump between sections.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-3 space-y-2">
+            {nav.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => setSection(n.id)}
+                className={`w-full text-left px-3 py-2 rounded-lg border text-sm font-semibold transition-colors ${
+                  section === n.id ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-white border-zinc-200 hover:bg-zinc-50'
+                }`}
+              >
+                {n.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="md:col-span-9">
+            {section === 'basics' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Customer Name *</Label>
+                    <Input value={data.customer_name} onChange={(e) => setData({ ...data, customer_name: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input type="email" value={data.customer_email} onChange={(e) => setData({ ...data, customer_email: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input value={data.customer_phone} onChange={(e) => setData({ ...data, customer_phone: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Service Type</Label>
+                    <Input value={data.service_type} onChange={(e) => setData({ ...data, service_type: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {section === 'event' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Event Date *</Label>
+                    <Input type="date" value={data.booking_date} onChange={(e) => setData({ ...data, booking_date: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Start Time *</Label>
+                    <Input type="time" value={data.booking_time} onChange={(e) => setData({ ...data, booking_time: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>End Time</Label>
+                    <Input type="time" value={data.end_time} onChange={(e) => setData({ ...data, end_time: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Address *</Label>
+                    <Input value={data.event_location} onChange={(e) => setData({ ...data, event_location: e.target.value })} className="bg-zinc-50 mt-2" placeholder="Event address" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {section === 'booth' && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Booth Type *</Label>
+                  <Select value={data.booth_type} onValueChange={(val) => setData({ ...data, booth_type: val })}>
+                    <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {boothOptions.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Package Duration</Label>
+                    <Input value={data.package_duration} onChange={(e) => setData({ ...data, package_duration: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                  <div>
+                    <Label>Quantity</Label>
+                    <Input type="number" min="1" value={data.quantity} onChange={(e) => setData({ ...data, quantity: parseInt(e.target.value) || 1 })} className="bg-zinc-50 mt-2" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {section === 'pricing' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Price ($) *</Label>
+                    <Input type="number" step="0.01" min="0" value={data.price} onChange={(e) => setData({ ...data, price: e.target.value })} className="bg-zinc-50 mt-2" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Notes</Label>
+                  <Textarea value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })} className="bg-zinc-50 mt-2" rows={4} />
+                </div>
+              </div>
+            )}
+
+            {section === 'custom' && (
+              <div className="space-y-4">
+                {customFieldDefs.length === 0 && (
+                  <div className="text-sm text-zinc-600">
+                    No custom fields yet. Add them in Settings → Booking Editor.
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {customFieldDefs.map(renderCustomField)}
+                </div>
+
+                <div className="pt-4 border-t border-zinc-200 space-y-3">
+                  <Label className="text-zinc-700">Other Fields</Label>
+                  <div className="space-y-2">
+                    {Object.entries(data.custom_fields || {})
+                      .filter(([k]) => !customFieldKeys.has(k))
+                      .map(([k, v]) => (
+                        <div key={k} className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                          <div className="md:col-span-4">
+                            <Input
+                              value={k}
+                              onChange={(e) => {
+                                const nk = String(e.target.value || '').trim();
+                                if (!nk) return;
+                                const next = { ...(data.custom_fields || {}) };
+                                delete next[k];
+                                next[nk] = v;
+                                setData({ ...data, custom_fields: next });
+                              }}
+                              className="bg-zinc-50"
+                            />
+                          </div>
+                          <div className="md:col-span-7">
+                            <Input
+                              value={String(v ?? '')}
+                              onChange={(e) => setData({ ...data, custom_fields: { ...(data.custom_fields || {}), [k]: e.target.value } })}
+                              className="bg-zinc-50"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-11 w-full"
+                              onClick={() => {
+                                const next = { ...(data.custom_fields || {}) };
+                                delete next[k];
+                                setData({ ...data, custom_fields: next });
+                              }}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10"
+                    onClick={() => {
+                      const next = { ...(data.custom_fields || {}) };
+                      let key = 'custom_field';
+                      let i = 2;
+                      while (key in next || customFieldKeys.has(key)) {
+                        key = `custom_field_${i}`;
+                        i += 1;
+                      }
+                      next[key] = '';
+                      setData({ ...data, custom_fields: next });
+                    }}
+                  >
+                    Add Field
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t flex items-center justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} className="h-11">Cancel</Button>
+          <Button type="button" onClick={save} disabled={saving} className="h-11 bg-rose-600 hover:bg-rose-700">
+            {saving ? 'Saving...' : 'Save Booking'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ============= Bookings Tab =============
-const BookingsTab = ({ bookings, onRefresh }) => {
+const BookingsTab = ({ business, bookings, onRefresh }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorBooking, setEditorBooking] = useState(null);
 
   const handleViewBooking = (booking) => {
     setSelectedBooking(booking);
@@ -1365,8 +1874,23 @@ const BookingsTab = ({ bookings, onRefresh }) => {
     <>
       <Card data-testid="bookings-list-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
-          <CardDescription>Manage your appointments</CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
+              <CardDescription>Manage your appointments</CardDescription>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                setEditorBooking(null);
+                setEditorOpen(true);
+              }}
+              disabled={!business?.id}
+              className="h-10 bg-rose-600 hover:bg-rose-700"
+            >
+              New Booking
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {bookings.length === 0 ? (
@@ -1413,6 +1937,18 @@ const BookingsTab = ({ bookings, onRefresh }) => {
                         >
                           View Details
                         </Button>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setEditorBooking(booking);
+                            setEditorOpen(true);
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-3 text-xs ml-2"
+                        >
+                          Edit
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -1424,6 +1960,13 @@ const BookingsTab = ({ bookings, onRefresh }) => {
       </Card>
 
       <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+      <BookingEditorDialog
+        business={business}
+        booking={editorBooking}
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSaved={() => onRefresh?.()}
+      />
     </>
   );
 };
@@ -2199,7 +2742,8 @@ const BookingWidget = () => {
     parking_info: '',
     notes: '',
     price: '',
-    quantity: 1
+    quantity: 1,
+    custom_fields: {}
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -2212,6 +2756,13 @@ const BookingWidget = () => {
     try {
       const response = await axios.get(`${API}/widget/business/${resolvedBusinessId}/info`);
       setBusiness(response.data);
+      const boothTypes = Array.isArray(response.data?.booth_types) && response.data.booth_types.length
+        ? response.data.booth_types
+        : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+      setFormData((prev) => ({
+        ...prev,
+        booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'),
+      }));
     } catch (error) {
       console.error('Failed to load business:', error);
     }
@@ -2253,6 +2804,11 @@ const BookingWidget = () => {
       </div>
     );
   }
+
+  const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
+    ? business.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+  const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
 
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
@@ -2346,9 +2902,9 @@ const BookingWidget = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Open Booth">Open Booth</SelectItem>
-                      <SelectItem value="Glam Booth">Glam Booth</SelectItem>
-                      <SelectItem value="Enclosed Booth">Enclosed Booth</SelectItem>
+                      {boothTypes.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2454,6 +3010,48 @@ const BookingWidget = () => {
                   />
                 </div>
               </div>
+
+              {extraFields.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {extraFields.map((f) => {
+                      const key = f?.key;
+                      if (!key) return null;
+                      const type = String(f?.type || 'text');
+                      const label = f?.label || key;
+                      const value = formData.custom_fields?.[key] ?? '';
+
+                      if (type === 'textarea') {
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <Label>{label}</Label>
+                            <Textarea
+                              value={String(value)}
+                              onChange={(e) => setFormData({ ...formData, custom_fields: { ...(formData.custom_fields || {}), [key]: e.target.value } })}
+                              className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg mt-2"
+                              rows={3}
+                            />
+                          </div>
+                        );
+                      }
+
+                      const inputType = (type === 'number' || type === 'date' || type === 'time') ? type : 'text';
+                      return (
+                        <div key={key}>
+                          <Label>{label}</Label>
+                          <Input
+                            type={inputType}
+                            value={String(value)}
+                            onChange={(e) => setFormData({ ...formData, custom_fields: { ...(formData.custom_fields || {}), [key]: e.target.value } })}
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <Button 
                 data-testid="widget-submit-btn"
