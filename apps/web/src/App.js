@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import '@/App.css';
@@ -568,10 +568,10 @@ const LandingPage = () => {
             <div className="flex gap-4">
               <Button 
                 data-testid="hero-get-started-btn"
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/auth?plan=free")}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
-                Start Free Trial
+                Start Free
               </Button>
             </div>
           </div>
@@ -625,6 +625,58 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4" style={{fontFamily: 'Manrope'}}>Simple pricing</h2>
+          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Start free, upgrade when you’re ready</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+            <CardHeader>
+              <CardTitle style={{fontFamily: 'Manrope'}}>Free</CardTitle>
+              <CardDescription style={{fontFamily: 'Inter'}}>$0</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <ul className="text-sm text-zinc-700 space-y-2" style={{fontFamily: 'Inter'}}>
+                <li>• Up to 10 bookings / month</li>
+                <li>• 1 invoice template</li>
+                <li>• Booking confirmation emails + invoice PDF</li>
+                <li>• Client reminders (5 days + 1 day)</li>
+              </ul>
+              <Button
+                onClick={() => router.push("/auth?plan=free")}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full"
+              >
+                Get started free
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border border-rose-200 shadow-sm rounded-2xl">
+            <CardHeader>
+              <CardTitle style={{fontFamily: 'Manrope'}}>Pro</CardTitle>
+              <CardDescription style={{fontFamily: 'Inter'}}>$30 AUD / month</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <ul className="text-sm text-zinc-700 space-y-2" style={{fontFamily: 'Inter'}}>
+                <li>• Unlimited bookings</li>
+                <li>• Unlimited invoice templates</li>
+                <li>• Booking confirmation emails + invoice PDF</li>
+                <li>• Client reminders (5 days + 1 day)</li>
+              </ul>
+              <Button
+                onClick={() => router.push("/auth?plan=pro")}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full"
+              >
+                Choose Pro
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="bg-rose-600 py-20">
         <div className="max-w-4xl mx-auto text-center px-6">
@@ -636,7 +688,7 @@ const LandingPage = () => {
           </p>
           <Button 
             data-testid="cta-get-started-btn"
-            onClick={() => router.push("/auth")}
+            onClick={() => router.push("/auth?plan=free")}
             className="h-14 px-10 bg-white text-rose-600 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             Get Started Now
@@ -1040,7 +1092,7 @@ const Dashboard = () => {
         {activeTab === 'bookings' && <BookingsTab bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
-        {activeTab === 'settings' && business && <AccountSettingsTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
+        {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
         {activeTab === 'widget' && business && <WidgetTab businessId={business.id} />}
       </div>
@@ -1049,7 +1101,8 @@ const Dashboard = () => {
 };
 
 // ============= Account Settings Tab =============
-const AccountSettingsTab = ({ business, onUpdate }) => {
+const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     business_name: business?.business_name || '',
     phone: business?.phone || '',
@@ -1067,6 +1120,7 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (business) {
@@ -1090,6 +1144,21 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
       });
     }
   }, [business]);
+
+  const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
+  const bookingsThisMonth = useMemo(() => {
+    const list = Array.isArray(bookings) ? bookings : [];
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    return list.filter((b) => {
+      const raw = b?.created_at || b?.createdAt;
+      if (!raw) return false;
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return false;
+      return d.getUTCFullYear() === y && d.getUTCMonth() === m;
+    }).length;
+  }, [bookings]);
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
@@ -1174,6 +1243,30 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const ok = window.confirm(
+      'Delete account permanently?\n\nThis will delete your business, sessions, bookings, and templates. This cannot be undone.',
+    );
+    if (!ok) return;
+
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      await axios.delete(`${API}/business/delete`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      localStorage.removeItem('dobook_token');
+      localStorage.removeItem('dobook_business');
+      toast.success('Account deleted');
+      router.push('/');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete account');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getInitials = (name) => {
     return name
       .split(' ')
@@ -1194,18 +1287,19 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
         <CardContent>
           <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
             <div>
-              <p className="font-semibold text-lg capitalize">{subscriptionInfo?.plan || 'Free'} Plan</p>
+              <p className="font-semibold text-lg capitalize">{plan} Plan</p>
               <p className="text-sm text-zinc-600 mt-1">
-                {subscriptionInfo?.plan === 'free' 
-                  ? `${subscriptionInfo?.booking_count || 0} / 50 bookings used`
-                  : 'Unlimited bookings'}
+                {plan === 'free'
+                  ? `${bookingsThisMonth} / 10 bookings this month • 1 invoice template`
+                  : 'Unlimited bookings • Unlimited templates'}
               </p>
             </div>
-            {subscriptionInfo?.plan === 'free' && (
+            {plan === 'free' && (
               <Button 
                 className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg"
+                onClick={() => toast('Upgrade coming soon')}
               >
-                Upgrade to Premium - $50/month
+                Upgrade to Pro - $30 AUD/month
               </Button>
             )}
           </div>
@@ -1497,6 +1591,15 @@ const AccountSettingsTab = ({ business, onUpdate }) => {
         className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
       >
         {loading ? 'Saving...' : 'Save Changes'}
+      </Button>
+
+      <Button
+        type="button"
+        onClick={handleDeleteAccount}
+        disabled={deleting}
+        className="w-full h-12 bg-red-600 hover:bg-red-700 rounded-lg"
+      >
+        {deleting ? 'Deleting...' : 'Delete Account'}
       </Button>
     </div>
   );

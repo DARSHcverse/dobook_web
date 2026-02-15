@@ -5,11 +5,19 @@ import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
 
+const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
+
 function formatYYYYMMDD(date) {
   const y = String(date.getFullYear());
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}${m}${d}`;
+}
+
+function monthRangeUtc(date = new Date()) {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
 function normalizeCustomFields(value) {
@@ -60,6 +68,25 @@ export async function POST(request) {
       .maybeSingle();
     if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
     if (!business) return NextResponse.json({ detail: "Business not found" }, { status: 404 });
+
+    if (String(business.subscription_plan || "free") === "free") {
+      const { startIso, endIso } = monthRangeUtc(new Date());
+      const { count, error: countError } = await sb
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId)
+        .gte("created_at", startIso)
+        .lt("created_at", endIso);
+      if (countError) return NextResponse.json({ detail: countError.message }, { status: 500 });
+      if ((count || 0) >= FREE_PLAN_MAX_BOOKINGS_PER_MONTH) {
+        return NextResponse.json(
+          {
+            detail: `Free plan limit reached (${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings this month). Upgrade to Pro to add more bookings.`,
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     const invoiceDate = new Date();
     const { data: invoiceRows, error: invoiceError } = await sb.rpc("next_invoice_id", {
@@ -135,6 +162,24 @@ export async function POST(request) {
   const db = readDb();
   const business = db.businesses.find((b) => b.id === businessId);
   if (!business) return NextResponse.json({ detail: "Business not found" }, { status: 404 });
+
+  if (String(business.subscription_plan || "free") === "free") {
+    const { startIso, endIso } = monthRangeUtc(new Date());
+    const count = (db.bookings || []).filter((b) => {
+      if (b.business_id !== businessId) return false;
+      const created = b.created_at ? new Date(b.created_at) : null;
+      if (!created || Number.isNaN(created.getTime())) return false;
+      return created.toISOString() >= startIso && created.toISOString() < endIso;
+    }).length;
+    if (count >= FREE_PLAN_MAX_BOOKINGS_PER_MONTH) {
+      return NextResponse.json(
+        {
+          detail: `Free plan limit reached (${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings this month). Upgrade to Pro to add more bookings.`,
+        },
+        { status: 403 },
+      );
+    }
+  }
 
   const invoiceDate = new Date();
   const nextSeq = Number(business.invoice_seq || 0) + 1;

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireSession } from "../../_utils/auth";
 
+const FREE_PLAN_MAX_TEMPLATES = 1;
+
 export async function GET(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
@@ -23,6 +25,30 @@ export async function GET(request) {
 export async function POST(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
+
+  if (String(auth.business.subscription_plan || "free") === "free") {
+    if (auth.mode === "supabase") {
+      const { count, error } = await auth.supabase
+        .from("invoice_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", auth.business.id);
+      if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
+      if ((count || 0) >= FREE_PLAN_MAX_TEMPLATES) {
+        return NextResponse.json(
+          { detail: "Free plan allows 1 invoice template. Upgrade to Pro to add more." },
+          { status: 403 },
+        );
+      }
+    } else {
+      const count = auth.db.invoiceTemplates.filter((t) => t.business_id === auth.business.id).length;
+      if (count >= FREE_PLAN_MAX_TEMPLATES) {
+        return NextResponse.json(
+          { detail: "Free plan allows 1 invoice template. Upgrade to Pro to add more." },
+          { status: 403 },
+        );
+      }
+    }
+  }
 
   const body = await request.json();
   const template = {

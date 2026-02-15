@@ -11,6 +11,11 @@ export async function POST(request) {
   const password = String(body?.password || "");
   const businessName = String(body?.business_name || "").trim();
   const phone = body?.phone ? String(body.phone) : null;
+  const subscription_plan = String(body?.subscription_plan || "free").trim().toLowerCase();
+  const allowedPlans = new Set(["free", "pro"]);
+  if (!allowedPlans.has(subscription_plan)) {
+    return NextResponse.json({ detail: "Invalid subscription_plan" }, { status: 400 });
+  }
 
   if (!businessName || businessName.length < 2) {
     return NextResponse.json({ detail: "Business name is required" }, { status: 400 });
@@ -55,7 +60,7 @@ export async function POST(request) {
       payment_link: "",
       booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
       booking_custom_fields: [],
-      subscription_plan: "free",
+      subscription_plan,
       booking_count: 0,
       invoice_seq: 0,
       password_hash,
@@ -121,7 +126,7 @@ export async function POST(request) {
     payment_link: "",
     booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: [],
-    subscription_plan: "free",
+    subscription_plan,
     booking_count: 0,
     invoice_seq: 0,
     password_hash,
