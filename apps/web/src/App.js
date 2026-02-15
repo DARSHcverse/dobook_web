@@ -251,7 +251,7 @@ async function downloadInvoicePdf({ booking, business }) {
 
   const invoiceNumber = booking?.invoice_id || `PB-${format(new Date(), 'yyyyMMdd')}-001`;
   const invoiceDate = booking?.invoice_date ? parseISO(booking.invoice_date) : new Date();
-  const dueDate = booking?.due_date ? parseISO(booking.due_date) : addDays(invoiceDate, 15);
+  const dueDate = booking?.booking_date ? parseISO(booking.booking_date) : addDays(invoiceDate, 15);
 
   // Header
   doc.setFont('helvetica', 'bold');
@@ -1945,16 +1945,27 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
     if (!extractedData) return;
 
     try {
+      const combinedNotes = [
+        extractedData.message || extractedData.notes,
+        extractedData.invoice_number ? `Invoice Number: ${extractedData.invoice_number}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+
       const bookingData = {
         business_id: businessId,
         customer_name: extractedData.customer_name || 'Guest',
         customer_email: extractedData.customer_email || 'guest@example.com',
         customer_phone: extractedData.customer_phone,
         service_type: extractedData.service_type || 'Service',
+        booth_type: extractedData.booth_type,
+        package_duration: extractedData.package_duration,
+        event_location: extractedData.event_location,
         booking_date: extractedData.booking_date || new Date().toISOString().split('T')[0],
         booking_time: extractedData.booking_time || '10:00',
         duration_minutes: extractedData.duration_minutes || 60,
-        notes: extractedData.notes,
+        notes: combinedNotes,
         price: extractedData.price || 0
       };
 
@@ -2019,8 +2030,20 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
                 <Input value={extractedData.customer_email || ''} readOnly className="bg-zinc-50" />
               </div>
               <div>
+                <Label>Phone</Label>
+                <Input value={extractedData.customer_phone || ''} readOnly className="bg-zinc-50" />
+              </div>
+              <div>
                 <Label>Service</Label>
                 <Input value={extractedData.service_type || ''} readOnly className="bg-zinc-50" />
+              </div>
+              <div>
+                <Label>Booth Type</Label>
+                <Input value={extractedData.booth_type || ''} readOnly className="bg-zinc-50" />
+              </div>
+              <div>
+                <Label>Package Duration</Label>
+                <Input value={extractedData.package_duration || ''} readOnly className="bg-zinc-50" />
               </div>
               <div>
                 <Label>Date</Label>
@@ -2031,9 +2054,17 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
                 <Input value={extractedData.booking_time || ''} readOnly className="bg-zinc-50" />
               </div>
               <div>
+                <Label>Event Location</Label>
+                <Input value={extractedData.event_location || ''} readOnly className="bg-zinc-50" />
+              </div>
+              <div>
                 <Label>Price</Label>
                 <Input value={`$${extractedData.price || 0}`} readOnly className="bg-zinc-50" />
               </div>
+            </div>
+            <div>
+              <Label>Message</Label>
+              <Input value={extractedData.message || extractedData.notes || ''} readOnly className="bg-zinc-50" />
             </div>
 
             <div className="flex gap-3">

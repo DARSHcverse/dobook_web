@@ -13,9 +13,10 @@
       "bsb": "",
       "account_number": "",
       "subscription_plan": "free",
-      "booking_count": 1,
+      "booking_count": 3,
       "password_hash": "$2a$10$F4HR73x1nAmxQqVmx173jevRJXiuN3gyMi6AORhEQDbBJtrI6891.",
-      "created_at": "2026-02-12T11:45:47.097Z"
+      "created_at": "2026-02-12T11:45:47.097Z",
+      "invoice_seq": 2
     }
   ],
   "sessions": [
@@ -36,6 +37,12 @@
       "businessId": "531497dc-d310-4b09-bd70-d81d630e64c3",
       "createdAt": 1770943548279,
       "expiresAt": 1771548348279
+    },
+    {
+      "token": "c09cb0f3-affe-4ac1-a4f1-6d1283c578ce",
+      "businessId": "531497dc-d310-4b09-bd70-d81d630e64c3",
+      "createdAt": 1771070790863,
+      "expiresAt": 1771675590863
     }
   ],
   "bookings": [
@@ -60,6 +67,54 @@
       "status": "confirmed",
       "invoice_id": null,
       "created_at": "2026-02-12T11:57:03.582Z"
+    },
+    {
+      "id": "542d2cef-7c57-49f1-a873-dfbbc9efe2e3",
+      "business_id": "531497dc-d310-4b09-bd70-d81d630e64c3",
+      "customer_name": "tsting",
+      "customer_email": "dharshansubramaniyam@gmail.com",
+      "customer_phone": "0475116521",
+      "service_type": "Photobooth",
+      "booth_type": "Glam Booth",
+      "package_duration": "3 Hours",
+      "event_location": "mel",
+      "booking_date": "2026-02-14",
+      "booking_time": "10:00",
+      "end_time": "",
+      "duration_minutes": 60,
+      "parking_info": "",
+      "notes": "test\ntest\nInvoice Number: PB-20260205-792",
+      "price": 590,
+      "quantity": 1,
+      "status": "confirmed",
+      "invoice_id": "PB-20260214-001",
+      "invoice_date": "2026-02-14T12:20:17.350Z",
+      "due_date": "2026-03-01T12:20:17.350Z",
+      "created_at": "2026-02-14T12:20:17.352Z"
+    },
+    {
+      "id": "6cd7e694-931a-4908-baf3-4527328368fb",
+      "business_id": "531497dc-d310-4b09-bd70-d81d630e64c3",
+      "customer_name": "Shanb",
+      "customer_email": "shantesting@gmail.com",
+      "customer_phone": "087567893",
+      "service_type": "Photo Booth",
+      "booth_type": "Glam Booth",
+      "package_duration": "3 Hours",
+      "event_location": "the langham",
+      "booking_date": "2026-02-28",
+      "booking_time": "13:30",
+      "end_time": "16:30",
+      "duration_minutes": 180,
+      "parking_info": "free",
+      "notes": "nothing",
+      "price": 500,
+      "quantity": 1,
+      "status": "confirmed",
+      "invoice_id": "PB-20260214-002",
+      "invoice_date": "2026-02-14T12:35:03.338Z",
+      "due_date": "2026-03-01T12:35:03.338Z",
+      "created_at": "2026-02-14T12:35:03.338Z"
     }
   ],
   "invoiceTemplates": [
@@ -72,7 +127,33 @@
       "created_at": "2026-02-12T12:12:37.281Z"
     }
   ],
-  "extractions": [],
+  "extractions": [
+    {
+      "id": "7a82100a-fc2d-43c5-8915-40efe0a1b855",
+      "processing_status": "success",
+      "extracted_data": {},
+      "created_at": "2026-02-14T12:08:06.325Z"
+    },
+    {
+      "id": "af439827-774b-41c0-bd9e-9071830d7b22",
+      "processing_status": "success",
+      "extracted_data": {
+        "invoice_number": "PB-20260205-792",
+        "customer_name": "tsting",
+        "customer_email": "dharshansubramaniyam@gmail.com",
+        "customer_phone": "0475116521",
+        "booking_date": "2026-02-14",
+        "event_location": "mel",
+        "booth_type": "Glam Booth",
+        "package_duration": "3 Hours",
+        "service_type": "Photobooth",
+        "price": 590,
+        "message": "test\ntest",
+        "notes": "test\ntest"
+      },
+      "created_at": "2026-02-14T12:19:52.951Z"
+    }
+  ],
   "invoices": [],
   "counters": {}
 }
