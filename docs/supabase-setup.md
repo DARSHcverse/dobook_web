@@ -10,6 +10,7 @@ To use Supabase Postgres, create the tables first.
 3. Open `supabase/migrations/20260215160000_init_dobook.sql`, copy its SQL contents, paste into the editor, and run it
 4. Open `supabase/migrations/20260215160500_rpc_invoice.sql`, copy its SQL contents, paste into the editor, and run it
 5. Open `supabase/migrations/20260215180000_booking_editor_fields_and_reminders.sql`, copy its SQL contents, paste into the editor, and run it
+6. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
