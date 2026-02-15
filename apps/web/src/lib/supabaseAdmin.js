@@ -11,6 +11,8 @@ function getSupabaseUrl() {
 function getSupabaseKey() {
   return (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUBABASE_API_KEY ||
+    process.env.SUPABASE_API_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     ""
@@ -38,4 +40,3 @@ export function supabaseAdmin() {
   });
   return _client;
 }
-

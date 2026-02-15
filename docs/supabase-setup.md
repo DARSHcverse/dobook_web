@@ -7,8 +7,9 @@ To use Supabase Postgres, create the tables first.
 
 1. Open Supabase Dashboard → **SQL Editor**
 2. Create a **New query**
-3. Paste and run: `supabase/migrations/20260215160000_init_dobook.sql`
-4. Paste and run: `supabase/migrations/20260215180000_booking_editor_fields_and_reminders.sql`
+3. Open `supabase/migrations/20260215160000_init_dobook.sql`, copy its SQL contents, paste into the editor, and run it
+4. Open `supabase/migrations/20260215160500_rpc_invoice.sql`, copy its SQL contents, paste into the editor, and run it
+5. Open `supabase/migrations/20260215180000_booking_editor_fields_and_reminders.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
@@ -26,7 +27,8 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 ## App dependency + env vars
 
 - The Next.js app uses `@supabase/supabase-js` (see `apps/web/src/lib/supabaseAdmin.js`).
-- For server-side routes, set `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` (recommended). For client-side usage, prefer `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- For server-side routes, set `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` (recommended). This repo also accepts `SUBABASE_API_KEY` / `SUPABASE_API_KEY` as the key env var name.
+- For client-side usage, prefer `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 ## Emails + reminders (optional)
 
