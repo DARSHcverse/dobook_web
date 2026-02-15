@@ -1,8 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import AuthScreen from "@/components/app/AuthScreen";
 
 export default function AuthPage() {
-  return <AuthScreen />;
+  return (
+    <Suspense fallback={null}>
+      <AuthScreen />
+    </Suspense>
+  );
 }
-
