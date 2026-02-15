@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendBusinessWelcomeEmail } from "@/lib/bookingMailer";
 
 export async function POST(request) {
   const body = await request.json();
@@ -88,6 +89,12 @@ export async function POST(request) {
       return NextResponse.json({ detail: sessionInsertError.message }, { status: 500 });
     }
 
+    try {
+      await sendBusinessWelcomeEmail({ business });
+    } catch {
+      // ignore email failures
+    }
+
     return NextResponse.json({ token, business: sanitizeBusiness(business) });
   }
 
@@ -131,5 +138,12 @@ export async function POST(request) {
   });
 
   writeDb(db);
+
+  try {
+    await sendBusinessWelcomeEmail({ business });
+  } catch {
+    // ignore email failures
+  }
+
   return NextResponse.json({ token, business: sanitizeBusiness(business) });
 }
