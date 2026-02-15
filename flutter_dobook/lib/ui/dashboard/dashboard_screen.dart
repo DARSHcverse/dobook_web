@@ -16,6 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final pages = <Widget>[
       const BookingsPage(),
       const CalendarPage(),
@@ -26,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
+        backgroundColor: scheme.surface,
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [

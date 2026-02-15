@@ -109,3 +109,75 @@ input:focus, textarea:focus, select:focus {
 .rbc-agenda-table td {
   border-color: #e4e4e7;
 }
+
+/* DoBook splash animation */
+@keyframes dobook-splash-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+    filter: saturate(0.9);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
+@keyframes dobook-splash-halo {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
+@keyframes dobook-splash-dot {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+.dobook-splash .dobook-splash-logo {
+  animation: dobook-splash-pop 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.dobook-splash .dobook-splash-halo {
+  background: radial-gradient(circle, rgba(225, 29, 72, 0.18) 0%, rgba(225, 29, 72, 0.08) 40%, rgba(225, 29, 72, 0) 70%);
+  animation: dobook-splash-halo 900ms ease-out infinite;
+}
+
+.dobook-splash .dobook-splash-dot {
+  display: inline-block;
+  margin-left: 1px;
+  animation: dobook-splash-dot 900ms ease-in-out infinite;
+}
+
+.dobook-splash .dobook-splash-dot-2 {
+  animation-delay: 120ms;
+}
+
+.dobook-splash .dobook-splash-dot-3 {
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dobook-splash .dobook-splash-logo,
+  .dobook-splash .dobook-splash-halo,
+  .dobook-splash .dobook-splash-dot {
+    animation: none !important;
+  }
+}

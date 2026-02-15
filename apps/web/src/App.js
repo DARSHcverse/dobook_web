@@ -533,8 +533,6 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
 // ============= Landing Page =============
 const LandingPage = () => {
   const router = useRouter();
-  const [showAuth, setShowAuth] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -548,7 +546,7 @@ const LandingPage = () => {
           </div>
           <Button 
             data-testid="get-started-btn"
-            onClick={() => setShowAuth(true)}
+            onClick={() => router.push("/auth")}
             className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
           >
             Get Started
@@ -570,7 +568,7 @@ const LandingPage = () => {
             <div className="flex gap-4">
               <Button 
                 data-testid="hero-get-started-btn"
-                onClick={() => setShowAuth(true)}
+                onClick={() => router.push("/auth")}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
                 Start Free Trial
@@ -638,148 +636,18 @@ const LandingPage = () => {
           </p>
           <Button 
             data-testid="cta-get-started-btn"
-            onClick={() => setShowAuth(true)}
+            onClick={() => router.push("/auth")}
             className="h-14 px-10 bg-white text-rose-600 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             Get Started Now
           </Button>
         </div>
       </section>
-
-      {/* Auth Dialog */}
-      <Dialog open={showAuth} onOpenChange={setShowAuth}>
-        <DialogContent data-testid="auth-dialog" className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle style={{fontFamily: 'Manrope'}}>
-              {isLogin ? 'Login to DoBook' : 'Create Account'}
-            </DialogTitle>
-            <DialogDescription style={{fontFamily: 'Inter'}}>
-              {isLogin ? 'Welcome back!' : 'Start managing bookings today'}
-            </DialogDescription>
-          </DialogHeader>
-          <AuthForm isLogin={isLogin} onSuccess={() => { setShowAuth(false); router.push('/dashboard'); }} />
-          <div className="text-center text-sm">
-            <button
-              data-testid="toggle-auth-btn"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-rose-600 hover:underline"
-            >
-              {isLogin ? 'Need an account? Sign up' : 'Already have an account? Login'}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
 
-// ============= Auth Form Component =============
-const AuthForm = ({ isLogin, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    business_name: '',
-    phone: ''
-  });
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin 
-        ? { email: formData.email, password: formData.password }
-        : formData;
-
-      const response = await axios.post(`${API}${endpoint}`, payload);
-      
-      localStorage.setItem('dobook_token', response.data.token);
-      localStorage.setItem('dobook_business', JSON.stringify(response.data.business));
-      
-      toast.success(isLogin ? 'Logged in successfully!' : 'Account created!');
-      onSuccess();
-    } catch (error) {
-      const detail =
-        error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        error?.message ||
-        'Authentication failed';
-      toast.error(detail);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {!isLogin && (
-        <div>
-          <Label htmlFor="business_name">Business Name</Label>
-          <Input
-            id="business_name"
-            data-testid="business-name-input"
-            value={formData.business_name}
-            onChange={(e) => setFormData({...formData, business_name: e.target.value})}
-            required={!isLogin}
-            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-          />
-        </div>
-      )}
-      
-      <div>
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          data-testid="email-input"
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({...formData, email: e.target.value})}
-          required
-          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-        />
-      </div>
-      
-      <div>
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          data-testid="password-input"
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData({...formData, password: e.target.value})}
-          required
-          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-        />
-      </div>
-
-      {!isLogin && (
-        <div>
-          <Label htmlFor="phone">Phone (Optional)</Label>
-          <Input
-            id="phone"
-            data-testid="phone-input"
-            value={formData.phone}
-            onChange={(e) => setFormData({...formData, phone: e.target.value})}
-            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-          />
-        </div>
-      )}
-
-      <Button 
-        data-testid="auth-submit-btn"
-        type="submit" 
-        disabled={loading}
-        className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
-      >
-        {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Create Account')}
-      </Button>
-    </form>
-  );
-};
-
-// Note: localStorage-based auth gating is done per-page in Next.js.
+// Note: auth flow is handled by /auth and ClientShell redirects.
 
 // ============= Dashboard =============
 const Dashboard = () => {
@@ -788,6 +656,7 @@ const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const storedBusiness = localStorage.getItem('dobook_business');
@@ -827,9 +696,46 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-zinc-50" data-testid="dashboard">
       <Toaster position="top-center" richColors />
+
+      {/* Mobile Top Bar */}
+      <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img
+              src={DOBOOK_LOGO_PNG}
+              alt="DoBook"
+              className="h-9 w-auto object-contain select-none"
+              draggable={false}
+              onError={(e) => {
+                e.currentTarget.src = DOBOOK_LOGO_SVG;
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full border-zinc-200"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <List className="h-4 w-4 mr-2" />
+              Menu
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-10 p-0 rounded-full border-zinc-200"
+              onClick={handleLogout}
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
       
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 p-6">
+      <div className="hidden md:block fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 p-6">
         <div className="flex items-center gap-3 mb-8">
           <BrandLogo size="md" />
         </div>
@@ -912,12 +818,141 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Mobile Menu */}
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Menu</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Home className="h-5 w-5" />
+              <span className="font-medium">Overview</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Users className="h-5 w-5" />
+              <span className="font-medium">Bookings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Calendar className="h-5 w-5" />
+              <span className="font-medium">Calendar View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('invoices'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">Invoice Templates</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('pdf'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Upload className="h-5 w-5" />
+              <span className="font-medium">PDF Upload</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="font-medium">Embed Widget</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="font-medium">Account Settings</span>
+            </button>
+          </div>
+          <div className="pt-2">
+            <Button
+              type="button"
+              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+              variant="outline"
+              className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Bottom Nav */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white">
+        <div className="grid grid-cols-5 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            aria-current={activeTab === 'overview' ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'overview' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+          >
+            <Home className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Home</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('bookings')}
+            aria-current={activeTab === 'bookings' ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'bookings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Bookings</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('calendar')}
+            aria-current={activeTab === 'calendar' ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'calendar' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+          >
+            <Calendar className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Calendar</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            aria-current={activeTab === 'settings' ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'settings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+          >
+            <Settings className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Settings</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-zinc-600 hover:bg-zinc-50 transition-colors"
+            aria-label="More"
+          >
+            <List className="h-5 w-5" />
+            <span className="text-[11px] font-medium">More</span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="ml-64 p-8">
+      <div className="md:ml-64 p-4 md:p-8 pb-28 md:pb-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 md:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2" style={{fontFamily: 'Manrope'}}>
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{fontFamily: 'Manrope'}}>
               {business?.business_name}
             </h1>
             <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>{business?.email}</p>
@@ -930,7 +965,7 @@ const Dashboard = () => {
             className="group relative"
           >
             {business?.logo_url ? (
-              <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-zinc-200 hover:border-rose-600 transition-colors shadow-sm">
+              <div className="h-11 w-11 md:h-14 md:w-14 rounded-full overflow-hidden border-2 border-zinc-200 hover:border-rose-600 transition-colors shadow-sm">
                 <img 
                   src={business.logo_url} 
                   alt="Profile" 
@@ -938,11 +973,11 @@ const Dashboard = () => {
                 />
               </div>
             ) : (
-              <div className="h-14 w-14 rounded-full bg-rose-600 hover:bg-rose-700 flex items-center justify-center text-white text-lg font-bold border-2 border-white shadow-md transition-colors">
+              <div className="h-11 w-11 md:h-14 md:w-14 rounded-full bg-rose-600 hover:bg-rose-700 flex items-center justify-center text-white text-base md:text-lg font-bold border-2 border-white shadow-md transition-colors">
                 {business?.business_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'B'}
               </div>
             )}
-            <div className="absolute -bottom-8 right-0 bg-zinc-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            <div className="hidden md:block absolute -bottom-8 right-0 bg-zinc-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
               Account Settings
             </div>
           </button>

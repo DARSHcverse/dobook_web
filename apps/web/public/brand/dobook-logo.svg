@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="160" viewBox="0 0 512 160" fill="none">
+  <rect width="512" height="160" rx="32" fill="#ffffff"/>
+  <g>
+    <circle cx="80" cy="80" r="44" fill="#E11D48"/>
+    <circle cx="80" cy="80" r="22" fill="#ffffff" opacity="0.95"/>
+  </g>
+  <text x="148" y="96" font-family="Manrope, Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="56" font-weight="800" fill="#18181B">
+    DoBook
+  </text>
+</svg>
+

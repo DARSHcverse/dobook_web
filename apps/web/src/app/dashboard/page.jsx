@@ -11,7 +11,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("dobook_token");
     if (!token) {
-      router.replace("/");
+      router.replace("/auth");
       return;
     }
     setReady(true);
@@ -20,4 +20,3 @@ export default function DashboardPage() {
   if (!ready) return null;
   return <Dashboard />;
 }
-

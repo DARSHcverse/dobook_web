@@ -1,6 +1,7 @@
 import "@/index.css";
 import "@/App.css";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import ClientShell from "@/app/ClientShell";
 
 export const metadata = {
   title: "DoBook",
@@ -10,7 +11,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <ClientShell>{children}</ClientShell>
+      </body>
     </html>
   );
 }
