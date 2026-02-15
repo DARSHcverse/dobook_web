@@ -28,12 +28,13 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 ## App dependency + env vars
 
 - The Next.js app uses `@supabase/supabase-js` (see `apps/web/src/lib/supabaseAdmin.js`).
-- For server-side routes, set `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` (recommended). This repo also accepts `SUBABASE_API_KEY` / `SUPABASE_API_KEY` as the key env var name.
+- For server-side routes, set `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` (recommended). This repo also accepts `SUBABASE_API_KEY` / `SUPABASE_API_KEY` as the key env var name, but it must be a **service_role** key (especially after enabling RLS).
 - For client-side usage, prefer `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 ## Emails + reminders (optional)
 
 - Booking confirmation emails (client + business) are sent via Resend when `RESEND_API_KEY` is set.
-- Configure the sender with `RESEND_FROM` (example: `DoBook <no-reply@yourdomain.com>`).
+- To send real emails, you must add/verify an email domain in Resend and set `RESEND_FROM` (example: `DoBook <no-reply@yourdomain.com>`).
+- If you don't have a domain yet, you can still test by setting `RESEND_FROM=DoBook <onboarding@resend.dev>` and using a Resend test inbox as the recipient (like `delivered@resend.dev`). In that mode, this repo will skip sending to non-`@resend.dev` recipients unless you set `RESEND_ACCOUNT_EMAIL`.
 - Client reminder emails are sent 5 days + 1 day before the event via `POST`/`GET` `apps/web/src/app/api/cron/send-reminders/route.js` (protect with `CRON_SECRET`).
 - On Vercel, set up a daily Cron to call `/api/cron/send-reminders` and include the secret (either `Authorization: Bearer $CRON_SECRET` or `?cron_secret=$CRON_SECRET`).

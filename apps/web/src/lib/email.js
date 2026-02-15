@@ -9,7 +9,28 @@ export async function sendEmailViaResend({
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, skipped: true, error: "RESEND_API_KEY not set" };
 
-  const from = process.env.RESEND_FROM || "DoBook <no-reply@dobook.app>";
+  const from = process.env.RESEND_FROM || "DoBook <onboarding@resend.dev>";
+  const fromDomain = String(from).split("@")[1]?.replace(">", "")?.trim()?.toLowerCase() || "";
+
+  const recipients = Array.isArray(to) ? to : [to];
+  if (fromDomain === "resend.dev") {
+    const allowedExtra = String(process.env.RESEND_ACCOUNT_EMAIL || "").trim().toLowerCase();
+    const ok = recipients.every((r) => {
+      const e = String(r || "").trim().toLowerCase();
+      if (!e) return false;
+      if (e.endsWith("@resend.dev")) return true;
+      if (allowedExtra && e === allowedExtra) return true;
+      return false;
+    });
+
+    if (!ok) {
+      return {
+        ok: false,
+        skipped: true,
+        error: "Unverified sender (onboarding@resend.dev) can only send to Resend test inboxes (@resend.dev) or RESEND_ACCOUNT_EMAIL.",
+      };
+    }
+  }
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -19,7 +40,7 @@ export async function sendEmailViaResend({
     },
     body: JSON.stringify({
       from,
-      to: Array.isArray(to) ? to : [to],
+      to: recipients,
       subject,
       html,
       text,
@@ -45,4 +66,3 @@ export async function sendEmailViaResend({
 
   return { ok: true };
 }
-

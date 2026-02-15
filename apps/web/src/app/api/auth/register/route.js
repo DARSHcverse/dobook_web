@@ -66,6 +66,15 @@ export async function POST(request) {
 
     const { error: businessInsertError } = await sb.from("businesses").insert(business);
     if (businessInsertError) {
+      if (String(businessInsertError.message || "").toLowerCase().includes("row-level security")) {
+        return NextResponse.json(
+          {
+            detail:
+              "Supabase RLS blocked creating the business. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
+          },
+          { status: 500 },
+        );
+      }
       return NextResponse.json({ detail: businessInsertError.message }, { status: 400 });
     }
 

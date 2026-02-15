@@ -33,6 +33,15 @@ export async function POST(request) {
       expires_at,
     });
     if (sessionError) {
+      if (String(sessionError.message || "").toLowerCase().includes("row-level security")) {
+        return NextResponse.json(
+          {
+            detail:
+              "Supabase RLS blocked creating the session. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
+          },
+          { status: 500 },
+        );
+      }
       return NextResponse.json({ detail: sessionError.message }, { status: 500 });
     }
 
