@@ -19,6 +19,23 @@ export async function POST(request) {
   // Prevent bypassing Stripe by signing up directly as "pro".
   const subscription_plan = "free";
 
+  const normalizeIndustry = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    return allowed.has(raw) ? raw : "photobooth";
+  };
+  const industry = normalizeIndustry(body?.industry);
+
+  const defaultBoothTypesForIndustry = (ind) => {
+    if (ind === "salon") return ["Haircut", "Color", "Styling"];
+    if (ind === "doctor") return ["Consultation", "Follow-up"];
+    if (ind === "consultant") return ["Consultation"];
+    if (ind === "tutor") return ["Lesson"];
+    if (ind === "fitness") return ["Training Session"];
+    if (ind === "tradie") return ["Callout", "Quote", "Job"];
+    return ["Open Booth", "Glam Booth", "Enclosed Booth"];
+  };
+
   if (!businessName || businessName.length < 2) {
     return NextResponse.json({ detail: "Business name is required" }, { status: 400 });
   }
@@ -60,7 +77,8 @@ export async function POST(request) {
       bsb: "",
       account_number: "",
       payment_link: "",
-      booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
+      industry,
+      booth_types: defaultBoothTypesForIndustry(industry),
       booking_custom_fields: [],
       subscription_plan,
       subscription_status: "inactive",
@@ -131,7 +149,8 @@ export async function POST(request) {
     bsb: "",
     account_number: "",
     payment_link: "",
-    booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
+    industry,
+    booth_types: defaultBoothTypesForIndustry(industry),
     booking_custom_fields: [],
     subscription_plan,
     subscription_status: "inactive",

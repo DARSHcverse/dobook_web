@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import '@/App.css';
 import { Toaster, toast } from 'sonner';
-import { Calendar, Clock, FileText, Home, List, LogOut, Settings, Upload, Users } from 'lucide-react';
+import { Calendar, Clock, FileText, Home, List, LogOut, Plus, Settings, Upload, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -531,7 +531,13 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
 };
 
 // ============= Landing Page =============
-const LandingPage = () => {
+const LandingPage = ({
+  heroPrefix = 'Online Booking System',
+  heroAccent = 'for Businesses',
+  heroDescription = 'DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.',
+  getStartedHref = '/auth',
+  startFreeHref = '/auth?plan=free',
+} = {}) => {
   const router = useRouter();
 
   return (
@@ -546,7 +552,7 @@ const LandingPage = () => {
           </div>
           <Button 
             data-testid="get-started-btn"
-            onClick={() => router.push("/auth")}
+            onClick={() => router.push(getStartedHref)}
             className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
           >
             Get Started
@@ -559,16 +565,16 @@ const LandingPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">
           <div className="md:col-span-7">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6" style={{fontFamily: 'Manrope'}}>
-              Online Booking System
-              <span className="text-rose-600"> for Businesses</span>
+              {heroPrefix}
+              <span className="text-rose-600"> {heroAccent}</span>
             </h1>
             <p className="text-lg text-zinc-600 mb-8" style={{fontFamily: 'Inter'}}>
-              DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.
+              {heroDescription}
             </p>
             <div className="flex gap-4">
               <Button 
                 data-testid="hero-get-started-btn"
-                onClick={() => router.push("/auth?plan=free")}
+                onClick={() => router.push(startFreeHref)}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
                 Start Free
@@ -646,7 +652,7 @@ const LandingPage = () => {
                 <li>• No invoice PDFs or automated reminders</li>
               </ul>
               <Button
-                onClick={() => router.push("/auth?plan=free")}
+                onClick={() => router.push(startFreeHref)}
                 className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full"
               >
                 Get started free
@@ -688,7 +694,7 @@ const LandingPage = () => {
           </p>
           <Button 
             data-testid="cta-get-started-btn"
-            onClick={() => router.push("/auth?plan=free")}
+            onClick={() => router.push(startFreeHref)}
             className="h-14 px-10 bg-white text-rose-600 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             Get Started Now
@@ -1112,7 +1118,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeTab === 'bookings' && <BookingsTab bookings={bookings} onRefresh={loadBookings} />}
+        {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
@@ -1137,6 +1143,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     bsb: business?.bsb || '',
     account_number: business?.account_number || '',
     payment_link: business?.payment_link || '',
+    industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
     booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
   });
@@ -1148,6 +1155,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [billingLoading, setBillingLoading] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
 
   useEffect(() => {
     if (business) {
@@ -1162,6 +1172,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         bsb: business.bsb || '',
         account_number: business.account_number || '',
         payment_link: business.payment_link || '',
+        industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
       });
@@ -1465,6 +1476,27 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               />
             </div>
 
+            <div>
+              <Label>Industry</Label>
+              <Select
+                value={String(formData.industry || 'photobooth')}
+                onValueChange={(val) => setFormData({ ...formData, industry: val })}
+              >
+                <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="photobooth">Photo booth</SelectItem>
+                  <SelectItem value="salon">Salon</SelectItem>
+                  <SelectItem value="doctor">Doctor</SelectItem>
+                  <SelectItem value="consultant">Consultant</SelectItem>
+                  <SelectItem value="tutor">Tutor</SelectItem>
+                  <SelectItem value="fitness">Fitness trainer</SelectItem>
+                  <SelectItem value="tradie">Tradie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="col-span-2">
               <Label htmlFor="business_address">Business Address</Label>
               <Input
@@ -1569,10 +1601,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <Label className="text-zinc-700">Booth Types</Label>
+            <Label className="text-zinc-700">
+              {String(formData.industry || 'photobooth') === 'photobooth' ? 'Booth Types' : 'Service Types'}
+            </Label>
             <div className="space-y-2">
               {(formData.booth_types || []).map((t, idx) => (
-                <div key={`${t}-${idx}`} className="flex items-center gap-2">
+                <div key={`booth-${idx}`} className="flex items-center gap-2">
                   <Input
                     value={t}
                     onChange={(e) => {
@@ -1603,7 +1637,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               className="h-10"
               onClick={() => setFormData({ ...formData, booth_types: [...(formData.booth_types || []), ''] })}
             >
-              Add Booth Type
+              {String(formData.industry || 'photobooth') === 'photobooth' ? 'Add Booth Type' : 'Add Service Type'}
             </Button>
           </div>
 
@@ -1681,6 +1715,68 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       >
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Contact support</CardTitle>
+          <CardDescription>Reach us if you’re having an issue with the software</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="support_subject">Subject</Label>
+            <Input
+              id="support_subject"
+              value={supportSubject}
+              onChange={(e) => setSupportSubject(e.target.value)}
+              placeholder="What can we help with?"
+              className="bg-zinc-50 mt-2"
+            />
+          </div>
+          <div>
+            <Label htmlFor="support_message">Message</Label>
+            <Textarea
+              id="support_message"
+              value={supportMessage}
+              onChange={(e) => setSupportMessage(e.target.value)}
+              placeholder="Describe the issue, and include steps to reproduce if possible."
+              className="bg-zinc-50 mt-2 min-h-[120px]"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={async () => {
+                const subject = supportSubject.trim();
+                const message = supportMessage.trim();
+                if (!subject || !message) {
+                  toast.error('Please enter a subject and message');
+                  return;
+                }
+                setSupportSending(true);
+                try {
+                  const token = localStorage.getItem('dobook_token');
+                  await axios.post(
+                    `${API}/support/contact`,
+                    { subject, message },
+                    { headers: { Authorization: `Bearer ${token}` } },
+                  );
+                  toast.success('Message sent. We’ll get back to you soon.');
+                  setSupportSubject('');
+                  setSupportMessage('');
+                } catch (error) {
+                  toast.error(error.response?.data?.detail || 'Failed to send message');
+                } finally {
+                  setSupportSending(false);
+                }
+              }}
+              disabled={supportSending}
+              className="h-10 px-6 bg-rose-600 hover:bg-rose-700 rounded-lg"
+            >
+              {supportSending ? 'Sending…' : 'Send message'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border border-red-200 bg-red-50/40 shadow-sm rounded-xl">
         <CardHeader>
@@ -1771,19 +1867,63 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 };
 
 // ============= Bookings Tab =============
-const BookingsTab = ({ bookings, onRefresh }) => {
+const BookingsTab = ({ business, bookings, onRefresh }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
+    ? business.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+
+  const [createData, setCreateData] = useState({
+    customer_name: '',
+    customer_email: '',
+    customer_phone: '',
+    service_type: String(business?.industry || 'photobooth') === 'photobooth' ? 'Photo Booth' : 'Service',
+    booth_type: boothTypes[0] || '',
+    package_duration: '',
+    event_location: '',
+    booking_date: '',
+    booking_time: '',
+    end_time: '',
+    duration_minutes: 120,
+    parking_info: '',
+    notes: '',
+    price: '',
+    quantity: 1,
+  });
 
   const handleViewBooking = (booking) => {
     setSelectedBooking(booking);
+  };
+
+  const openCreate = () => {
+    setCreateData((prev) => ({
+      ...prev,
+      booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || ''),
+    }));
+    setCreateOpen(true);
   };
 
   return (
     <>
       <Card data-testid="bookings-list-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
-          <CardDescription>Manage your appointments</CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
+              <CardDescription>Manage your appointments</CardDescription>
+            </div>
+            <Button
+              type="button"
+              onClick={openCreate}
+              className="h-10 px-4 bg-rose-600 hover:bg-rose-700 rounded-lg"
+            >
+              <Plus className="h-4 w-4" />
+              Add booking
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {bookings.length === 0 ? (
@@ -1839,6 +1979,194 @@ const BookingsTab = ({ bookings, onRefresh }) => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={createOpen} onOpenChange={(open) => setCreateOpen(open)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create booking</DialogTitle>
+            <DialogDescription>
+              Create a booking on behalf of a customer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!business?.id) {
+                toast.error('Business not loaded yet');
+                return;
+              }
+              if (!createData.customer_name.trim()) {
+                toast.error('Customer name is required');
+                return;
+              }
+              if (!createData.booking_date || !createData.booking_time) {
+                toast.error('Booking date and start time are required');
+                return;
+              }
+
+              setCreating(true);
+              try {
+                await axios.post(`${API}/bookings`, {
+                  ...createData,
+                  business_id: business.id,
+                });
+                toast.success('Booking created');
+                setCreateOpen(false);
+                setCreateData((prev) => ({
+                  ...prev,
+                  customer_name: '',
+                  customer_email: '',
+                  customer_phone: '',
+                  event_location: '',
+                  booking_date: '',
+                  booking_time: '',
+                  end_time: '',
+                  notes: '',
+                  price: '',
+                  quantity: 1,
+                }));
+                onRefresh?.();
+              } catch (error) {
+                toast.error(error.response?.data?.detail || 'Failed to create booking');
+              } finally {
+                setCreating(false);
+              }
+            }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="cb_customer_name">Customer name *</Label>
+                <Input
+                  id="cb_customer_name"
+                  value={createData.customer_name}
+                  onChange={(e) => setCreateData({ ...createData, customer_name: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_customer_email">Customer email</Label>
+                <Input
+                  id="cb_customer_email"
+                  type="email"
+                  value={createData.customer_email}
+                  onChange={(e) => setCreateData({ ...createData, customer_email: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_customer_phone">Customer phone</Label>
+                <Input
+                  id="cb_customer_phone"
+                  value={createData.customer_phone}
+                  onChange={(e) => setCreateData({ ...createData, customer_phone: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_event_location">Event location</Label>
+                <Input
+                  id="cb_event_location"
+                  value={createData.event_location}
+                  onChange={(e) => setCreateData({ ...createData, event_location: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_booking_date">Date *</Label>
+                <Input
+                  id="cb_booking_date"
+                  type="date"
+                  value={createData.booking_date}
+                  onChange={(e) => setCreateData({ ...createData, booking_date: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_booking_time">Start time *</Label>
+                <Input
+                  id="cb_booking_time"
+                  type="time"
+                  value={createData.booking_time}
+                  onChange={(e) => setCreateData({ ...createData, booking_time: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_end_time">End time</Label>
+                <Input
+                  id="cb_end_time"
+                  type="time"
+                  value={createData.end_time}
+                  onChange={(e) => setCreateData({ ...createData, end_time: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_booth_type">
+                  {String(business?.industry || 'photobooth') === 'photobooth' ? 'Booth type' : 'Service type'}
+                </Label>
+                <Select
+                  value={createData.booth_type}
+                  onValueChange={(val) => setCreateData({ ...createData, booth_type: val })}
+                >
+                  <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {boothTypes.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="cb_quantity">Quantity</Label>
+                <Input
+                  id="cb_quantity"
+                  type="number"
+                  min="1"
+                  value={createData.quantity}
+                  onChange={(e) => setCreateData({ ...createData, quantity: parseInt(e.target.value) || 1 })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cb_price">Price ($)</Label>
+                <Input
+                  id="cb_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={createData.price}
+                  onChange={(e) => setCreateData({ ...createData, price: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="cb_notes">Notes</Label>
+              <Textarea
+                id="cb_notes"
+                value={createData.notes}
+                onChange={(e) => setCreateData({ ...createData, notes: e.target.value })}
+                className="bg-zinc-50 mt-2 min-h-[96px]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating} className="bg-rose-600 hover:bg-rose-700">
+                {creating ? 'Creating…' : 'Create booking'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
     </>
@@ -2634,9 +2962,12 @@ const BookingWidget = () => {
       const boothTypes = Array.isArray(response.data?.booth_types) && response.data.booth_types.length
         ? response.data.booth_types
         : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+      const isPhotoBooth = String(response.data?.industry || 'photobooth') === 'photobooth';
       setFormData((prev) => ({
         ...prev,
         booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'),
+        package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
+        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : (prev.duration_minutes || 60),
       }));
     } catch (error) {
       console.error('Failed to load business:', error);
@@ -2684,6 +3015,7 @@ const BookingWidget = () => {
     ? business.booth_types
     : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
   const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
+  const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
 
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
@@ -2768,7 +3100,9 @@ const BookingWidget = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="booth_type">Select Booth Type *</Label>
+                  <Label htmlFor="booth_type">
+                    {isPhotoBooth ? 'Select Booth Type *' : 'Select Service Type *'}
+                  </Label>
                   <Select 
                     value={formData.booth_type} 
                     onValueChange={(val) => setFormData({...formData, booth_type: val})}
@@ -2784,26 +3118,42 @@ const BookingWidget = () => {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="package_duration">Select Package Duration *</Label>
-                  <Select 
-                    value={formData.package_duration} 
-                    onValueChange={(val) => {
-                      const hours = parseInt(val);
-                      setFormData({...formData, package_duration: val, duration_minutes: hours * 60});
-                    }}
-                  >
-                    <SelectTrigger data-testid="widget-package-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2 Hours">2 Hours</SelectItem>
-                      <SelectItem value="3 Hours">3 Hours</SelectItem>
-                      <SelectItem value="4 Hours">4 Hours</SelectItem>
-                      <SelectItem value="5 Hours">5 Hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {isPhotoBooth ? (
+                  <div>
+                    <Label htmlFor="package_duration">Select Package Duration *</Label>
+                    <Select 
+                      value={formData.package_duration} 
+                      onValueChange={(val) => {
+                        const hours = parseInt(val);
+                        setFormData({...formData, package_duration: val, duration_minutes: hours * 60});
+                      }}
+                    >
+                      <SelectTrigger data-testid="widget-package-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1 Hour">1 Hour</SelectItem>
+                        <SelectItem value="2 Hours">2 Hours</SelectItem>
+                        <SelectItem value="3 Hours">3 Hours</SelectItem>
+                        <SelectItem value="4 Hours">4 Hours</SelectItem>
+                        <SelectItem value="5 Hours">5 Hours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="duration_minutes">Duration (minutes) *</Label>
+                    <Input
+                      id="duration_minutes"
+                      type="number"
+                      min="15"
+                      step="15"
+                      value={formData.duration_minutes}
+                      onChange={(e) => setFormData({...formData, duration_minutes: parseInt(e.target.value) || 60})}
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="quantity">Quantity</Label>

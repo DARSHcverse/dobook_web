@@ -19,6 +19,7 @@ export async function GET(_request, { params }) {
       business_name: safe.business_name,
       email: safe.email,
       phone: safe.phone,
+      industry: safe.industry || "photobooth",
       booth_types: safe.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
       booking_custom_fields: safe.booking_custom_fields || [],
     });
@@ -33,6 +34,7 @@ export async function GET(_request, { params }) {
     business_name: safe.business_name,
     email: safe.email,
     phone: safe.phone,
+    industry: safe.industry || "photobooth",
     booth_types: safe.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: safe.booking_custom_fields || [],
   });

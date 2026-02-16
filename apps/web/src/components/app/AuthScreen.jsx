@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -36,12 +37,18 @@ export default function AuthScreen() {
     if (plan === "pro") return "pro";
     return "free";
   }, [searchParams]);
+  const initialIndustry = useMemo(() => {
+    const raw = String(searchParams?.get("industry") || "").toLowerCase();
+    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    return allowed.has(raw) ? raw : "photobooth";
+  }, [searchParams]);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     business_name: "",
     phone: "",
     subscription_plan: initialPlan,
+    industry: initialIndustry,
   });
 
   const title = useMemo(() => (isLogin ? "Login" : "Create account"), [isLogin]);
@@ -128,7 +135,7 @@ export default function AuthScreen() {
                         <div className="font-semibold">Free</div>
                         <div className="text-sm text-zinc-600">$0</div>
                       </div>
-                      <div className="text-xs text-zinc-600 mt-1">10 bookings/month • 1 invoice template</div>
+                      <div className="text-xs text-zinc-600 mt-1">10 bookings/month • Confirmation emails only</div>
                     </button>
 
                     <button
@@ -144,9 +151,32 @@ export default function AuthScreen() {
                         <div className="font-semibold">Pro</div>
                         <div className="text-sm text-zinc-600">$30 AUD / month</div>
                       </div>
-                      <div className="text-xs text-zinc-600 mt-1">Unlimited bookings • Unlimited templates</div>
+                      <div className="text-xs text-zinc-600 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
                     </button>
                   </div>
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label>Industry</Label>
+                  <Select
+                    value={formData.industry}
+                    onValueChange={(val) => setFormData({ ...formData, industry: val })}
+                  >
+                    <SelectTrigger className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12">
+                      <SelectValue placeholder="Select your industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="photobooth">Photo booth</SelectItem>
+                      <SelectItem value="salon">Salon</SelectItem>
+                      <SelectItem value="doctor">Doctor</SelectItem>
+                      <SelectItem value="consultant">Consultant</SelectItem>
+                      <SelectItem value="tutor">Tutor</SelectItem>
+                      <SelectItem value="fitness">Fitness trainer</SelectItem>
+                      <SelectItem value="tradie">Tradie</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

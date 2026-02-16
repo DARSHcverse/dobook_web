@@ -12,6 +12,11 @@ export async function PUT(request) {
   if (auth.error) return auth.error;
 
   const body = await request.json();
+  const normalizeIndustry = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    return allowed.has(raw) ? raw : "photobooth";
+  };
   const allowed = [
     "business_name",
     "phone",
@@ -23,6 +28,7 @@ export async function PUT(request) {
     "bsb",
     "account_number",
     "payment_link",
+    "industry",
     "booth_types",
     "booking_custom_fields",
   ];
@@ -31,6 +37,10 @@ export async function PUT(request) {
     const updates = {};
     for (const key of allowed) {
       if (!(key in body)) continue;
+      if (key === "industry") {
+        updates.industry = normalizeIndustry(body.industry);
+        continue;
+      }
       if (key === "booth_types") {
         updates.booth_types = Array.isArray(body.booth_types)
           ? body.booth_types.map((v) => String(v || "").trim()).filter(Boolean)
@@ -66,6 +76,10 @@ export async function PUT(request) {
 
   for (const key of allowed) {
     if (!(key in body)) continue;
+    if (key === "industry") {
+      auth.business.industry = normalizeIndustry(body.industry);
+      continue;
+    }
     if (key === "booth_types") {
       auth.business.booth_types = Array.isArray(body.booth_types)
         ? body.booth_types.map((v) => String(v || "").trim()).filter(Boolean)
