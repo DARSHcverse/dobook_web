@@ -1871,6 +1871,7 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
 
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
     ? business.booth_types
@@ -1880,14 +1881,14 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-    service_type: String(business?.industry || 'photobooth') === 'photobooth' ? 'Photo Booth' : 'Service',
-    booth_type: boothTypes[0] || '',
-    package_duration: '',
+    service_type: isPhotoBooth ? 'Photo Booth' : (boothTypes[0] || 'Service'),
+    booth_type: isPhotoBooth ? (boothTypes[0] || '') : '',
+    package_duration: isPhotoBooth ? '2 Hours' : '',
     event_location: '',
     booking_date: '',
     booking_time: '',
     end_time: '',
-    duration_minutes: 120,
+    duration_minutes: isPhotoBooth ? 120 : 60,
     parking_info: '',
     notes: '',
     price: '',
@@ -1901,7 +1902,12 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
   const openCreate = () => {
     setCreateData((prev) => ({
       ...prev,
-      booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || ''),
+      service_type: isPhotoBooth
+        ? 'Photo Booth'
+        : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
+      booth_type: isPhotoBooth ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || '')) : '',
+      package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
+      duration_minutes: isPhotoBooth ? (Number(prev.duration_minutes) || 120) : (Number(prev.duration_minutes) || 60),
     }));
     setCreateOpen(true);
   };
@@ -1951,7 +1957,7 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                           <p className="text-sm text-zinc-600">{booking.customer_email}</p>
                         </div>
                       </td>
-                      <td className="py-3 px-4">{booking.service_type}</td>
+                      <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
                       <td className="py-3 px-4">{booking.booking_date}</td>
                       <td className="py-3 px-4">{booking.booking_time}</td>
                       <td className="py-3 px-4">${booking.price?.toFixed(2) || '0.00'}</td>
@@ -2104,12 +2110,13 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                 />
               </div>
               <div>
-                <Label htmlFor="cb_booth_type">
-                  {String(business?.industry || 'photobooth') === 'photobooth' ? 'Booth type' : 'Service type'}
-                </Label>
+                <Label htmlFor="cb_service_type">{isPhotoBooth ? 'Booth type' : 'Service type'}</Label>
                 <Select
-                  value={createData.booth_type}
-                  onValueChange={(val) => setCreateData({ ...createData, booth_type: val })}
+                  value={isPhotoBooth ? createData.booth_type : createData.service_type}
+                  onValueChange={(val) => {
+                    if (isPhotoBooth) setCreateData({ ...createData, booth_type: val });
+                    else setCreateData({ ...createData, service_type: val, booth_type: '' });
+                  }}
                 >
                   <SelectTrigger className="bg-zinc-50 mt-2 h-11">
                     <SelectValue />
@@ -2121,6 +2128,44 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {isPhotoBooth ? (
+                <div>
+                  <Label htmlFor="cb_package_duration">Package duration</Label>
+                  <Select
+                    value={createData.package_duration}
+                    onValueChange={(val) => {
+                      const hours = parseInt(val);
+                      const minutes = Number.isFinite(hours) ? hours * 60 : createData.duration_minutes;
+                      setCreateData({ ...createData, package_duration: val, duration_minutes: minutes });
+                    }}
+                  >
+                    <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1 Hour">1 Hour</SelectItem>
+                      <SelectItem value="2 Hours">2 Hours</SelectItem>
+                      <SelectItem value="3 Hours">3 Hours</SelectItem>
+                      <SelectItem value="4 Hours">4 Hours</SelectItem>
+                      <SelectItem value="5 Hours">5 Hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="cb_duration_minutes">Duration (minutes)</Label>
+                  <Input
+                    id="cb_duration_minutes"
+                    type="number"
+                    min="15"
+                    step="15"
+                    value={createData.duration_minutes}
+                    onChange={(e) => setCreateData({ ...createData, duration_minutes: parseInt(e.target.value) || 60 })}
+                    className="bg-zinc-50 mt-2"
+                  />
+                </div>
+              )}
               <div>
                 <Label htmlFor="cb_quantity">Quantity</Label>
                 <Input
@@ -2966,6 +3011,7 @@ const BookingWidget = () => {
       setFormData((prev) => ({
         ...prev,
         booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'),
+        service_type: isPhotoBooth ? 'Photo Booth' : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
         package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
         duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : (prev.duration_minutes || 60),
       }));
@@ -2979,7 +3025,17 @@ const BookingWidget = () => {
     setLoading(true);
 
     try {
-      await axios.post(`${API}/bookings`, { ...formData, business_id: resolvedBusinessId });
+      const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+      const payload = isPhotoBooth
+        ? { ...formData, service_type: 'Photo Booth', business_id: resolvedBusinessId }
+        : {
+            ...formData,
+            service_type: formData.service_type || 'Service',
+            booth_type: '',
+            package_duration: '',
+            business_id: resolvedBusinessId,
+          };
+      await axios.post(`${API}/bookings`, payload);
       setSuccess(true);
       toast.success('Booking confirmed! Check your email.');
     } catch (error) {
@@ -3104,8 +3160,11 @@ const BookingWidget = () => {
                     {isPhotoBooth ? 'Select Booth Type *' : 'Select Service Type *'}
                   </Label>
                   <Select 
-                    value={formData.booth_type} 
-                    onValueChange={(val) => setFormData({...formData, booth_type: val})}
+                    value={isPhotoBooth ? formData.booth_type : formData.service_type}
+                    onValueChange={(val) => {
+                      if (isPhotoBooth) setFormData({ ...formData, booth_type: val });
+                      else setFormData({ ...formData, service_type: val, booth_type: '' });
+                    }}
                   >
                     <SelectTrigger data-testid="widget-booth-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
                       <SelectValue />
