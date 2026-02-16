@@ -2921,7 +2921,35 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
 // ============= Widget Tab =============
 const WidgetTab = ({ businessId }) => {
   const widgetUrl = `${window.location.origin}/book/${businessId}`;
-  const embedCode = `<iframe src="${widgetUrl}" width="100%" height="600" frameborder="0"></iframe>`;
+  const iframeId = `dobook-widget-${String(businessId || "").slice(0, 8) || "embed"}`;
+  const embedCode = [
+    `<iframe`,
+    `  id="${iframeId}"`,
+    `  src="${widgetUrl}"`,
+    `  title="DoBook booking widget"`,
+    `  loading="lazy"`,
+    `  style="width:100%; border:0; display:block; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); min-height:720px;"`,
+    `  height="720"`,
+    `></iframe>`,
+    ``,
+    `<script>`,
+    `(function(){`,
+    `  var iframe = document.getElementById(${JSON.stringify(iframeId)});`,
+    `  if(!iframe) return;`,
+    `  var origin;`,
+    `  try { origin = new URL(iframe.src).origin; } catch(e) { origin = null; }`,
+    `  function onMessage(event){`,
+    `    if(origin && event.origin !== origin) return;`,
+    `    var data = event.data || {};`,
+    `    if(!data || data.type !== 'dobook:resize') return;`,
+    `    var h = parseInt(data.height, 10);`,
+    `    if(!h || h < 300) return;`,
+    `    iframe.style.height = (h + 24) + 'px';`,
+    `  }`,
+    `  window.addEventListener('message', onMessage, false);`,
+    `})();`,
+    `</script>`,
+  ].join("\n");
 
   return (
     <Card data-testid="widget-config-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
@@ -2996,6 +3024,48 @@ const BookingWidget = () => {
     custom_fields: {}
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.parent === window) return;
+
+    let raf = 0;
+    let last = 0;
+    const send = () => {
+      raf = 0;
+      const height = Math.max(
+        document.documentElement?.scrollHeight || 0,
+        document.body?.scrollHeight || 0,
+      );
+      if (!height || Math.abs(height - last) < 2) return;
+      last = height;
+      window.parent.postMessage({ type: 'dobook:resize', height }, '*');
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(send);
+    };
+
+    schedule();
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    try {
+      ro?.observe(document.documentElement);
+      if (document.body) ro?.observe(document.body);
+    } catch {
+      // ignore
+    }
+
+    window.addEventListener('load', schedule);
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      ro?.disconnect?.();
+      window.removeEventListener('load', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
