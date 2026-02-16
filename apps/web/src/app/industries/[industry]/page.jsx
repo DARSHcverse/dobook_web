@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { LandingPage } from "@/App";
+import { headers } from "next/headers";
 
 function resolveSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -8,7 +9,12 @@ function resolveSiteUrl() {
   const vercel = process.env.VERCEL_URL?.trim();
   if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
 
-  return "https://dobook.app";
+  const h = headers();
+  const proto = h.get("x-forwarded-proto") || "https";
+  const host = h.get("x-forwarded-host") || h.get("host");
+  if (host) return `${proto}://${host}`.replace(/\/+$/, "");
+
+  return "https://www.do-book.com";
 }
 
 const INDUSTRIES = {
@@ -72,4 +78,3 @@ export default function IndustryPage({ params }) {
     />
   );
 }
-
