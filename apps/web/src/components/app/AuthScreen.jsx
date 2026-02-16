@@ -71,6 +71,19 @@ export default function AuthScreen() {
       localStorage.setItem("dobook_token", response.data.token);
       localStorage.setItem("dobook_business", JSON.stringify(response.data.business));
 
+      if (!isLogin && formData.subscription_plan === "pro") {
+        toast.success("Account created! Redirecting to payment…");
+        const checkout = await axios.post(
+          `${API}/stripe/checkout`,
+          { plan: "pro" },
+          { headers: { Authorization: `Bearer ${response.data.token}` } },
+        );
+        const url = checkout?.data?.url;
+        if (!url) throw new Error("Missing checkout URL");
+        window.location.href = url;
+        return;
+      }
+
       toast.success(isLogin ? "Logged in!" : "Account created!");
       router.replace("/dashboard");
     } catch (error) {
