@@ -33,15 +33,15 @@ export async function sendBusinessWelcomeEmail({ business }) {
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
       <h2 style="margin:0 0 12px;">Thanks for choosing DoBook</h2>
       <p style="margin:0 0 12px;">Welcome, <strong>${businessName}</strong>.</p>
-      <p style="margin:0 0 12px;">You’re all set up. When a client books you, they’ll receive a confirmation email with an invoice PDF, and you’ll get a notification email too.</p>
-      <p style="margin:0; color:#666; font-size:12px;">Tip: If you enabled reminders, clients will also get emails 5 days and 1 day before the event.</p>
+      <p style="margin:0 0 12px;">You’re all set up. When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.</p>
+      <p style="margin:0; color:#666; font-size:12px;">Tip: Pro includes invoice PDFs and automated reminders.</p>
     </div>
   `;
 
   const text =
     `Thanks for choosing DoBook\n\n` +
     `Welcome, ${businessName}.\n\n` +
-    `When a client books you, they’ll receive a confirmation email with an invoice PDF, and you’ll get a notification email too.\n`;
+    `When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.\n`;
 
   return sendEmailViaResend({ to: businessEmail, subject, html, text });
 }
@@ -51,44 +51,57 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const businessEmail = safeEmail(business?.email);
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
+  const plan = String(business?.subscription_plan || "free").trim().toLowerCase();
+  const includeInvoicePdf = plan === "pro";
 
   const attachments = [];
-  try {
-    const pdfBase64 = generateInvoicePdfBase64({ booking, business });
-    attachments.push({
-      filename: `${booking?.invoice_id || "invoice"}.pdf`,
-      contentType: "application/pdf",
-      content: pdfBase64,
-    });
-  } catch {
-    // best-effort: still send emails without attachment
+  if (includeInvoicePdf) {
+    try {
+      const pdfBase64 = generateInvoicePdfBase64({ booking, business });
+      attachments.push({
+        filename: `${booking?.invoice_id || "invoice"}.pdf`,
+        contentType: "application/pdf",
+        content: pdfBase64,
+      });
+    } catch {
+      // best-effort: still send emails without attachment
+    }
   }
 
-  const subject = `Thanks for booking${booking?.invoice_id ? ` • Invoice ${booking.invoice_id}` : ""}`;
+  const subject = includeInvoicePdf
+    ? `Thanks for booking${booking?.invoice_id ? ` • Invoice ${booking.invoice_id}` : ""}`
+    : `Thanks for booking ${businessName}`;
   const lines = bookingSummaryLines({ booking });
   const summaryHtml = lines.map((l) => `<li>${l}</li>`).join("");
   const summaryText = lines.join("\n");
+
+  const invoiceNoteHtml = includeInvoicePdf
+    ? `<p style="margin:0; color:#666; font-size:12px;">Invoice PDF attached.</p>`
+    : `<p style="margin:0; color:#666; font-size:12px;">Booking confirmation only (no invoice PDF on the Free plan).</p>`;
+  const invoiceNoteText = includeInvoicePdf
+    ? "Invoice PDF attached."
+    : "Booking confirmation only (no invoice PDF on the Free plan).";
 
   const customerHtml = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
       <h2 style="margin:0 0 12px;">Thanks for booking ${businessName}</h2>
       <p style="margin:0 0 12px;">Hi ${customerName} — your booking is confirmed.</p>
       <ul style="margin:0 0 16px; padding-left:18px;">${summaryHtml}</ul>
-      <p style="margin:0; color:#666; font-size:12px;">Invoice PDF attached.</p>
+      ${invoiceNoteHtml}
     </div>
   `;
 
-  const customerText = `Thanks for booking ${businessName}\n\n${summaryText}\n\nInvoice PDF attached.`;
+  const customerText = `Thanks for booking ${businessName}\n\n${summaryText}\n\n${invoiceNoteText}`;
 
   const businessHtml = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
       <h2 style="margin:0 0 12px;">New booking</h2>
       <p style="margin:0 0 12px;"><strong>${customerName}</strong> booked you.</p>
       <ul style="margin:0 0 16px; padding-left:18px;">${summaryHtml}</ul>
-      <p style="margin:0; color:#666; font-size:12px;">Invoice PDF attached.</p>
+      ${invoiceNoteHtml}
     </div>
   `;
-  const businessText = `New booking\n\n${customerName} booked you.\n\n${summaryText}\n\nInvoice PDF attached.`;
+  const businessText = `New booking\n\n${customerName} booked you.\n\n${summaryText}\n\n${invoiceNoteText}`;
 
   const results = { customer: null, business: null };
 

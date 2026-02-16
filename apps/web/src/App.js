@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import '@/App.css';
 import { Toaster, toast } from 'sonner';
@@ -641,9 +641,9 @@ const LandingPage = () => {
             <CardContent className="space-y-5">
               <ul className="text-sm text-zinc-700 space-y-2" style={{fontFamily: 'Inter'}}>
                 <li>• Up to 10 bookings / month</li>
-                <li>• 1 invoice template</li>
-                <li>• Booking confirmation emails + invoice PDF</li>
-                <li>• Client reminders (5 days + 1 day)</li>
+                <li>• Booking confirmation emails</li>
+                <li>• Calendar view + revenue dashboard</li>
+                <li>• No invoice PDFs or automated reminders</li>
               </ul>
               <Button
                 onClick={() => router.push("/auth?plan=free")}
@@ -704,6 +704,7 @@ const LandingPage = () => {
 // ============= Dashboard =============
 const Dashboard = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [business, setBusiness] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -715,8 +716,30 @@ const Dashboard = () => {
     if (storedBusiness) {
       setBusiness(JSON.parse(storedBusiness));
     }
+    refreshBusiness();
     loadBookings();
   }, []);
+
+  useEffect(() => {
+    if (searchParams?.get('upgraded') === '1') {
+      toast.success('Thanks! Your subscription is being activated.');
+      refreshBusiness();
+    }
+  }, [searchParams]);
+
+  const refreshBusiness = async () => {
+    try {
+      const token = localStorage.getItem('dobook_token');
+      if (!token) return;
+      const response = await axios.get(`${API}/business/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      localStorage.setItem('dobook_business', JSON.stringify(response.data));
+      setBusiness(response.data);
+    } catch {
+      // ignore
+    }
+  };
 
   const loadBookings = async () => {
     try {
@@ -1121,6 +1144,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [billingLoading, setBillingLoading] = useState(false);
 
   useEffect(() => {
     if (business) {
@@ -1146,6 +1173,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   }, [business]);
 
   const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
+  const subscriptionStatus = String(business?.subscription_status || 'inactive');
   const bookingsThisMonth = useMemo(() => {
     const list = Array.isArray(bookings) ? bookings : [];
     const now = new Date();
@@ -1243,12 +1271,45 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const ok = window.confirm(
-      'Delete account permanently?\n\nThis will delete your business, sessions, bookings, and templates. This cannot be undone.',
-    );
-    if (!ok) return;
+  const handleUpgrade = async () => {
+    setBillingLoading(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const response = await axios.post(
+        `${API}/stripe/checkout`,
+        { plan: 'pro' },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const url = response?.data?.url;
+      if (!url) throw new Error('Missing checkout URL');
+      window.location.href = url;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to start checkout');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
 
+  const handleManageBilling = async () => {
+    setBillingLoading(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const response = await axios.post(
+        `${API}/stripe/portal`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const url = response?.data?.url;
+      if (!url) throw new Error('Missing portal URL');
+      window.location.href = url;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to open billing portal');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
       const token = localStorage.getItem('dobook_token');
@@ -1260,11 +1321,23 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       localStorage.removeItem('dobook_business');
       toast.success('Account deleted');
       router.push('/');
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to delete account');
+      return false;
     } finally {
       setDeleting(false);
     }
+  };
+
+  const resetDeleteDialog = () => {
+    setDeleteReason('');
+    setDeleteConfirmText('');
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    resetDeleteDialog();
   };
 
   const getInitials = (name) => {
@@ -1290,16 +1363,32 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               <p className="font-semibold text-lg capitalize">{plan} Plan</p>
               <p className="text-sm text-zinc-600 mt-1">
                 {plan === 'free'
-                  ? `${bookingsThisMonth} / 10 bookings this month • 1 invoice template`
-                  : 'Unlimited bookings • Unlimited templates'}
+                  ? `${bookingsThisMonth} / 10 bookings this month • Confirmation emails only • No reminders`
+                  : 'Unlimited bookings • Invoice PDFs • Automated reminders'}
+                {plan !== 'free' && subscriptionStatus && subscriptionStatus !== 'active' && (
+                  <span className="ml-2 text-zinc-500">
+                    • Status: {subscriptionStatus}
+                  </span>
+                )}
               </p>
             </div>
             {plan === 'free' && (
               <Button 
                 className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg"
-                onClick={() => toast('Upgrade coming soon')}
+                onClick={handleUpgrade}
+                disabled={billingLoading}
               >
-                Upgrade to Pro - $30 AUD/month
+                {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $30 AUD/month'}
+              </Button>
+            )}
+            {plan !== 'free' && (
+              <Button
+                variant="outline"
+                className="h-10 px-6 rounded-lg border-zinc-200"
+                onClick={handleManageBilling}
+                disabled={billingLoading}
+              >
+                {billingLoading ? 'Opening…' : 'Manage billing'}
               </Button>
             )}
           </div>
@@ -1593,14 +1682,90 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
 
-      <Button
-        type="button"
-        onClick={handleDeleteAccount}
-        disabled={deleting}
-        className="w-full h-12 bg-red-600 hover:bg-red-700 rounded-lg"
+      <Card className="border border-red-200 bg-red-50/40 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Danger zone</CardTitle>
+          <CardDescription>
+            Delete your account and all associated data. This action cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-6">
+          <div className="text-sm text-zinc-700">
+            If you delete your account, your bookings, templates, and business data may be lost permanently.
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={deleting}
+            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Delete account
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) resetDeleteDialog();
+        }}
       >
-        {deleting ? 'Deleting...' : 'Delete Account'}
-      </Button>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account</DialogTitle>
+            <DialogDescription>
+              We’re sorry to see you go. Please tell us why you’re leaving, then confirm account deletion.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="delete-reason">Why are you leaving us? (optional)</Label>
+              <Textarea
+                id="delete-reason"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Your feedback helps us improve."
+                className="mt-2 bg-zinc-50"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="mt-2 bg-zinc-50"
+              />
+              <p className="mt-2 text-xs text-zinc-500">
+                This will permanently delete your account and data (bookings, templates, and business settings).
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={closeDeleteDialog} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                onClick={async () => {
+                  const ok = await handleDeleteAccount();
+                  if (ok) closeDeleteDialog();
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Delete account'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -1723,7 +1888,7 @@ const CalendarViewTab = ({ bookings }) => {
       className={`h-10 px-5 rounded-full text-sm font-semibold transition-colors border ${
         view === nextView
           ? 'bg-rose-600 text-white border-rose-600'
-          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
       }`}
     >
       {label}
@@ -1770,7 +1935,7 @@ const CalendarViewTab = ({ bookings }) => {
 
       <CardContent className="space-y-4">
         {!hasRealBookings && (
-          <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-700">
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800">
             Showing demo bookings for February 2026. Create a booking to see your real data here.
           </div>
         )}
@@ -1782,21 +1947,21 @@ const CalendarViewTab = ({ bookings }) => {
                 <button
                   type="button"
                   onClick={() => navigate('TODAY')}
-                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-sm font-semibold"
+                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
                 >
                   Today
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('PREV')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-sm font-semibold"
+                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('NEXT')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-sm font-semibold"
+                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
                 >
                   Next
                 </button>
@@ -1820,6 +1985,7 @@ const CalendarViewTab = ({ bookings }) => {
                 events={events}
                 startAccessor="start"
                 endAccessor="end"
+                toolbar={false}
                 date={date}
                 view={view}
                 onNavigate={(nextDate) => setDate(nextDate)}

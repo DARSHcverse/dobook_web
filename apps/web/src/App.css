@@ -80,6 +80,19 @@ input:focus, textarea:focus, select:focus {
   background: #fafafa;
 }
 
+.rbc-off-range-bg {
+  background: #fafafa;
+}
+
+.rbc-show-more {
+  color: #e11d48;
+  font-weight: 600;
+}
+
+.rbc-current-time-indicator {
+  background-color: #e11d48;
+}
+
 .rbc-date-cell {
   padding: 8px;
 }

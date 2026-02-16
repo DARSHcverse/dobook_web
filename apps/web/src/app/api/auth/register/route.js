@@ -11,11 +11,13 @@ export async function POST(request) {
   const password = String(body?.password || "");
   const businessName = String(body?.business_name || "").trim();
   const phone = body?.phone ? String(body.phone) : null;
-  const subscription_plan = String(body?.subscription_plan || "free").trim().toLowerCase();
+  const requested_plan = String(body?.subscription_plan || "free").trim().toLowerCase();
   const allowedPlans = new Set(["free", "pro"]);
-  if (!allowedPlans.has(subscription_plan)) {
+  if (!allowedPlans.has(requested_plan)) {
     return NextResponse.json({ detail: "Invalid subscription_plan" }, { status: 400 });
   }
+  // Prevent bypassing Stripe by signing up directly as "pro".
+  const subscription_plan = "free";
 
   if (!businessName || businessName.length < 2) {
     return NextResponse.json({ detail: "Business name is required" }, { status: 400 });
@@ -61,6 +63,11 @@ export async function POST(request) {
       booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
       booking_custom_fields: [],
       subscription_plan,
+      subscription_status: "inactive",
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      stripe_price_id: null,
+      subscription_current_period_end: null,
       booking_count: 0,
       invoice_seq: 0,
       password_hash,
@@ -127,6 +134,11 @@ export async function POST(request) {
     booth_types: ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: [],
     subscription_plan,
+    subscription_status: "inactive",
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
+    stripe_price_id: null,
+    subscription_current_period_end: null,
     booking_count: 0,
     invoice_seq: 0,
     password_hash,

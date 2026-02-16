@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 
+export async function GET(request) {
+  const auth = await requireSession(request);
+  if (auth.error) return auth.error;
+  return NextResponse.json(auth.sanitizeBusiness(auth.business));
+}
+
 export async function PUT(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
