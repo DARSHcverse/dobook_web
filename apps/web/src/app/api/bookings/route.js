@@ -33,6 +33,24 @@ function normalizeCustomFields(value) {
   return out;
 }
 
+async function getActiveInvoiceTemplateSupabase(sb, businessId) {
+  const { data, error } = await sb
+    .from("invoice_templates")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return null;
+  return (data && data[0]) || null;
+}
+
+function getActiveInvoiceTemplateLocal(db, businessId) {
+  const list = Array.isArray(db?.invoiceTemplates) ? db.invoiceTemplates : [];
+  const mine = list.filter((t) => t.business_id === businessId);
+  mine.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  return mine[0] || null;
+}
+
 export async function GET(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
@@ -146,7 +164,8 @@ export async function POST(request) {
 
     // Best-effort: send confirmation + invoice to customer and business.
     try {
-      const emailResults = await sendBookingCreatedEmails({ booking: inserted, business });
+      const template = await getActiveInvoiceTemplateSupabase(sb, businessId);
+      const emailResults = await sendBookingCreatedEmails({ booking: inserted, business, template });
       const updates = {};
       if (emailResults?.customer?.ok) updates.confirmation_sent_at = new Date().toISOString();
       if (emailResults?.business?.ok) updates.business_notice_sent_at = new Date().toISOString();
@@ -223,7 +242,8 @@ export async function POST(request) {
   writeDb(db);
 
   try {
-    const emailResults = await sendBookingCreatedEmails({ booking, business });
+    const template = getActiveInvoiceTemplateLocal(db, businessId);
+    const emailResults = await sendBookingCreatedEmails({ booking, business, template });
     const now = new Date().toISOString();
     if (emailResults?.customer?.ok) booking.confirmation_sent_at = now;
     if (emailResults?.business?.ok) booking.business_notice_sent_at = now;

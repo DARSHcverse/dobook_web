@@ -229,12 +229,26 @@ async function addLogoToPdf(doc, dataUri, box) {
   doc.addImage(supportedDataUri, fmt, x, y, w, h);
 }
 
-async function downloadInvoicePdf({ booking, business }) {
+function hexToRgb(hex) {
+  const raw = String(hex || '').trim().replace(/^#/, '');
+  if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
+  return {
+    r: parseInt(raw.slice(0, 2), 16),
+    g: parseInt(raw.slice(2, 4), 16),
+    b: parseInt(raw.slice(4, 6), 16),
+  };
+}
+
+async function downloadInvoicePdf({ booking, business, template }) {
   if (!booking) return;
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 72;
+
+  const primary = String(template?.primary_color || '#e11d48').trim() || '#e11d48';
+  const rgb = hexToRgb(primary) || { r: 225, g: 29, b: 72 };
+  const logoUrl = String(template?.logo_url || business?.logo_url || '').trim();
 
   const brand = {
     name: business?.business_name || 'DoBook',
@@ -254,13 +268,16 @@ async function downloadInvoicePdf({ booking, business }) {
   const dueDate = booking?.booking_date ? parseISO(booking.booking_date) : addDays(invoiceDate, 15);
 
   // Header
+  doc.setFillColor(rgb.r, rgb.g, rgb.b);
+  doc.rect(0, 48, pageW, 10, 'F');
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(28);
-  doc.setTextColor(80);
+  doc.setTextColor(rgb.r, rgb.g, rgb.b);
   doc.text('INVOICE', marginX, 112);
 
   // Logo (uploaded in Account Settings)
-  await addLogoToPdf(doc, business?.logo_url, {
+  await addLogoToPdf(doc, logoUrl, {
     x: pageW - marginX - 140,
     y: 70,
     w: 140,
@@ -384,7 +401,7 @@ async function downloadInvoicePdf({ booking, business }) {
   doc.text('TOTAL', lineX2 - 90, totalsY + 26);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(70);
+  doc.setTextColor(rgb.r, rgb.g, rgb.b);
   doc.text(`$${total.toFixed(0)}`, lineX2, totalsY + 26, { align: 'right' });
 
   // Payment info
@@ -428,8 +445,17 @@ async function downloadInvoicePdf({ booking, business }) {
   doc.save(`${invoiceNumber}.pdf`);
 }
 
-const BookingDetailsDialog = ({ booking, business, onClose }) => {
-  const [requestingReview, setRequestingReview] = useState(false);
+const BookingDetailsDialog = ({ booking, onClose }) => {
+  const [business, setBusiness] = useState(null);
+
+  useEffect(() => {
+    try {
+      const storedBusiness = localStorage.getItem('dobook_business');
+      setBusiness(storedBusiness ? JSON.parse(storedBusiness) : null);
+    } catch {
+      setBusiness(null);
+    }
+  }, []);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
@@ -488,6 +514,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-zinc-600">Invoice</Label>
+<<<<<<< ours
                 <div className="flex items-center gap-2">
                   {String(booking?.customer_email || '').trim() && (
                     <Button
@@ -532,7 +559,20 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     data-testid="download-invoice-btn"
                     onClick={async () => {
                       try {
-                        await downloadInvoicePdf({ booking, business });
+                        const token = localStorage.getItem('dobook_token');
+                        let activeTemplate = null;
+                        if (token) {
+                          try {
+                            const res = await axios.get(`${API}/invoices/templates`, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            activeTemplate = Array.isArray(res.data) ? res.data[0] : null;
+                          } catch {
+                            // ignore template load failures
+                          }
+                        }
+
+                        await downloadInvoicePdf({ booking, business, template: activeTemplate });
                         toast.success('Invoice downloaded!');
                       } catch (e) {
                         toast.error('Failed to generate invoice PDF');
@@ -545,6 +585,24 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     Download PDF
                   </Button>
                 </div>
+=======
+                <Button
+                  data-testid="download-invoice-btn"
+                  onClick={async () => {
+                    try {
+                      await downloadInvoicePdf({ booking, business });
+                      toast.success('Invoice downloaded!');
+                    } catch (e) {
+                      toast.error('Failed to generate invoice PDF');
+                    }
+                  }}
+                  size="sm"
+                  className="h-9 bg-rose-600 hover:bg-rose-700"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+>>>>>>> theirs
               </div>
               <div className="p-4 bg-zinc-50 rounded-lg">
                 <p className="text-sm text-zinc-600">
@@ -759,36 +817,6 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const onStorage = (e) => {
-      if (!e) return;
-      if (e.key === 'dobook_business') {
-        try {
-          setBusiness(e.newValue ? JSON.parse(e.newValue) : null);
-        } catch {
-          // ignore
-        }
-      }
-      if (e.key === 'dobook_token' && !e.newValue) {
-        setBusiness(null);
-        setBookings([]);
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
-  useEffect(() => {
-    const token = localStorage.getItem('dobook_token');
-    if (!token) return;
-    const id = window.setInterval(() => {
-      refreshBusiness();
-      loadBookings();
-    }, 15000);
-    return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     if (searchParams?.get('upgraded') === '1') {
       toast.success('Thanks! Your subscription is being activated.');
       refreshBusiness();
@@ -812,10 +840,6 @@ const Dashboard = () => {
   const loadBookings = async () => {
     try {
       const token = localStorage.getItem('dobook_token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       const response = await axios.get(`${API}/bookings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1185,7 +1209,7 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
-        {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} />}
+        {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
@@ -2281,13 +2305,13 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
         </DialogContent>
       </Dialog>
 
-      <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
+      <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
     </>
   );
 };
 
 // ============= Calendar View Tab =============
-const CalendarViewTab = ({ business, bookings }) => {
+const CalendarViewTab = ({ bookings }) => {
   const [displayMode, setDisplayMode] = useState('calendar'); // calendar | list
   const [view, setView] = useState(Views.MONTH);
   const [date, setDate] = useState(new Date(2026, 1, 1)); // February 2026
@@ -2483,7 +2507,7 @@ const CalendarViewTab = ({ business, bookings }) => {
           </div>
         )}
 
-        <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
+        <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
       </CardContent>
     </Card>
   );

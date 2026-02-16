@@ -72,11 +72,23 @@ function bookingSummaryTableHtml({ booking }) {
   `;
 }
 
-function emailLayout({ title, preheader, contentHtml }) {
+function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt }) {
   const brand = "#e11d48";
   const bg = "#f4f4f5";
   const site = resolveSiteUrl();
-  const logo = `${site}/brand/dobook-logo.png`;
+  const defaultLogo = `${site}/brand/dobook-logo.png`;
+
+  const resolveLogo = (raw) => {
+    const s = String(raw || "").trim();
+    if (!s) return defaultLogo;
+    if (/^data:image\//i.test(s)) return s;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("/")) return `${site}${s}`;
+    return `${site}/${s}`;
+  };
+
+  const logo = resolveLogo(logoUrl);
+  const alt = String(logoAlt || "DoBook").trim() || "DoBook";
 
   return `
     <!doctype html>
@@ -97,7 +109,7 @@ function emailLayout({ title, preheader, contentHtml }) {
                 <tr>
                   <td style="padding:12px 4px 18px;">
                     <a href="${site}" style="text-decoration:none;">
-                      <img src="${logo}" width="140" alt="DoBook" style="display:block; height:auto;" />
+                      <img src="${escapeHtml(logo)}" width="140" alt="${escapeHtml(alt)}" style="display:block; height:auto;" />
                     </a>
                   </td>
                 </tr>
@@ -159,17 +171,18 @@ export async function sendBusinessWelcomeEmail({ business }) {
   return sendEmailViaResend({ to: businessEmail, subject, html, text });
 }
 
-export async function sendBookingCreatedEmails({ booking, business }) {
+export async function sendBookingCreatedEmails({ booking, business, template }) {
   const customerEmail = safeEmail(booking?.customer_email);
   const businessEmail = safeEmail(business?.email);
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
   const includeInvoicePdf = hasProAccess(business);
+  const logoUrl = business?.logo_url || "";
 
   const attachments = [];
   if (includeInvoicePdf) {
     try {
-      const pdfBase64 = generateInvoicePdfBase64({ booking, business });
+      const pdfBase64 = await generateInvoicePdfBase64({ booking, business, template });
       attachments.push({
         filename: `${booking?.invoice_id || "invoice"}.pdf`,
         contentType: "application/pdf",
@@ -193,6 +206,8 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const customerHtml = emailLayout({
     title: `Booking confirmed`,
     preheader: `Your booking with ${businessName} is confirmed.`,
+    logoUrl,
+    logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
       ${bookingSummaryTableHtml({ booking })}
@@ -207,6 +222,8 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const businessHtml = emailLayout({
     title: "New booking",
     preheader: `${customerName} booked you.`,
+    logoUrl,
+    logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> booked you.`)}
       ${bookingSummaryTableHtml({ booking })}
