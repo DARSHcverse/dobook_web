@@ -514,7 +514,6 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-zinc-600">Invoice</Label>
-<<<<<<< ours
                 <div className="flex items-center gap-2">
                   {String(booking?.customer_email || '').trim() && (
                     <Button
@@ -585,24 +584,6 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
                     Download PDF
                   </Button>
                 </div>
-=======
-                <Button
-                  data-testid="download-invoice-btn"
-                  onClick={async () => {
-                    try {
-                      await downloadInvoicePdf({ booking, business });
-                      toast.success('Invoice downloaded!');
-                    } catch (e) {
-                      toast.error('Failed to generate invoice PDF');
-                    }
-                  }}
-                  size="sm"
-                  className="h-9 bg-rose-600 hover:bg-rose-700"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
->>>>>>> theirs
               </div>
               <div className="p-4 bg-zinc-50 rounded-lg">
                 <p className="text-sm text-zinc-600">
@@ -1209,7 +1190,7 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
-        {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
+        {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
@@ -2305,13 +2286,13 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
         </DialogContent>
       </Dialog>
 
-      <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+      <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
     </>
   );
 };
 
 // ============= Calendar View Tab =============
-const CalendarViewTab = ({ bookings }) => {
+const CalendarViewTab = ({ business, bookings }) => {
   const [displayMode, setDisplayMode] = useState('calendar'); // calendar | list
   const [view, setView] = useState(Views.MONTH);
   const [date, setDate] = useState(new Date(2026, 1, 1)); // February 2026
@@ -2507,7 +2488,7 @@ const CalendarViewTab = ({ bookings }) => {
           </div>
         )}
 
-        <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+        <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
       </CardContent>
     </Card>
   );
