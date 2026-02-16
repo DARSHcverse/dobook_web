@@ -10,6 +10,13 @@ function asMoneyNoCents(value) {
   return `$${Number.isFinite(n) ? n.toFixed(0) : "0"}`;
 }
 
+function formatHours(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const rounded = Math.round(n * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
 function formatDate(value) {
   if (!value) return "";
   const d = new Date(value);
@@ -249,13 +256,11 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   const unit = Number(booking?.price || 0);
   const total = unit * qty;
 
-  const hours = booking?.duration_minutes ? Math.round((Number(booking.duration_minutes) / 60) * 10) / 10 : null;
-  const description =
-    booking?.package_duration ||
-    (hours ? `${hours} Hour Photobooth` : "") ||
-    booking?.service_type ||
-    booking?.booth_type ||
-    "Booking";
+  const booth = String(booking?.booth_type || booking?.service_type || "Booking").trim() || "Booking";
+  const hoursRaw = booking?.duration_minutes ? Number(booking.duration_minutes) / 60 : 0;
+  const hours = formatHours(hoursRaw) || "1";
+  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
+  const description = `${hours} ${hourLabel} ${booth}`;
 
   const rowY = tableTopY + 44;
   doc.setFont("helvetica", "normal");

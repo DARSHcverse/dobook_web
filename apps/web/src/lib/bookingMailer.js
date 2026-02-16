@@ -31,7 +31,6 @@ function bookingSummaryLines({ booking }) {
   const lines = [];
   if (booking?.booking_date) lines.push(`Date: ${booking.booking_date}`);
   if (booking?.booking_time) lines.push(`Start: ${booking.booking_time}`);
-  if (booking?.end_time) lines.push(`End: ${booking.end_time}`);
   if (booking?.event_location) lines.push(`Address: ${booking.event_location}`);
   if (booking?.booth_type) lines.push(`Booth/Service: ${booking.booth_type}`);
   else if (booking?.service_type) lines.push(`Booth/Service: ${booking.service_type}`);
@@ -43,7 +42,6 @@ function bookingSummaryTableHtml({ booking }) {
   const rows = [];
   if (booking?.booking_date) rows.push(["Date", booking.booking_date]);
   if (booking?.booking_time) rows.push(["Start", booking.booking_time]);
-  if (booking?.end_time) rows.push(["End", booking.end_time]);
   if (booking?.event_location) rows.push(["Address", booking.event_location]);
   if (booking?.booth_type || booking?.service_type) rows.push(["Service", booking.booth_type || booking.service_type]);
   if (booking?.price !== undefined) rows.push(["Price", `$${Number(booking.price || 0).toFixed(2)}`]);

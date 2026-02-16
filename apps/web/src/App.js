@@ -136,7 +136,7 @@ const DEMO_BOOKINGS_FEB_2026 = [
 
 function bookingDateTime(booking, which) {
   const dateStr = String(booking?.booking_date || '').trim();
-  const timeStr = String(which === 'end' ? (booking?.end_time || '') : (booking?.booking_time || '')).trim();
+  const timeStr = String(booking?.booking_time || '').trim();
 
   let baseDate;
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) baseDate = parseISO(dateStr);
@@ -156,8 +156,7 @@ function bookingDateTime(booking, which) {
 
 function bookingToEvent(booking) {
   const start = bookingDateTime(booking, 'start') || new Date();
-  const endExplicit = bookingDateTime(booking, 'end');
-  const end = endExplicit || addMinutes(start, Number(booking?.duration_minutes || 60));
+  const end = addMinutes(start, Number(booking?.duration_minutes || 60));
 
   const booth = booking?.booth_type || booking?.service_type || 'Booking';
   const customer = booking?.customer_name || 'Customer';
@@ -351,11 +350,7 @@ async function downloadInvoicePdf({ booking, business, template }) {
 
   const hours = booking?.duration_minutes ? Math.round((Number(booking.duration_minutes) / 60) * 10) / 10 : null;
   const description =
-    booking?.package_duration ||
-    (hours ? `${hours} Hour Photobooth` : '') ||
-    booking?.service_type ||
-    booking?.booth_type ||
-    'Booking';
+    `${(hours && Number.isFinite(hours) && hours > 0 ? hours : 1)} ${(hours === 1 ? 'Hour' : 'Hours')} ${String(booking?.booth_type || booking?.service_type || 'Booking').trim() || 'Booking'}`;
 
   const rowY = tableTopY + 44;
   doc.setFont('helvetica', 'normal');
@@ -466,7 +461,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </div>
               <div>
                 <Label className="text-zinc-600">Time</Label>
-                <p className="font-semibold">{booking.booking_time}{booking.end_time ? ` - ${booking.end_time}` : ''}</p>
+                <p className="font-semibold">{booking.booking_time}</p>
               </div>
               <div>
                 <Label className="text-zinc-600">Duration</Label>
@@ -1979,7 +1974,6 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
     event_location: '',
     booking_date: '',
     booking_time: '',
-    end_time: '',
     duration_minutes: isPhotoBooth ? 120 : 60,
     parking_info: '',
     notes: '',
@@ -2120,7 +2114,6 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                   event_location: '',
                   booking_date: '',
                   booking_time: '',
-                  end_time: '',
                   notes: '',
                   price: '',
                   quantity: 1,
@@ -2188,16 +2181,6 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                   type="time"
                   value={createData.booking_time}
                   onChange={(e) => setCreateData({ ...createData, booking_time: e.target.value })}
-                  className="bg-zinc-50 mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cb_end_time">End time</Label>
-                <Input
-                  id="cb_end_time"
-                  type="time"
-                  value={createData.end_time}
-                  onChange={(e) => setCreateData({ ...createData, end_time: e.target.value })}
                   className="bg-zinc-50 mt-2"
                 />
               </div>
@@ -2489,7 +2472,7 @@ const CalendarViewTab = ({ business, bookings }) => {
                   <div className="text-sm text-zinc-700 text-center whitespace-nowrap">
                     <div className="font-semibold">{format(bookingDateTime(booking, 'start') || new Date(), 'MMM d, yyyy')}</div>
                     <div className="text-zinc-500">
-                      {booking.booking_time || 'N/A'}{booking.end_time ? ` - ${booking.end_time}` : ' - N/A'}
+                      {booking.booking_time || 'N/A'}
                     </div>
                   </div>
 
@@ -3105,7 +3088,6 @@ const BookingWidget = () => {
     event_location: '',
     booking_date: '',
     booking_time: '',
-    end_time: '',
     duration_minutes: 120,
     parking_info: '',
     notes: '',
@@ -3416,18 +3398,6 @@ const BookingWidget = () => {
                     value={formData.booking_time}
                     onChange={(e) => setFormData({...formData, booking_time: e.target.value})}
                     required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="end_time">End Time</Label>
-                  <Input
-                    id="end_time"
-                    data-testid="widget-end-time-input"
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({...formData, end_time: e.target.value})}
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
                   />
                 </div>

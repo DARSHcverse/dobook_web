@@ -25,7 +25,6 @@ function buildUpdates(body) {
     "event_location",
     "booking_date",
     "booking_time",
-    "end_time",
     "duration_minutes",
     "parking_info",
     "notes",
@@ -38,7 +37,7 @@ function buildUpdates(body) {
     if (!(key in (body || {}))) continue;
     if (key === "duration_minutes" || key === "quantity") updates[key] = Number(body[key] || 0);
     else if (key === "price") updates[key] = body[key] !== "" && body[key] !== null ? Number(body[key] || 0) : 0;
-    else if (key === "booking_date" || key === "booking_time" || key === "end_time") {
+    else if (key === "booking_date" || key === "booking_time") {
       const v = body[key];
       updates[key] = v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim();
     } else {

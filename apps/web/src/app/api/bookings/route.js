@@ -116,7 +116,6 @@ export async function POST(request) {
 
     const bookingDateStr = String(body?.booking_date || "").trim();
     const bookingTimeStr = String(body?.booking_time || "").trim();
-    const endTimeStr = body?.end_time ? String(body.end_time).trim() : "";
     const custom_fields = normalizeCustomFields(body?.custom_fields);
 
     const booking = {
@@ -131,7 +130,7 @@ export async function POST(request) {
       event_location: body?.event_location ? String(body.event_location) : "",
       booking_date: bookingDateStr ? bookingDateStr : null,
       booking_time: bookingTimeStr ? bookingTimeStr : null,
-      end_time: endTimeStr ? endTimeStr : null,
+      end_time: null,
       duration_minutes: Number(body?.duration_minutes || 60),
       parking_info: body?.parking_info ? String(body.parking_info) : "",
       notes: body?.notes ? String(body.notes) : "",
@@ -218,7 +217,7 @@ export async function POST(request) {
     event_location: body?.event_location ? String(body.event_location) : "",
     booking_date: String(body?.booking_date || ""),
     booking_time: String(body?.booking_time || ""),
-    end_time: body?.end_time ? String(body.end_time) : "",
+    end_time: null,
     duration_minutes: Number(body?.duration_minutes || 60),
     parking_info: body?.parking_info ? String(body.parking_info) : "",
     notes: body?.notes ? String(body.notes) : "",
