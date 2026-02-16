@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBookingReminderEmail } from "@/lib/bookingMailer";
+import { hasProAccess } from "@/lib/entitlements";
 
 function ymd(date) {
   const d = new Date(date);
@@ -67,7 +68,7 @@ export async function POST(request) {
     const process = async (booking, daysBefore) => {
       const business = businessById.get(booking.business_id);
       if (!business || !booking.customer_email) return false;
-      if (String(business.subscription_plan || "free") !== "pro") return false;
+      if (!hasProAccess(business)) return false;
 
       const already =
         daysBefore === 5 ? booking.reminder_5d_sent_at : booking.reminder_1d_sent_at;
@@ -106,7 +107,7 @@ export async function POST(request) {
   const processLocal = async (booking, daysBefore) => {
     const business = businessById.get(booking.business_id);
     if (!business || !booking.customer_email) return false;
-    if (String(business.subscription_plan || "free") !== "pro") return false;
+    if (!hasProAccess(business)) return false;
 
     const field = daysBefore === 5 ? "reminder_5d_sent_at" : "reminder_1d_sent_at";
     if (booking[field]) return false;

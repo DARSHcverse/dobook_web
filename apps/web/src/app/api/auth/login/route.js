@@ -3,6 +3,27 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isOwnerEmail } from "@/lib/entitlements";
+
+async function ensureOwnerAccessSupabase(sb, business) {
+  if (!business) return business;
+  if (!isOwnerEmail(business.email)) return business;
+  if (String(business.account_role || "").trim().toLowerCase() === "owner") return business;
+
+  const updates = { account_role: "owner", subscription_plan: "pro", subscription_status: "active" };
+  const { data } = await sb.from("businesses").update(updates).eq("id", business.id).select("*").maybeSingle();
+  return data || { ...business, ...updates };
+}
+
+function ensureOwnerAccessLocal(authBusiness) {
+  if (!authBusiness) return authBusiness;
+  if (!isOwnerEmail(authBusiness.email)) return authBusiness;
+  if (String(authBusiness.account_role || "").trim().toLowerCase() === "owner") return authBusiness;
+  authBusiness.account_role = "owner";
+  authBusiness.subscription_plan = "pro";
+  authBusiness.subscription_status = "active";
+  return authBusiness;
+}
 
 export async function POST(request) {
   const body = await request.json();
@@ -23,12 +44,14 @@ export async function POST(request) {
     const ok = await bcrypt.compare(password, business.password_hash || "");
     if (!ok) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
 
+    const normalized = await ensureOwnerAccessSupabase(sb, business);
+
     const token = randomUUID();
     const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: sessionError } = await sb.from("sessions").insert({
       token,
-      business_id: business.id,
+      business_id: normalized.id,
       created_at: new Date().toISOString(),
       expires_at,
     });
@@ -45,7 +68,7 @@ export async function POST(request) {
       return NextResponse.json({ detail: sessionError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ token, business: sanitizeBusiness(business) });
+    return NextResponse.json({ token, business: sanitizeBusiness(normalized) });
   }
 
   const db = readDb();
@@ -54,6 +77,8 @@ export async function POST(request) {
 
   const ok = await bcrypt.compare(password, business.password_hash || "");
   if (!ok) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
+
+  ensureOwnerAccessLocal(business);
 
   const token = randomUUID();
   db.sessions.push({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { hasStripeConfig, stripe, appBaseUrlFromRequest } from "@/lib/stripeServer";
+import { isOwnerBusiness } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ export async function POST(request) {
 
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
+  if (isOwnerBusiness(auth.business)) {
+    return NextResponse.json({ detail: "This account has owner access and does not require billing." }, { status: 400 });
+  }
 
   const customerId = String(auth.business?.stripe_customer_id || "").trim();
   if (!customerId) {
@@ -33,4 +37,3 @@ export async function POST(request) {
 
   return NextResponse.json({ url: portal.url });
 }
-

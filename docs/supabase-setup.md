@@ -10,7 +10,10 @@ To use Supabase Postgres, create the tables first.
 3. Open `supabase/migrations/20260215160000_init_dobook.sql`, copy its SQL contents, paste into the editor, and run it
 4. Open `supabase/migrations/20260215160500_rpc_invoice.sql`, copy its SQL contents, paste into the editor, and run it
 5. Open `supabase/migrations/20260215180000_booking_editor_fields_and_reminders.sql`, copy its SQL contents, paste into the editor, and run it
-6. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
+6. Open `supabase/migrations/20260216120000_stripe_subscription_fields.sql`, copy its SQL contents, paste into the editor, and run it
+7. Open `supabase/migrations/20260216123500_business_industry.sql`, copy its SQL contents, paste into the editor, and run it
+8. Open `supabase/migrations/20260216130000_business_account_role.sql`, copy its SQL contents, paste into the editor, and run it
+9. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
@@ -30,6 +33,7 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 - The Next.js app uses `@supabase/supabase-js` (see `apps/web/src/lib/supabaseAdmin.js`).
 - For server-side routes, set `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` (recommended). This repo also accepts `SUBABASE_API_KEY` / `SUPABASE_API_KEY` as the key env var name, but it must be a **service_role** key (especially after enabling RLS).
 - For client-side usage, prefer `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Optional: set `OWNER_EMAILS` to grant “owner access” (Pro features without Stripe) to specific emails.
 
 ## Emails + reminders (optional)
 

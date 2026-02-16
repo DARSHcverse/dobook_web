@@ -1183,7 +1183,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     }
   }, [business]);
 
+  const isOwner = String(business?.account_role || '').trim().toLowerCase() === 'owner';
   const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
+  const effectivePlan = isOwner ? 'pro' : plan;
   const subscriptionStatus = String(business?.subscription_status || 'inactive');
   const bookingsThisMonth = useMemo(() => {
     const list = Array.isArray(bookings) ? bookings : [];
@@ -1371,19 +1373,19 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         <CardContent>
           <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
             <div>
-              <p className="font-semibold text-lg capitalize">{plan} Plan</p>
+              <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
               <p className="text-sm text-zinc-600 mt-1">
-                {plan === 'free'
+                {effectivePlan === 'free'
                   ? `${bookingsThisMonth} / 10 bookings this month • Confirmation emails only • No reminders`
                   : 'Unlimited bookings • Invoice PDFs • Automated reminders'}
-                {plan !== 'free' && subscriptionStatus && subscriptionStatus !== 'active' && (
+                {!isOwner && effectivePlan !== 'free' && subscriptionStatus && subscriptionStatus !== 'active' && (
                   <span className="ml-2 text-zinc-500">
                     • Status: {subscriptionStatus}
                   </span>
                 )}
               </p>
             </div>
-            {plan === 'free' && (
+            {effectivePlan === 'free' && (
               <Button 
                 className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg"
                 onClick={handleUpgrade}
@@ -1392,7 +1394,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $30 AUD/month'}
               </Button>
             )}
-            {plan !== 'free' && (
+            {!isOwner && effectivePlan !== 'free' && (
               <Button
                 variant="outline"
                 className="h-10 px-6 rounded-lg border-zinc-200"

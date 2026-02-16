@@ -1,5 +1,6 @@
 import { sendEmailViaResend } from "./email";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
+import { hasProAccess } from "./entitlements";
 
 function resolveSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -163,8 +164,7 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const businessEmail = safeEmail(business?.email);
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
-  const plan = String(business?.subscription_plan || "free").trim().toLowerCase();
-  const includeInvoicePdf = plan === "pro";
+  const includeInvoicePdf = hasProAccess(business);
 
   const attachments = [];
   if (includeInvoicePdf) {

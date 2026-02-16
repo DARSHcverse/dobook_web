@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { hasStripeConfig, stripe } from "@/lib/stripeServer";
+import { isOwnerEmail } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
 
@@ -48,14 +49,27 @@ async function findBusinessByStripeCustomerId(customerId) {
 async function applyBusinessUpdate(target, updates) {
   if (!target) return;
 
+  const existing = target.mode === "localdb" ? target.business : target;
+  const role = String(existing?.account_role || "").trim().toLowerCase();
+  const owner = role === "owner" || isOwnerEmail(existing?.email);
+  const nextUpdates =
+    owner
+      ? {
+          ...updates,
+          // Never downgrade owner access based on Stripe events.
+          subscription_plan: "pro",
+          subscription_status: existing?.subscription_status || "active",
+        }
+      : updates;
+
   if (target.mode === "localdb") {
-    Object.assign(target.business, updates);
+    Object.assign(target.business, nextUpdates);
     writeDb(target.db);
     return;
   }
 
   const sb = supabaseAdmin();
-  await sb.from("businesses").update(updates).eq("id", target.id);
+  await sb.from("businesses").update(nextUpdates).eq("id", target.id);
 }
 
 export async function POST(request) {

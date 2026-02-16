@@ -4,6 +4,7 @@ import { requireSession } from "../_utils/auth";
 import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
+import { hasProAccess } from "@/lib/entitlements";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
 
@@ -69,7 +70,7 @@ export async function POST(request) {
     if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
     if (!business) return NextResponse.json({ detail: "Business not found" }, { status: 404 });
 
-    if (String(business.subscription_plan || "free") === "free") {
+    if (!hasProAccess(business)) {
       const { startIso, endIso } = monthRangeUtc(new Date());
       const { count, error: countError } = await sb
         .from("bookings")
@@ -163,7 +164,7 @@ export async function POST(request) {
   const business = db.businesses.find((b) => b.id === businessId);
   if (!business) return NextResponse.json({ detail: "Business not found" }, { status: 404 });
 
-  if (String(business.subscription_plan || "free") === "free") {
+  if (!hasProAccess(business)) {
     const { startIso, endIso } = monthRangeUtc(new Date());
     const count = (db.bookings || []).filter((b) => {
       if (b.business_id !== businessId) return false;

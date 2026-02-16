@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBusinessWelcomeEmail } from "@/lib/bookingMailer";
+import { isOwnerEmail } from "@/lib/entitlements";
 
 export async function POST(request) {
   const body = await request.json();
@@ -16,8 +17,11 @@ export async function POST(request) {
   if (!allowedPlans.has(requested_plan)) {
     return NextResponse.json({ detail: "Invalid subscription_plan" }, { status: 400 });
   }
-  // Prevent bypassing Stripe by signing up directly as "pro".
-  const subscription_plan = "free";
+  // Prevent bypassing Stripe by signing up directly as "pro", but allow website-owner access.
+  const owner = isOwnerEmail(email);
+  const subscription_plan = owner ? "pro" : "free";
+  const subscription_status = owner ? "active" : "inactive";
+  const account_role = owner ? "owner" : "user";
 
   const normalizeIndustry = (value) => {
     const raw = String(value || "").trim().toLowerCase();
@@ -80,8 +84,9 @@ export async function POST(request) {
       industry,
       booth_types: defaultBoothTypesForIndustry(industry),
       booking_custom_fields: [],
+      account_role,
       subscription_plan,
-      subscription_status: "inactive",
+      subscription_status,
       stripe_customer_id: null,
       stripe_subscription_id: null,
       stripe_price_id: null,
@@ -152,8 +157,9 @@ export async function POST(request) {
     industry,
     booth_types: defaultBoothTypesForIndustry(industry),
     booking_custom_fields: [],
+    account_role,
     subscription_plan,
-    subscription_status: "inactive",
+    subscription_status,
     stripe_customer_id: null,
     stripe_subscription_id: null,
     stripe_price_id: null,

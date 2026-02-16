@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireSession } from "../../_utils/auth";
+import { hasProAccess } from "@/lib/entitlements";
 
 const FREE_PLAN_MAX_TEMPLATES = 1;
 
@@ -26,7 +27,7 @@ export async function POST(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 
-  if (String(auth.business.subscription_plan || "free") === "free") {
+  if (!hasProAccess(auth.business)) {
     if (auth.mode === "supabase") {
       const { count, error } = await auth.supabase
         .from("invoice_templates")

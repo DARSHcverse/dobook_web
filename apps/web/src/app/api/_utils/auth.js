@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isOwnerEmail } from "@/lib/entitlements";
+
+async function ensureOwnerAccessSupabase(sb, business) {
+  if (!business) return business;
+  if (!isOwnerEmail(business.email)) return business;
+  if (String(business.account_role || "").trim().toLowerCase() === "owner") return business;
+
+  const updates = { account_role: "owner", subscription_plan: "pro", subscription_status: "active" };
+  const { data } = await sb.from("businesses").update(updates).eq("id", business.id).select("*").maybeSingle();
+  return data || { ...business, ...updates };
+}
+
+function ensureOwnerAccessLocal(db, business) {
+  if (!business) return business;
+  if (!isOwnerEmail(business.email)) return business;
+  if (String(business.account_role || "").trim().toLowerCase() === "owner") return business;
+  business.account_role = "owner";
+  business.subscription_plan = "pro";
+  business.subscription_status = "active";
+  writeDb(db);
+  return business;
+}
 
 export function unauthorized(detail = "Not authenticated") {
   return NextResponse.json({ detail }, { status: 401 });
@@ -31,7 +53,7 @@ export async function requireSession(request) {
       mode: "localdb",
       db,
       session,
-      business,
+      business: ensureOwnerAccessLocal(db, business),
       saveDb: (nextDb) => writeDb(nextDb),
       sanitizeBusiness,
     };
@@ -61,7 +83,7 @@ export async function requireSession(request) {
     mode: "supabase",
     supabase: sb,
     session,
-    business,
+    business: await ensureOwnerAccessSupabase(sb, business),
     sanitizeBusiness,
   };
 }
