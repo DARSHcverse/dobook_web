@@ -559,11 +559,11 @@ const LandingPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">
           <div className="md:col-span-7">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6" style={{fontFamily: 'Manrope'}}>
-              Booking System That
-              <span className="text-rose-600"> Actually Works</span>
+              Online Booking System
+              <span className="text-rose-600"> for Businesses</span>
             </h1>
             <p className="text-lg text-zinc-600 mb-8" style={{fontFamily: 'Inter'}}>
-              Multi-tenant booking platform with automated invoicing, email reminders, and embeddable widgets for your website.
+              DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.
             </p>
             <div className="flex gap-4">
               <Button 
