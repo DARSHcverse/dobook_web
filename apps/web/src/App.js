@@ -821,10 +821,25 @@ const Dashboard = () => {
   const loadBookings = async () => {
     try {
       const token = localStorage.getItem('dobook_token');
+      if (!token) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
       const response = await axios.get(`${API}/bookings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setBookings(response.data);
+      const list = Array.isArray(response.data) ? response.data : [];
+      const normalized = list.map((b) => ({
+        ...b,
+        price: b?.price !== undefined && b?.price !== null && b?.price !== '' ? Number(b.price) : 0,
+        quantity: b?.quantity !== undefined && b?.quantity !== null && b?.quantity !== '' ? Number(b.quantity) : 1,
+        duration_minutes:
+          b?.duration_minutes !== undefined && b?.duration_minutes !== null && b?.duration_minutes !== ''
+            ? Number(b.duration_minutes)
+            : 60,
+      }));
+      setBookings(normalized);
     } catch (error) {
       console.error('Failed to load bookings:', error);
     } finally {
@@ -842,7 +857,7 @@ const Dashboard = () => {
   const stats = {
     totalBookings: bookings.length,
     upcomingBookings: bookings.filter(b => new Date(b.booking_date) >= new Date()).length,
-    revenue: bookings.reduce((sum, b) => sum + (b.price || 0), 0)
+    revenue: bookings.reduce((sum, b) => sum + (Number(b?.price) || 0), 0)
   };
 
   return (
@@ -2033,7 +2048,7 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                       <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
                       <td className="py-3 px-4">{booking.booking_date}</td>
                       <td className="py-3 px-4">{booking.booking_time}</td>
-                      <td className="py-3 px-4">${booking.price?.toFixed(2) || '0.00'}</td>
+                      <td className="py-3 px-4">${(Number(booking.price) || 0).toFixed(2)}</td>
                       <td className="py-3 px-4">
                         <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
                           {booking.status}
