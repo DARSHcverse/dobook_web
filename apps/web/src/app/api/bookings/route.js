@@ -21,6 +21,14 @@ function monthRangeUtc(date = new Date()) {
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
+function dueDateIsoFromBookingDate(bookingDateStr) {
+  const s = String(bookingDateStr || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0)).toISOString();
+}
+
 function normalizeCustomFields(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
@@ -139,7 +147,7 @@ export async function POST(request) {
       status: "confirmed",
       invoice_id,
       invoice_date: invoiceDate.toISOString(),
-      due_date: new Date(invoiceDate.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      due_date: dueDateIsoFromBookingDate(bookingDateStr) || invoiceDate.toISOString(),
       custom_fields,
       confirmation_sent_at: null,
       business_notice_sent_at: null,
@@ -226,7 +234,7 @@ export async function POST(request) {
     status: "confirmed",
     invoice_id,
     invoice_date: invoiceDate.toISOString(),
-    due_date: new Date(invoiceDate.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    due_date: dueDateIsoFromBookingDate(body?.booking_date) || invoiceDate.toISOString(),
     custom_fields: normalizeCustomFields(body?.custom_fields),
     confirmation_sent_at: null,
     business_notice_sent_at: null,

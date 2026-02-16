@@ -252,7 +252,9 @@ async function downloadInvoicePdf({ booking, business, template }) {
 
   const invoiceNumber = booking?.invoice_id || `PB-${format(new Date(), 'yyyyMMdd')}-001`;
   const invoiceDate = booking?.invoice_date ? parseISO(booking.invoice_date) : new Date();
-  const dueDate = booking?.booking_date ? parseISO(booking.booking_date) : addDays(invoiceDate, 15);
+  const dueDate = booking?.booking_date
+    ? parseISO(booking.booking_date)
+    : (booking?.due_date ? parseISO(booking.due_date) : invoiceDate);
 
   // Header
   doc.setFont('helvetica', 'bold');

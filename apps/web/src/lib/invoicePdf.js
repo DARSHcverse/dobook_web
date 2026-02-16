@@ -155,7 +155,7 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
 
   const invoiceNo = booking?.invoice_id || `INV-${String(booking?.id || "").slice(0, 8).toUpperCase()}`;
   const invoiceDate = booking?.invoice_date || new Date().toISOString();
-  const dueDate = booking?.due_date || "";
+  const dueDate = booking?.booking_date || booking?.due_date || "";
 
   // Header
   doc.setFont("helvetica", "bold");
