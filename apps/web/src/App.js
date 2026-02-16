@@ -229,16 +229,6 @@ async function addLogoToPdf(doc, dataUri, box) {
   doc.addImage(supportedDataUri, fmt, x, y, w, h);
 }
 
-function hexToRgb(hex) {
-  const raw = String(hex || '').trim().replace(/^#/, '');
-  if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
-  return {
-    r: parseInt(raw.slice(0, 2), 16),
-    g: parseInt(raw.slice(2, 4), 16),
-    b: parseInt(raw.slice(4, 6), 16),
-  };
-}
-
 async function downloadInvoicePdf({ booking, business, template }) {
   if (!booking) return;
 
@@ -246,8 +236,6 @@ async function downloadInvoicePdf({ booking, business, template }) {
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 72;
 
-  const primary = String(template?.primary_color || '#e11d48').trim() || '#e11d48';
-  const rgb = hexToRgb(primary) || { r: 225, g: 29, b: 72 };
   const logoUrl = String(template?.logo_url || business?.logo_url || '').trim();
 
   const brand = {
@@ -268,12 +256,9 @@ async function downloadInvoicePdf({ booking, business, template }) {
   const dueDate = booking?.booking_date ? parseISO(booking.booking_date) : addDays(invoiceDate, 15);
 
   // Header
-  doc.setFillColor(rgb.r, rgb.g, rgb.b);
-  doc.rect(0, 48, pageW, 10, 'F');
-
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(28);
-  doc.setTextColor(rgb.r, rgb.g, rgb.b);
+  doc.setTextColor(80);
   doc.text('INVOICE', marginX, 112);
 
   // Logo (uploaded in Account Settings)
@@ -401,7 +386,7 @@ async function downloadInvoicePdf({ booking, business, template }) {
   doc.text('TOTAL', lineX2 - 90, totalsY + 26);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(rgb.r, rgb.g, rgb.b);
+  doc.setTextColor(70);
   doc.text(`$${total.toFixed(0)}`, lineX2, totalsY + 26, { align: 'right' });
 
   // Payment info
@@ -445,17 +430,8 @@ async function downloadInvoicePdf({ booking, business, template }) {
   doc.save(`${invoiceNumber}.pdf`);
 }
 
-const BookingDetailsDialog = ({ booking, onClose }) => {
-  const [business, setBusiness] = useState(null);
-
-  useEffect(() => {
-    try {
-      const storedBusiness = localStorage.getItem('dobook_business');
-      setBusiness(storedBusiness ? JSON.parse(storedBusiness) : null);
-    } catch {
-      setBusiness(null);
-    }
-  }, []);
+const BookingDetailsDialog = ({ booking, business, onClose }) => {
+  const [requestingReview, setRequestingReview] = useState(false);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
@@ -1295,7 +1271,35 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     try {
       const token = localStorage.getItem('dobook_token');
       const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
+      const type = String(file.type || '').toLowerCase();
+      let uploadFile = file;
+      if (type && type !== 'image/png' && type !== 'image/jpeg') {
+        try {
+          const asDataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          const img = await loadImage(asDataUrl);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 1;
+          canvas.height = img.naturalHeight || img.height || 1;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const pngDataUrl = canvas.toDataURL('image/png');
+          const blob = await (await fetch(pngDataUrl)).blob();
+          uploadFile = new File([blob], `${String(file.name || 'logo').replace(/\.[^.]+$/, '')}.png`, {
+            type: 'image/png',
+          });
+        } catch {
+          // If the browser can't decode/convert (common for HEIC in Chrome),
+          // upload as-is and let the server store it; email PDF may not render it.
+          uploadFile = file;
+        }
+      }
+
+      formDataUpload.append('file', uploadFile);
 
       const response = await axios.post(`${API}/business/upload-logo`, formDataUpload, {
         headers: { 
