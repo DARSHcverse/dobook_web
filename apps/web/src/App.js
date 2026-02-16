@@ -428,17 +428,8 @@ async function downloadInvoicePdf({ booking, business }) {
   doc.save(`${invoiceNumber}.pdf`);
 }
 
-const BookingDetailsDialog = ({ booking, onClose }) => {
-  const [business, setBusiness] = useState(null);
-
-  useEffect(() => {
-    try {
-      const storedBusiness = localStorage.getItem('dobook_business');
-      setBusiness(storedBusiness ? JSON.parse(storedBusiness) : null);
-    } catch {
-      setBusiness(null);
-    }
-  }, []);
+const BookingDetailsDialog = ({ booking, business, onClose }) => {
+  const [requestingReview, setRequestingReview] = useState(false);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
@@ -497,22 +488,63 @@ const BookingDetailsDialog = ({ booking, onClose }) => {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-zinc-600">Invoice</Label>
-                <Button
-                  data-testid="download-invoice-btn"
-                  onClick={async () => {
-                    try {
-                      await downloadInvoicePdf({ booking, business });
-                      toast.success('Invoice downloaded!');
-                    } catch (e) {
-                      toast.error('Failed to generate invoice PDF');
-                    }
-                  }}
-                  size="sm"
-                  className="h-9 bg-rose-600 hover:bg-rose-700"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+                <div className="flex items-center gap-2">
+                  {String(booking?.customer_email || '').trim() && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      disabled={requestingReview}
+                      onClick={async () => {
+                        setRequestingReview(true);
+                        try {
+                          const token = localStorage.getItem('dobook_token');
+                          const res = await axios.post(
+                            `${API}/reviews/request`,
+                            { booking_id: booking.id },
+                            { headers: { Authorization: `Bearer ${token}` } },
+                          );
+                          const url = res?.data?.url;
+                          const skipped = Boolean(res?.data?.email?.skipped);
+                          if (skipped && url) {
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              toast.success('Review link copied (email not sent)');
+                            } catch {
+                              toast.success('Review link created');
+                            }
+                          } else {
+                            toast.success('Review request sent');
+                          }
+                        } catch (e) {
+                          toast.error(e.response?.data?.detail || 'Failed to request review');
+                        } finally {
+                          setRequestingReview(false);
+                        }
+                      }}
+                    >
+                      {requestingReview ? 'Sending…' : 'Request review'}
+                    </Button>
+                  )}
+
+                  <Button
+                    data-testid="download-invoice-btn"
+                    onClick={async () => {
+                      try {
+                        await downloadInvoicePdf({ booking, business });
+                        toast.success('Invoice downloaded!');
+                      } catch (e) {
+                        toast.error('Failed to generate invoice PDF');
+                      }
+                    }}
+                    size="sm"
+                    className="h-9 bg-rose-600 hover:bg-rose-700"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </div>
               <div className="p-4 bg-zinc-50 rounded-lg">
                 <p className="text-sm text-zinc-600">
@@ -727,6 +759,36 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    const onStorage = (e) => {
+      if (!e) return;
+      if (e.key === 'dobook_business') {
+        try {
+          setBusiness(e.newValue ? JSON.parse(e.newValue) : null);
+        } catch {
+          // ignore
+        }
+      }
+      if (e.key === 'dobook_token' && !e.newValue) {
+        setBusiness(null);
+        setBookings([]);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('dobook_token');
+    if (!token) return;
+    const id = window.setInterval(() => {
+      refreshBusiness();
+      loadBookings();
+    }, 15000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (searchParams?.get('upgraded') === '1') {
       toast.success('Thanks! Your subscription is being activated.');
       refreshBusiness();
@@ -750,6 +812,10 @@ const Dashboard = () => {
   const loadBookings = async () => {
     try {
       const token = localStorage.getItem('dobook_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       const response = await axios.get(`${API}/bookings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1119,7 +1185,7 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
-        {activeTab === 'calendar' && <CalendarViewTab bookings={bookings} />}
+        {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
@@ -2215,13 +2281,13 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
         </DialogContent>
       </Dialog>
 
-      <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+      <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
     </>
   );
 };
 
 // ============= Calendar View Tab =============
-const CalendarViewTab = ({ bookings }) => {
+const CalendarViewTab = ({ business, bookings }) => {
   const [displayMode, setDisplayMode] = useState('calendar'); // calendar | list
   const [view, setView] = useState(Views.MONTH);
   const [date, setDate] = useState(new Date(2026, 1, 1)); // February 2026
@@ -2417,7 +2483,7 @@ const CalendarViewTab = ({ bookings }) => {
           </div>
         )}
 
-        <BookingDetailsDialog booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+        <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
       </CardContent>
     </Card>
   );
