@@ -72,11 +72,22 @@ function bookingSummaryTableHtml({ booking }) {
   `;
 }
 
-function emailLayout({ title, preheader, contentHtml }) {
+function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt }) {
   const brand = "#e11d48";
   const bg = "#f4f4f5";
   const site = resolveSiteUrl();
-  const logo = `${site}/brand/dobook-logo.png`;
+  const defaultLogo = `${site}/brand/dobook-logo.png`;
+
+  const resolveLogo = (raw) => {
+    const s = String(raw || "").trim();
+    if (!s) return defaultLogo;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("/")) return `${site}${s}`;
+    return `${site}/${s}`;
+  };
+
+  const logo = resolveLogo(logoUrl);
+  const alt = String(logoAlt || "DoBook").trim() || "DoBook";
 
   return `
     <!doctype html>
@@ -97,7 +108,7 @@ function emailLayout({ title, preheader, contentHtml }) {
                 <tr>
                   <td style="padding:12px 4px 18px;">
                     <a href="${site}" style="text-decoration:none;">
-                      <img src="${logo}" width="140" alt="DoBook" style="display:block; height:auto;" />
+                      <img src="${escapeHtml(logo)}" width="140" alt="${escapeHtml(alt)}" style="display:block; height:auto;" />
                     </a>
                   </td>
                 </tr>
@@ -165,6 +176,7 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
   const includeInvoicePdf = hasProAccess(business);
+  const logoUrl = business?.logo_url || "";
 
   const attachments = [];
   if (includeInvoicePdf) {
@@ -193,6 +205,8 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const customerHtml = emailLayout({
     title: `Booking confirmed`,
     preheader: `Your booking with ${businessName} is confirmed.`,
+    logoUrl,
+    logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
       ${bookingSummaryTableHtml({ booking })}
@@ -207,6 +221,8 @@ export async function sendBookingCreatedEmails({ booking, business }) {
   const businessHtml = emailLayout({
     title: "New booking",
     preheader: `${customerName} booked you.`,
+    logoUrl,
+    logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> booked you.`)}
       ${bookingSummaryTableHtml({ booking })}
@@ -246,6 +262,8 @@ export async function sendBookingCreatedEmails({ booking, business }) {
 export async function sendBookingReminderEmail({ booking, business, daysBefore }) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
+  const businessName = safeName(business?.business_name) || "this business";
+  const logoUrl = business?.logo_url || "";
 
   const subject = `Reminder: your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}`;
   const lines = bookingSummaryLines({ booking });
@@ -254,6 +272,8 @@ export async function sendBookingReminderEmail({ booking, business, daysBefore }
   const html = emailLayout({
     title: "Event reminder",
     preheader: `Your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}.`,
+    logoUrl,
+    logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`Just a reminder your event is coming up in <strong style="color:#18181b;">${daysBefore}</strong> day${daysBefore === 1 ? "" : "s"}.`)}
       ${bookingSummaryTableHtml({ booking })}
