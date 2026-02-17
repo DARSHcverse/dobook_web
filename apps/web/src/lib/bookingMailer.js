@@ -76,16 +76,19 @@ function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt }) {
   const site = resolveSiteUrl();
   const defaultLogo = `${site}/brand/dobook-logo.png`;
 
-  const resolveLogo = (raw) => {
+  const resolveLogo = (raw, businessId) => {
     const s = String(raw || "").trim();
     if (!s) return defaultLogo;
-    if (/^data:image\//i.test(s)) return s;
+    if (/^data:image\//i.test(s)) {
+      if (!businessId) return defaultLogo;
+      return `${site}/api/public/business-logo?business_id=${encodeURIComponent(String(businessId))}`;
+    }
     if (/^https?:\/\//i.test(s)) return s;
     if (s.startsWith("/")) return `${site}${s}`;
     return `${site}/${s}`;
   };
 
-  const logo = resolveLogo(logoUrl);
+  const logo = resolveLogo(logoUrl?.url, logoUrl?.businessId);
   const alt = String(logoAlt || "DoBook").trim() || "DoBook";
 
   return `
@@ -175,7 +178,7 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
   const includeInvoicePdf = hasProAccess(business);
-  const logoUrl = business?.logo_url || "";
+  const logoUrl = { url: business?.logo_url || "", businessId: business?.id || "" };
 
   const attachments = [];
   if (includeInvoicePdf) {
@@ -258,7 +261,60 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
   return results;
 }
 
-export async function sendBookingReminderEmail({ booking, business, daysBefore }) {
+function parseBookingDateUtc(bookingDateStr) {
+  const s = String(bookingDateStr || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d, 9, 0, 0, 0)); // default 09:00 UTC
+}
+
+function reminderAtUtc(eventAtUtc, daysBefore) {
+  const d = new Date(eventAtUtc);
+  d.setUTCDate(d.getUTCDate() - Number(daysBefore || 0));
+  return d;
+}
+
+export async function scheduleBookingRemindersViaResend({ booking, business }) {
+  if (!hasProAccess(business)) return { ok: false, skipped: true, error: "No Pro access" };
+
+  const scheduleViaResend = String(process.env.REMINDERS_SCHEDULE_VIA_RESEND || "").trim().toLowerCase();
+  const shouldSchedule =
+    scheduleViaResend === "1" ||
+    scheduleViaResend === "true" ||
+    scheduleViaResend === "yes" ||
+    !process.env.CRON_SECRET;
+
+  if (!shouldSchedule) return { ok: false, skipped: true, error: "Scheduling disabled" };
+
+  const eventAt = parseBookingDateUtc(booking?.booking_date);
+  if (!eventAt) return { ok: false, skipped: true, error: "No booking_date" };
+
+  const now = new Date();
+  const schedule = [5, 1];
+  const scheduled = { reminder_5d_scheduled_at: null, reminder_1d_scheduled_at: null };
+  for (const daysBefore of schedule) {
+    const when = reminderAtUtc(eventAt, daysBefore);
+    // Only schedule future reminders.
+    if (!(when instanceof Date) || Number.isNaN(when.getTime())) continue;
+    if (when.getTime() <= now.getTime() + 5 * 60 * 1000) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const res = await sendBookingReminderEmail({
+      booking,
+      business,
+      daysBefore,
+      scheduledAt: when.toISOString(),
+    });
+    if (res?.ok) {
+      if (daysBefore === 5) scheduled.reminder_5d_scheduled_at = when.toISOString();
+      if (daysBefore === 1) scheduled.reminder_1d_scheduled_at = when.toISOString();
+    }
+  }
+
+  return { ok: true, scheduled };
+}
+
+export async function sendBookingReminderEmail({ booking, business, daysBefore, scheduledAt }) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
 
@@ -269,6 +325,8 @@ export async function sendBookingReminderEmail({ booking, business, daysBefore }
   const html = emailLayout({
     title: "Event reminder",
     preheader: `Your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: safeName(business?.business_name) || "DoBook",
     contentHtml: `
       ${paragraphHtml(`Just a reminder your event is coming up in <strong style="color:#18181b;">${daysBefore}</strong> day${daysBefore === 1 ? "" : "s"}.`)}
       ${bookingSummaryTableHtml({ booking })}
@@ -276,5 +334,12 @@ export async function sendBookingReminderEmail({ booking, business, daysBefore }
   });
   const text = `Event Reminder\n\nYour event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}.\n\n${summaryText}`;
 
-  return sendEmailViaResend({ to: customerEmail, subject, html, text, replyTo: safeEmail(business?.email) || undefined });
+  return sendEmailViaResend({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+    scheduledAt,
+    replyTo: safeEmail(business?.email) || undefined,
+  });
 }

@@ -5,6 +5,7 @@ export async function sendEmailViaResend({
   text,
   attachments,
   replyTo,
+  scheduledAt,
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, skipped: true, error: "RESEND_API_KEY not set" };
@@ -45,6 +46,7 @@ export async function sendEmailViaResend({
       html,
       text,
       reply_to: replyTo,
+      scheduled_at: scheduledAt || undefined,
       attachments: (attachments || []).map((a) => ({
         filename: a.filename,
         content: a.content,

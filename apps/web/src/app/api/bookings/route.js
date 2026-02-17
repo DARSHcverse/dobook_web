@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { requireSession } from "../_utils/auth";
 import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
+import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
@@ -153,6 +153,8 @@ export async function POST(request) {
       business_notice_sent_at: null,
       reminder_5d_sent_at: null,
       reminder_1d_sent_at: null,
+      reminder_5d_scheduled_at: null,
+      reminder_1d_scheduled_at: null,
       created_at: new Date().toISOString(),
     };
 
@@ -176,6 +178,13 @@ export async function POST(request) {
       const updates = {};
       if (emailResults?.customer?.ok) updates.confirmation_sent_at = new Date().toISOString();
       if (emailResults?.business?.ok) updates.business_notice_sent_at = new Date().toISOString();
+
+      const scheduled = await scheduleBookingRemindersViaResend({ booking: inserted, business });
+      if (scheduled?.ok && scheduled?.scheduled) {
+        if (scheduled.scheduled.reminder_5d_scheduled_at) updates.reminder_5d_scheduled_at = scheduled.scheduled.reminder_5d_scheduled_at;
+        if (scheduled.scheduled.reminder_1d_scheduled_at) updates.reminder_1d_scheduled_at = scheduled.scheduled.reminder_1d_scheduled_at;
+      }
+
       if (Object.keys(updates).length) {
         await sb.from("bookings").update(updates).eq("id", inserted.id).eq("business_id", businessId);
       }
@@ -240,6 +249,8 @@ export async function POST(request) {
     business_notice_sent_at: null,
     reminder_5d_sent_at: null,
     reminder_1d_sent_at: null,
+    reminder_5d_scheduled_at: null,
+    reminder_1d_scheduled_at: null,
     created_at: new Date().toISOString(),
   };
 
@@ -254,6 +265,12 @@ export async function POST(request) {
     const now = new Date().toISOString();
     if (emailResults?.customer?.ok) booking.confirmation_sent_at = now;
     if (emailResults?.business?.ok) booking.business_notice_sent_at = now;
+
+    const scheduled = await scheduleBookingRemindersViaResend({ booking, business });
+    if (scheduled?.ok && scheduled?.scheduled) {
+      if (scheduled.scheduled.reminder_5d_scheduled_at) booking.reminder_5d_scheduled_at = scheduled.scheduled.reminder_5d_scheduled_at;
+      if (scheduled.scheduled.reminder_1d_scheduled_at) booking.reminder_1d_scheduled_at = scheduled.scheduled.reminder_1d_scheduled_at;
+    }
     writeDb(db);
   } catch {
     // ignore email failures

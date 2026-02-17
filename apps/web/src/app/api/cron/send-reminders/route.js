@@ -34,6 +34,16 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json(
+      {
+        detail:
+          "CRON_SECRET is not set. Either set CRON_SECRET and call this endpoint from a daily cron, or enable Resend scheduling via REMINDERS_SCHEDULE_VIA_RESEND=true.",
+      },
+      { status: 400 },
+    );
+  }
+
   if (!isAuthorized(request)) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
@@ -71,7 +81,9 @@ export async function POST(request) {
       if (!hasProAccess(business)) return false;
 
       const already =
-        daysBefore === 5 ? booking.reminder_5d_sent_at : booking.reminder_1d_sent_at;
+        daysBefore === 5
+          ? booking.reminder_5d_sent_at || booking.reminder_5d_scheduled_at
+          : booking.reminder_1d_sent_at || booking.reminder_1d_scheduled_at;
       if (already) return false;
 
       const result = await sendBookingReminderEmail({ booking, business, daysBefore });
@@ -110,7 +122,9 @@ export async function POST(request) {
     if (!hasProAccess(business)) return false;
 
     const field = daysBefore === 5 ? "reminder_5d_sent_at" : "reminder_1d_sent_at";
+    const scheduledField = daysBefore === 5 ? "reminder_5d_scheduled_at" : "reminder_1d_scheduled_at";
     if (booking[field]) return false;
+    if (booking[scheduledField]) return false;
 
     const result = await sendBookingReminderEmail({ booking, business, daysBefore });
     if (!result?.ok) return false;
