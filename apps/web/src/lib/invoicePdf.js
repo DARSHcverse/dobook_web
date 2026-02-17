@@ -10,6 +10,36 @@ function asMoneyNoCents(value) {
   return `$${Number.isFinite(n) ? n.toFixed(0) : "0"}`;
 }
 
+function clampByte(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+function hexToRgb(hex) {
+  const s = String(hex || "").trim();
+  const m = s.match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  // eslint-disable-next-line no-bitwise
+  const r = (n >> 16) & 255;
+  // eslint-disable-next-line no-bitwise
+  const g = (n >> 8) & 255;
+  // eslint-disable-next-line no-bitwise
+  const b = n & 255;
+  return { r, g, b };
+}
+
+function setFillHex(doc, hex, fallback = { r: 0, g: 0, b: 0 }) {
+  const rgb = hexToRgb(hex) || fallback;
+  doc.setFillColor(clampByte(rgb.r), clampByte(rgb.g), clampByte(rgb.b));
+}
+
+function setTextHex(doc, hex, fallback = { r: 0, g: 0, b: 0 }) {
+  const rgb = hexToRgb(hex) || fallback;
+  doc.setTextColor(clampByte(rgb.r), clampByte(rgb.g), clampByte(rgb.b));
+}
+
 function formatHours(value) {
   const n = Number(value || 0);
   if (!Number.isFinite(n) || n <= 0) return "";
@@ -145,28 +175,78 @@ function drawLogo(doc, asset, box) {
   doc.addImage(asset.dataUrl, asset.format, x, y, w, h);
 }
 
-export async function generateInvoicePdfBase64({ booking, business, template }) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth();
-  const marginX = 72;
+function commonInvoiceData({ booking, business }) {
+  const qty = Math.max(1, Number(booking?.quantity || 1));
+  const unit = Number(booking?.price || 0);
+  const total = unit * qty;
 
-  const logoUrl = String(template?.logo_url || business?.logo_url || "").trim();
-  const logoAsset = await fetchImageAsDataUrl(logoUrl);
+  const booth = String(booking?.booth_type || booking?.service_type || "Booking").trim() || "Booking";
+  const hoursRaw = booking?.duration_minutes ? Number(booking.duration_minutes) / 60 : 0;
+  const hours = formatHours(hoursRaw) || "1";
+  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
+  const description = `${hours} ${hourLabel} ${booth}`;
 
   const invoiceNo = booking?.invoice_id || `INV-${String(booking?.id || "").slice(0, 8).toUpperCase()}`;
   const invoiceDate = booking?.invoice_date || new Date().toISOString();
-  const dueDate = booking?.booking_date || booking?.due_date || "";
+  const dueDate = booking?.due_date || booking?.booking_date || "";
+
+  const businessName = String(business?.business_name || "").trim() || "Business";
+  const businessAddress = String(business?.business_address || "").trim();
+  const businessEmail = String(business?.email || "").trim();
+
+  const customerName = String(booking?.customer_name || "").trim() || "Customer";
+  const customerEmail = String(booking?.customer_email || "").trim();
+
+  const bankLines = [
+    String(business?.account_name || "").trim(),
+    String(business?.bank_name || "").trim(),
+    business?.bsb ? `BSB: ${String(business.bsb)}` : "",
+    business?.account_number ? `Account number: ${String(business.account_number)}` : "",
+  ].filter(Boolean);
+
+  const paymentLink = String(business?.payment_link || "").trim();
+
+  return {
+    qty,
+    unit,
+    total,
+    description,
+    invoiceNo,
+    invoiceDate,
+    dueDate,
+    businessName,
+    businessAddress,
+    businessEmail,
+    customerName,
+    customerEmail,
+    bankLines,
+    paymentLink,
+  };
+}
+
+function formatDateShort(value) {
+  return formatAuDateDots(value) || formatDate(value);
+}
+
+function renderClassic({ doc, pageW, marginX, booking, business, logoAsset, accentHex }) {
+  const d = commonInvoiceData({ booking, business });
+  const lineX1 = marginX;
+  const lineX2 = pageW - marginX;
+
+  // Top accent
+  setFillHex(doc, accentHex, { r: 225, g: 29, b: 72 });
+  doc.rect(0, 0, pageW, 18, "F");
 
   // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(28);
-  doc.setTextColor(80);
+  setTextHex(doc, "#3f3f46", { r: 80, g: 80, b: 80 });
   doc.text("INVOICE", marginX, 112);
 
   // Logo (top-right)
   if (logoAsset) {
     try {
-      drawLogo(doc, logoAsset, { x: pageW - marginX - 140, y: 70, w: 140, h: 70 });
+      drawLogo(doc, logoAsset, { x: pageW - marginX - 140, y: 40, w: 140, h: 70 });
     } catch {
       // ignore
     }
@@ -229,15 +309,12 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  doc.text(String(invoiceNo), metaRight, metaY, { align: "right" });
-  doc.text(formatAuDateDots(invoiceDate) || formatDate(invoiceDate), metaRight, metaY + 18, { align: "right" });
-  if (dueDate) doc.text(formatAuDateDots(dueDate) || formatDate(dueDate), metaRight, metaY + 36, { align: "right" });
+  doc.text(String(d.invoiceNo), metaRight, metaY, { align: "right" });
+  doc.text(formatDateShort(d.invoiceDate), metaRight, metaY + 18, { align: "right" });
+  if (d.dueDate) doc.text(formatDateShort(d.dueDate), metaRight, metaY + 36, { align: "right" });
 
   // Table
   const tableTopY = 395;
-  const lineX1 = marginX;
-  const lineX2 = pageW - marginX;
-
   doc.setDrawColor(220);
   doc.setLineWidth(1);
   doc.line(lineX1, tableTopY - 20, lineX2, tableTopY - 20);
@@ -252,24 +329,14 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
 
   doc.line(lineX1, tableTopY + 12, lineX2, tableTopY + 12);
 
-  const qty = Math.max(1, Number(booking?.quantity || 1));
-  const unit = Number(booking?.price || 0);
-  const total = unit * qty;
-
-  const booth = String(booking?.booth_type || booking?.service_type || "Booking").trim() || "Booking";
-  const hoursRaw = booking?.duration_minutes ? Number(booking.duration_minutes) / 60 : 0;
-  const hours = formatHours(hoursRaw) || "1";
-  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
-  const description = `${hours} ${hourLabel} ${booth}`;
-
   const rowY = tableTopY + 44;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  doc.text(String(description), marginX, rowY);
-  doc.text(String(Number.isFinite(unit) ? unit.toFixed(0) : "0"), 340, rowY);
-  doc.text(String(qty), 430, rowY);
-  doc.text(asMoneyNoCents(total), lineX2, rowY, { align: "right" });
+  doc.text(String(d.description), marginX, rowY);
+  doc.text(String(Number.isFinite(d.unit) ? d.unit.toFixed(0) : "0"), 340, rowY);
+  doc.text(String(d.qty), 430, rowY);
+  doc.text(asMoneyNoCents(d.total), lineX2, rowY, { align: "right" });
 
   // Totals block
   const totalsY = 585;
@@ -283,7 +350,7 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  doc.text(asMoneyNoCents(total), lineX2, totalsY, { align: "right" });
+  doc.text(asMoneyNoCents(d.total), lineX2, totalsY, { align: "right" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -292,7 +359,7 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  doc.text(asMoneyNoCents(total), lineX2, totalsY + 26, { align: "right" });
+  doc.text(asMoneyNoCents(d.total), lineX2, totalsY + 26, { align: "right" });
 
   // Payment info
   const payY = 690;
@@ -304,19 +371,12 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  const payLines = [
-    String(business?.account_name || "").trim(),
-    String(business?.bank_name || "").trim(),
-    business?.bsb ? `BSB: ${String(business.bsb)}` : "",
-    business?.account_number ? `Account number: ${String(business.account_number)}` : "",
-  ].filter(Boolean);
-  payLines.forEach((line, idx) => {
+  d.bankLines.forEach((line, idx) => {
     doc.text(line, marginX, payY + 16 + idx * 14);
   });
 
-  const paymentLink = String(business?.payment_link || "").trim();
-  if (paymentLink) {
-    const orY = payY + 16 + payLines.length * 14 + 12;
+  if (d.paymentLink) {
+    const orY = payY + 16 + d.bankLines.length * 14 + 12;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(120);
@@ -324,7 +384,7 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(70);
-    doc.text(paymentLink, marginX, orY + 18);
+    doc.text(d.paymentLink, marginX, orY + 18);
   }
 
   // Signature (stylized)
@@ -333,6 +393,411 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   doc.setTextColor(60);
   const signature = String(business?.account_name || business?.business_name || "").trim();
   if (signature) doc.text(signature, lineX2, 780, { align: "right" });
+}
+
+function renderClean({ doc, pageW, pageH, marginX, booking, business, logoAsset, accentHex }) {
+  const d = commonInvoiceData({ booking, business });
+  const lineX2 = pageW - marginX;
+  const top = 54;
+
+  // Card background
+  doc.setDrawColor(228);
+  setFillHex(doc, "#ffffff", { r: 255, g: 255, b: 255 });
+  doc.roundedRect(marginX - 18, 36, pageW - (marginX - 18) * 2, pageH - 72, 12, 12, "FD");
+
+  // Header blocks
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(24);
+  doc.text(d.businessName, marginX, top);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(90);
+  if (d.businessAddress) doc.text(d.businessAddress, marginX, top + 16);
+  if (d.businessEmail) doc.text(d.businessEmail, marginX, top + 30);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(20);
+  doc.text("INVOICE", lineX2, top, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(60);
+  doc.text(`#${d.invoiceNo}`, lineX2, top + 18, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(90);
+  doc.text(`Date: ${formatDateShort(d.invoiceDate)}`, lineX2, top + 34, { align: "right" });
+  doc.text(`Due: ${formatDateShort(d.dueDate)}`, lineX2, top + 48, { align: "right" });
+
+  if (logoAsset) {
+    try {
+      drawLogo(doc, logoAsset, { x: lineX2 - 140, y: 40, w: 140, h: 50 });
+    } catch {
+      // ignore
+    }
+  }
+
+  // Divider
+  doc.setDrawColor(220);
+  doc.line(marginX, 120, lineX2, 120);
+
+  // Bill to
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30);
+  doc.text("Bill To:", marginX, 150);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(70);
+  doc.text(d.customerName, marginX, 168);
+  if (d.customerEmail) doc.text(d.customerEmail, marginX, 184);
+
+  // Table header
+  const tableY = 230;
+  setFillHex(doc, "#f3f4f6", { r: 243, g: 244, b: 246 });
+  doc.rect(marginX, tableY - 16, lineX2 - marginX, 26, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  doc.text("DESCRIPTION", marginX + 10, tableY);
+  doc.text("QTY", marginX + 330, tableY);
+  doc.text("PRICE", marginX + 400, tableY);
+  doc.text("TOTAL", lineX2 - 10, tableY, { align: "right" });
+
+  // Row
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(50);
+  doc.text(d.description, marginX + 10, tableY + 36);
+  doc.text(String(d.qty), marginX + 330, tableY + 36);
+  doc.text(asMoney(d.unit), marginX + 400, tableY + 36);
+  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.setDrawColor(230);
+  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+
+  // Totals
+  const totalsTop = tableY + 92;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`Subtotal: ${asMoney(d.total)}`, lineX2 - 10, totalsTop, { align: "right" });
+  doc.text(`Tax: ${asMoney(0)}`, lineX2 - 10, totalsTop + 16, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  setTextHex(doc, accentHex, { r: 225, g: 29, b: 72 });
+  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, totalsTop + 42, { align: "right" });
+}
+
+function renderGradient({ doc, pageW, marginX, booking, business, logoAsset }) {
+  const d = commonInvoiceData({ booking, business });
+  const lineX2 = pageW - marginX;
+
+  // Two-tone header (gradient-like)
+  setFillHex(doc, "#e11d48", { r: 225, g: 29, b: 72 });
+  doc.rect(0, 0, pageW / 2, 130, "F");
+  setFillHex(doc, "#9333ea", { r: 147, g: 51, b: 234 });
+  doc.rect(pageW / 2, 0, pageW / 2, 130, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(255);
+  doc.text("INVOICE", marginX, 70);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.text(`#${d.invoiceNo}`, marginX, 92);
+
+  if (logoAsset) {
+    try {
+      drawLogo(doc, logoAsset, { x: lineX2 - 140, y: 30, w: 140, h: 70 });
+    } catch {
+      // ignore
+    }
+  }
+
+  // Body
+  const y = 175;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(40);
+  doc.text(d.businessName, marginX, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(90);
+  if (d.businessAddress) doc.text(d.businessAddress, marginX, y + 16);
+
+  doc.setTextColor(60);
+  doc.text(`Date: ${formatDateShort(d.invoiceDate)}`, lineX2, y, { align: "right" });
+  doc.text(`Due: ${formatDateShort(d.dueDate)}`, lineX2, y + 16, { align: "right" });
+
+  doc.setDrawColor(220);
+  doc.line(marginX, y + 44, lineX2, y + 44);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(50);
+  doc.text("Bill To:", marginX, y + 74);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(d.customerName, marginX, y + 92);
+
+  const tableY = y + 140;
+  setFillHex(doc, "#f3f4f6", { r: 243, g: 244, b: 246 });
+  doc.rect(marginX, tableY - 16, lineX2 - marginX, 26, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  doc.text("DESCRIPTION", marginX + 10, tableY);
+  doc.text("AMOUNT", lineX2 - 10, tableY, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(50);
+  doc.text(d.description, marginX + 10, tableY + 36);
+  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.setDrawColor(230);
+  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(40);
+  doc.text(asMoney(d.total), lineX2 - 10, tableY + 98, { align: "right" });
+}
+
+function renderNavy({ doc, pageW, marginX, booking, business, logoAsset }) {
+  const d = commonInvoiceData({ booking, business });
+  const lineX2 = pageW - marginX;
+
+  setFillHex(doc, "#1e3a8a", { r: 30, g: 58, b: 138 });
+  doc.rect(0, 0, pageW, 110, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(255);
+  doc.text("INVOICE", marginX, 72);
+
+  if (logoAsset) {
+    try {
+      drawLogo(doc, logoAsset, { x: lineX2 - 140, y: 24, w: 140, h: 70 });
+    } catch {
+      // ignore
+    }
+  }
+
+  const y = 160;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(30);
+  doc.text(d.businessName, marginX, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(90);
+  if (d.businessAddress) doc.text(d.businessAddress, marginX, y + 16);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60);
+  doc.text(`Invoice #: ${d.invoiceNo}`, lineX2, y, { align: "right" });
+  doc.text(`Date: ${formatDateShort(d.invoiceDate)}`, lineX2, y + 16, { align: "right" });
+
+  doc.setDrawColor(220);
+  doc.line(marginX, y + 40, lineX2, y + 40);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(40);
+  doc.text("Customer Details", marginX, y + 72);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(70);
+  doc.text(d.customerName, marginX, y + 90);
+
+  const tableY = y + 136;
+  setFillHex(doc, "#e5e7eb", { r: 229, g: 231, b: 235 });
+  doc.rect(marginX, tableY - 16, lineX2 - marginX, 26, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  doc.text("SERVICE", marginX + 10, tableY);
+  doc.text("QTY", marginX + 360, tableY);
+  doc.text("TOTAL", lineX2 - 10, tableY, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(50);
+  doc.text(d.description, marginX + 10, tableY + 36);
+  doc.text(String(d.qty), marginX + 360, tableY + 36);
+  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.setDrawColor(230);
+  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  setTextHex(doc, "#1e3a8a", { r: 30, g: 58, b: 138 });
+  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, tableY + 100, { align: "right" });
+}
+
+function renderElegant({ doc, pageW, marginX, booking, business, logoAsset }) {
+  const d = commonInvoiceData({ booking, business });
+  const lineX2 = pageW - marginX;
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(30);
+  doc.text("INVOICE", pageW / 2, 90, { align: "center" });
+  doc.setFont("times", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(90);
+  doc.text(`#${d.invoiceNo}`, pageW / 2, 112, { align: "center" });
+
+  if (logoAsset) {
+    try {
+      drawLogo(doc, logoAsset, { x: pageW / 2 - 60, y: 22, w: 120, h: 45 });
+    } catch {
+      // ignore
+    }
+  }
+
+  doc.setDrawColor(210);
+  doc.line(marginX, 150, lineX2, 150);
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(30);
+  doc.text(d.businessName, marginX, 182);
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(80);
+  if (d.businessAddress) doc.text(d.businessAddress, marginX, 200);
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(30);
+  doc.text("Bill To:", marginX, 250);
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(70);
+  doc.text(d.customerName, marginX, 268);
+
+  const tableY = 320;
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(50);
+  doc.text("DESCRIPTION", marginX, tableY);
+  doc.text("TOTAL", lineX2, tableY, { align: "right" });
+  doc.setDrawColor(220);
+  doc.line(marginX, tableY + 8, lineX2, tableY + 8);
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(50);
+  doc.text(d.description, marginX, tableY + 36);
+  doc.text(asMoney(d.total), lineX2, tableY + 36, { align: "right" });
+
+  doc.setDrawColor(220);
+  doc.line(marginX, tableY + 56, lineX2, tableY + 56);
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(30);
+  doc.text(`Total Due: ${asMoney(d.total)}`, lineX2, tableY + 110, { align: "right" });
+}
+
+function renderSidebar({ doc, pageW, pageH, marginX, booking, business, logoAsset }) {
+  const d = commonInvoiceData({ booking, business });
+  const sidebarW = 190;
+  const lineX2 = pageW - marginX;
+
+  setFillHex(doc, "#111827", { r: 17, g: 24, b: 39 });
+  doc.rect(0, 0, sidebarW, pageH, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(255);
+  doc.text(d.businessName, 26, 80, { maxWidth: sidebarW - 52 });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(220);
+  if (d.businessAddress) doc.text(d.businessAddress, 26, 102, { maxWidth: sidebarW - 52 });
+  if (d.businessEmail) doc.text(d.businessEmail, 26, 138, { maxWidth: sidebarW - 52 });
+
+  if (logoAsset) {
+    try {
+      drawLogo(doc, logoAsset, { x: 26, y: 24, w: sidebarW - 52, h: 40 });
+    } catch {
+      // ignore
+    }
+  }
+
+  const x = sidebarW + 36;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(30);
+  doc.setTextColor(30);
+  doc.text("INVOICE", lineX2, 80, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(80);
+  doc.text(`#${d.invoiceNo}`, lineX2, 102, { align: "right" });
+  doc.text(formatDateShort(d.invoiceDate), lineX2, 124, { align: "right" });
+
+  doc.setDrawColor(220);
+  doc.line(x, 150, lineX2, 150);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(40);
+  doc.text("Customer", x, 186);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(70);
+  doc.text(d.customerName, x, 206);
+
+  const tableY = 260;
+  setFillHex(doc, "#f3f4f6", { r: 243, g: 244, b: 246 });
+  doc.rect(x, tableY - 16, lineX2 - x, 26, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(70);
+  doc.text("DESCRIPTION", x + 10, tableY);
+  doc.text("AMOUNT", lineX2 - 10, tableY, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(50);
+  doc.text(d.description, x + 10, tableY + 36);
+  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.setDrawColor(230);
+  doc.line(x, tableY + 52, lineX2, tableY + 52);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(30);
+  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, tableY + 106, { align: "right" });
+}
+
+export async function generateInvoicePdfBase64({ booking, business, template }) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 72;
+
+  const logoUrl = String(template?.logo_url || business?.logo_url || "").trim();
+  const logoAsset = await fetchImageAsDataUrl(logoUrl);
+
+  const templateName = String(template?.template_name || "Classic").trim() || "Classic";
+  const accentHex = String(template?.primary_color || "#e11d48").trim() || "#e11d48";
+
+  if (templateName === "Clean") {
+    renderClean({ doc, pageW, pageH, marginX, booking, business, logoAsset, accentHex });
+  } else if (templateName === "Gradient") {
+    renderGradient({ doc, pageW, marginX, booking, business, logoAsset });
+  } else if (templateName === "Navy") {
+    renderNavy({ doc, pageW, marginX, booking, business, logoAsset });
+  } else if (templateName === "Elegant") {
+    renderElegant({ doc, pageW, marginX, booking, business, logoAsset });
+  } else if (templateName === "Sidebar") {
+    renderSidebar({ doc, pageW, pageH, marginX, booking, business, logoAsset });
+  } else {
+    renderClassic({ doc, pageW, marginX, booking, business, logoAsset, accentHex });
+  }
 
   const buf = doc.output("arraybuffer");
   return Buffer.from(buf).toString("base64");

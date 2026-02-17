@@ -2505,6 +2505,7 @@ const InvoiceTemplatesTab = ({ businessId }) => {
   const [customColor, setCustomColor] = useState('#e11d48');
   const [logoUrl, setLogoUrl] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const allowedTemplateNames = ['Classic', 'Clean', 'Gradient', 'Navy', 'Elegant', 'Sidebar'];
 
   useEffect(() => {
     loadTemplates();
@@ -2517,6 +2518,13 @@ const InvoiceTemplatesTab = ({ businessId }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTemplates(response.data);
+      const active = Array.isArray(response.data) ? response.data[0] : null;
+      if (active) {
+        const nextName = allowedTemplateNames.includes(active.template_name) ? active.template_name : 'Classic';
+        setSelectedTemplate(nextName);
+        setCustomColor(active.primary_color || '#e11d48');
+        setLogoUrl(active.logo_url || '');
+      }
     } catch (error) {
       console.error('Failed to load templates:', error);
     }
@@ -2532,34 +2540,30 @@ const InvoiceTemplatesTab = ({ businessId }) => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('Invoice template saved!');
+      toast.success('Invoice template saved and set as active!');
       loadTemplates();
     } catch (error) {
       toast.error('Failed to save template');
     }
   };
 
-  const handleDeleteTemplate = async (templateId) => {
-    if (!window.confirm('Are you sure you want to delete this template?')) {
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('dobook_token');
-      await axios.delete(`${API}/invoices/templates/${templateId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Template deleted successfully!');
-      loadTemplates();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to delete template');
-    }
-  };
-
   const templatePreviews = {
-    'Classic': {
-      description: 'Traditional invoice with formal layout',
-      features: ['Company header', 'Itemized details', 'Bold totals', 'Professional footer'],
+    Classic: {
+      description: 'Traditional invoice with formal layout (current default)',
+      features: ['Company header', 'Itemized details', 'Payment info', 'Signature'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden">
+          <div className="h-10" style={{backgroundColor: customColor}}></div>
+          <div className="p-3 space-y-2">
+            <div className="h-3 w-2/3 bg-zinc-200 rounded"></div>
+            <div className="h-2 w-1/2 bg-zinc-100 rounded"></div>
+            <div className="h-16 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end">
+              <div className="h-4 w-24 rounded" style={{backgroundColor: customColor}}></div>
+            </div>
+          </div>
+        </div>
+      ),
       preview: (
         <div className="border border-zinc-300 rounded-lg p-6 bg-white" style={{fontFamily: 'serif'}}>
           <div className="h-16 rounded-t-lg mb-4" style={{backgroundColor: customColor}}></div>
@@ -2576,92 +2580,345 @@ const InvoiceTemplatesTab = ({ businessId }) => {
           <div className="mt-6 border-t pt-4">
             <p className="font-bold mb-2">SERVICE DETAILS</p>
             <div className="space-y-1 text-sm">
-              <p>Service: Consultation</p>
-              <p>Date: 2025-02-15</p>
+              <p>Service: Glam Booth</p>
+              <p>Date: 2026-02-17</p>
               <p>Time: 10:00 AM</p>
-              <p>Duration: 2 hours</p>
+              <p>Duration: 3 hours</p>
             </div>
           </div>
           <div className="mt-6 p-3 rounded" style={{backgroundColor: customColor}}>
-            <p className="font-bold text-white text-lg">TOTAL: $150.00</p>
+            <p className="font-bold text-white text-lg">TOTAL: $600.00</p>
           </div>
         </div>
-      )
+      ),
     },
-    'Modern': {
-      description: 'Clean contemporary design with color accents',
-      features: ['Minimalist header', 'Color highlights', 'Modern fonts', 'Sleek layout'],
+    Clean: {
+      description: 'Clean, spacious layout with light background',
+      features: ['Business details left', 'Invoice details right', 'Full item table', 'Subtotal/tax/total'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden">
+          <div className="p-3">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <div className="h-3 w-24 bg-zinc-200 rounded"></div>
+                <div className="h-2 w-32 bg-zinc-100 rounded"></div>
+                <div className="h-2 w-28 bg-zinc-100 rounded"></div>
+              </div>
+              <div className="text-right space-y-1">
+                <div className="h-3 w-16 bg-zinc-200 rounded ml-auto"></div>
+                <div className="h-2 w-20 bg-zinc-100 rounded ml-auto"></div>
+                <div className="h-2 w-16 bg-zinc-100 rounded ml-auto"></div>
+              </div>
+            </div>
+            <div className="h-px bg-zinc-200 my-3"></div>
+            <div className="h-12 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end mt-3">
+              <div className="h-3 w-20 bg-zinc-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      ),
       preview: (
-        <div className="border border-zinc-300 rounded-lg p-6 bg-white" style={{fontFamily: 'sans-serif'}}>
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-2xl font-bold" style={{color: customColor}}>Invoice</p>
+        <div className="border border-zinc-300 rounded-lg p-6 bg-white" style={{fontFamily: 'Arial, sans-serif'}}>
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold mb-1">Your Business Name</h2>
+              <p className="text-sm text-zinc-600">123 Business St, City</p>
+              <p className="text-sm text-zinc-600">business@email.com</p>
+            </div>
+            <div className="text-right">
+              <h1 className="text-2xl font-bold">INVOICE</h1>
+              <p className="text-sm font-semibold">#INV-001</p>
+              <p className="text-sm">Date: 2026-02-17</p>
+              <p className="text-sm">Due: 2026-03-03</p>
+            </div>
           </div>
+          <div className="h-px bg-zinc-200 my-6"></div>
           <div className="mb-4">
-            <p className="font-bold">Your Business Name</p>
-            <p className="text-xs text-zinc-600">business@email.com</p>
-          </div>
-          <div className="mb-4">
-            <p className="text-xs font-bold mb-1" style={{color: customColor}}>CLIENT</p>
+            <p className="text-sm font-bold mb-1">Bill To:</p>
             <p className="text-sm">Customer Name</p>
             <p className="text-xs text-zinc-600">customer@email.com</p>
           </div>
-          <div className="my-4 h-0.5" style={{backgroundColor: customColor}}></div>
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-sm">Consultation</p>
-            <p className="text-sm font-bold">$150.00</p>
+          <div className="mt-6">
+            <div className="grid grid-cols-4 gap-2 text-xs font-semibold bg-zinc-100 p-2 rounded">
+              <div className="col-span-2">Description</div>
+              <div className="text-center">Qty</div>
+              <div className="text-right">Total</div>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-xs p-2 border-b">
+              <div className="col-span-2">3 Hours Glam Booth</div>
+              <div className="text-center">1</div>
+              <div className="text-right">$600.00</div>
+            </div>
           </div>
-          <p className="text-xs text-zinc-500">2025-02-15 at 10:00 AM • 2 hours</p>
-          <div className="mt-6 p-4 rounded text-right" style={{backgroundColor: customColor}}>
-            <p className="font-bold text-white text-xl">$150.00</p>
+          <div className="text-right mt-6">
+            <p className="text-sm">Subtotal: $600.00</p>
+            <p className="text-sm">Tax: $0.00</p>
+            <p className="text-xl font-bold">Total: $600.00</p>
           </div>
         </div>
-      )
+      ),
     },
-    'Minimal': {
-      description: 'Simple and straightforward invoice',
-      features: ['Essential info only', 'Clean spacing', 'Easy to read', 'Compact design'],
-      preview: (
-        <div className="border border-zinc-300 rounded-lg p-6 bg-white" style={{fontFamily: 'sans-serif'}}>
-          <p className="text-xl font-bold mb-4">Invoice</p>
-          <div className="text-sm space-y-1 mb-4">
-            <p>Your Business Name</p>
-            <p className="text-zinc-600">business@email.com</p>
+    Gradient: {
+      description: 'Bold gradient header with modern layout',
+      features: ['Gradient header', 'Simple table', 'Strong total', 'Modern feel'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden">
+          <div className="h-12" style={{background: 'linear-gradient(90deg,#e11d48,#9333ea)'}}></div>
+          <div className="p-3 space-y-2">
+            <div className="h-3 w-1/2 bg-zinc-200 rounded"></div>
+            <div className="h-12 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end">
+              <div className="h-4 w-20 bg-zinc-200 rounded"></div>
+            </div>
           </div>
-          <div className="text-sm space-y-1 mb-4">
-            <p>Customer Name</p>
-            <p className="text-zinc-600">customer@email.com</p>
-          </div>
-          <div className="border-t border-b py-3 my-3">
-            <p className="font-bold mb-1">Consultation</p>
-            <p className="text-xs text-zinc-600">2025-02-15 • 10:00 AM</p>
-            <p className="text-xs text-zinc-600">2 hours</p>
-          </div>
-          <p className="font-bold text-lg">Total: $150.00</p>
         </div>
-      )
-    }
+      ),
+      preview: (
+        <div className="border border-zinc-300 rounded-lg overflow-hidden bg-white" style={{fontFamily: 'Arial, sans-serif'}}>
+          <div style={{background: 'linear-gradient(90deg,#e11d48,#9333ea)'}} className="p-6 text-white">
+            <h1 className="text-3xl font-bold mb-1">INVOICE</h1>
+            <p className="text-sm">#INV-001</p>
+          </div>
+          <div className="p-6">
+            <div className="flex justify-between gap-6">
+              <div>
+                <p className="font-bold text-lg">Your Business Name</p>
+                <p className="text-sm text-zinc-600">123 Business St, City</p>
+              </div>
+              <div className="text-sm text-zinc-700">
+                <p>Date: 2026-02-17</p>
+                <p>Due: 2026-03-03</p>
+              </div>
+            </div>
+            <div className="h-px bg-zinc-200 my-6"></div>
+            <p className="font-semibold mb-2">Bill To:</p>
+            <p>Customer Name</p>
+            <div className="mt-4 border rounded overflow-hidden">
+              <div className="grid grid-cols-2 bg-zinc-100 text-xs font-semibold p-2">
+                <div>Description</div>
+                <div className="text-right">Amount</div>
+              </div>
+              <div className="grid grid-cols-2 text-xs p-2 border-t">
+                <div>3 Hours Glam Booth</div>
+                <div className="text-right">$600.00</div>
+              </div>
+            </div>
+            <div className="text-right mt-6">
+              <h2 className="text-2xl font-bold">$600.00</h2>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    Navy: {
+      description: 'Corporate navy header and structured table',
+      features: ['Navy header', 'Qty/rate table', 'Strong total', 'Clean blocks'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden">
+          <div className="h-12" style={{backgroundColor: '#1e3a8a'}}></div>
+          <div className="p-3 space-y-2">
+            <div className="h-3 w-2/3 bg-zinc-200 rounded"></div>
+            <div className="h-12 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end">
+              <div className="h-4 w-20 rounded" style={{backgroundColor: '#1e3a8a'}}></div>
+            </div>
+          </div>
+        </div>
+      ),
+      preview: (
+        <div className="border border-zinc-300 rounded-lg overflow-hidden bg-white" style={{fontFamily: 'Arial, sans-serif'}}>
+          <div className="p-6 text-white" style={{backgroundColor: '#1e3a8a'}}>
+            <h1 className="text-3xl font-bold">INVOICE</h1>
+          </div>
+          <div className="p-6">
+            <div className="flex justify-between gap-6">
+              <div>
+                <p className="font-bold text-lg">Your Business Name</p>
+                <p className="text-sm text-zinc-600">123 Business St, City</p>
+              </div>
+              <div className="text-right text-sm">
+                <p><span className="font-semibold">Invoice #:</span> INV-001</p>
+                <p><span className="font-semibold">Date:</span> 2026-02-17</p>
+              </div>
+            </div>
+            <div className="h-px bg-zinc-200 my-6"></div>
+            <p className="font-semibold mb-2">Customer Details</p>
+            <p>Customer Name</p>
+            <div className="mt-4 border rounded overflow-hidden">
+              <div className="grid grid-cols-4 bg-zinc-100 text-xs font-semibold p-2">
+                <div className="col-span-2">Service</div>
+                <div className="text-center">Qty</div>
+                <div className="text-right">Total</div>
+              </div>
+              <div className="grid grid-cols-4 text-xs p-2 border-t">
+                <div className="col-span-2">3 Hours Glam Booth</div>
+                <div className="text-center">1</div>
+                <div className="text-right">$600.00</div>
+              </div>
+            </div>
+            <div className="text-right mt-6">
+              <h2 className="text-2xl font-bold" style={{color: '#1e3a8a'}}>Total: $600.00</h2>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    Elegant: {
+      description: 'Elegant serif design with centered title',
+      features: ['Centered header', 'Serif typography', 'Minimal chrome', 'Print-friendly'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden">
+          <div className="p-3 space-y-2">
+            <div className="h-3 w-24 bg-zinc-200 rounded mx-auto"></div>
+            <div className="h-2 w-16 bg-zinc-100 rounded mx-auto"></div>
+            <div className="h-px bg-zinc-200 my-2"></div>
+            <div className="h-12 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end">
+              <div className="h-3 w-24 bg-zinc-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      ),
+      preview: (
+        <div className="border border-zinc-300 rounded-lg p-8 bg-white" style={{fontFamily: 'Georgia, serif'}}>
+          <div className="text-center">
+            <h1 className="text-3xl tracking-widest">INVOICE</h1>
+            <p className="text-sm text-zinc-600">#INV-001</p>
+          </div>
+          <div className="mt-8">
+            <p className="text-lg font-semibold">Your Business Name</p>
+            <p className="text-sm text-zinc-600">123 Business St, City</p>
+          </div>
+          <div className="h-px bg-zinc-200 my-8"></div>
+          <p className="font-semibold mb-2">Bill To:</p>
+          <p>Customer Name</p>
+          <div className="mt-6 border rounded overflow-hidden">
+            <div className="grid grid-cols-2 text-xs font-semibold p-2 bg-white">
+              <div>Description</div>
+              <div className="text-right">Total</div>
+            </div>
+            <div className="grid grid-cols-2 text-xs p-2 border-t">
+              <div>3 Hours Glam Booth</div>
+              <div className="text-right">$600.00</div>
+            </div>
+          </div>
+          <div className="text-right mt-8">
+            <h2 className="text-2xl font-semibold">Total Due: $600.00</h2>
+          </div>
+        </div>
+      ),
+    },
+    Sidebar: {
+      description: 'Dark sidebar brand block with modern content area',
+      features: ['Left sidebar branding', 'Clean right content', 'Great for logos', 'Modern feel'],
+      thumbnail: (
+        <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden flex">
+          <div className="w-1/3" style={{backgroundColor: '#111827'}}></div>
+          <div className="flex-1 p-3 space-y-2">
+            <div className="h-3 w-20 bg-zinc-200 rounded"></div>
+            <div className="h-10 bg-zinc-50 rounded border border-zinc-100"></div>
+            <div className="flex justify-end">
+              <div className="h-4 w-16 bg-zinc-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      ),
+      preview: (
+        <div className="border border-zinc-300 rounded-lg overflow-hidden bg-white" style={{fontFamily: 'Arial, sans-serif'}}>
+          <div className="flex">
+            <div className="w-64 p-6 text-white" style={{backgroundColor: '#111827'}}>
+              <p className="text-lg font-bold">Your Business Name</p>
+              <p className="text-sm text-zinc-300 mt-2">123 Business St, City</p>
+              <p className="text-sm text-zinc-300">business@email.com</p>
+            </div>
+            <div className="flex-1 p-6">
+              <div className="flex justify-between items-start">
+                <h1 className="text-3xl font-bold">INVOICE</h1>
+                <div className="text-sm text-zinc-700 text-right">
+                  <p>#INV-001</p>
+                  <p>2026-02-17</p>
+                </div>
+              </div>
+              <div className="h-px bg-zinc-200 my-6"></div>
+              <p className="font-semibold mb-2">Customer</p>
+              <p>Customer Name</p>
+              <div className="mt-4 border rounded overflow-hidden">
+                <div className="grid grid-cols-2 bg-zinc-100 text-xs font-semibold p-2">
+                  <div>Description</div>
+                  <div className="text-right">Amount</div>
+                </div>
+                <div className="grid grid-cols-2 text-xs p-2 border-t">
+                  <div>3 Hours Glam Booth</div>
+                  <div className="text-right">$600.00</div>
+                </div>
+              </div>
+              <div className="text-right mt-6">
+                <h2 className="text-2xl font-bold">Total: $600.00</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
   };
+
+  const templateKeys = Object.keys(templatePreviews);
+  const activeTemplate = Array.isArray(templates) && templates.length ? templates[0] : null;
 
   return (
     <div className="space-y-6">
       <Card data-testid="invoice-template-editor" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Invoice Template Customization</CardTitle>
-          <CardDescription>Design your invoice template that auto-generates for each booking</CardDescription>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Invoice Templates</CardTitle>
+          <CardDescription>Choose one template, then save to set it as the only active invoice template</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <Label>Select Template Style</Label>
-            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-              <SelectTrigger data-testid="template-style-select" className="bg-white mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Classic">Classic</SelectItem>
-                <SelectItem value="Modern">Modern</SelectItem>
-                <SelectItem value="Minimal">Minimal</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label>Choose Template</Label>
+                <p className="text-xs text-zinc-500 mt-1">Only one can be active at a time.</p>
+              </div>
+              {activeTemplate && (
+                <div className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1">
+                  Active: <span className="font-semibold">{activeTemplate.template_name}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {templateKeys.map((name) => {
+                const selected = name === selectedTemplate;
+                const meta = templatePreviews[name];
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    data-testid={`template-card-${name}`}
+                    onClick={() => setSelectedTemplate(name)}
+                    className={`text-left rounded-xl border transition-all overflow-hidden bg-white hover:shadow-md ${
+                      selected ? 'border-rose-300 ring-2 ring-rose-100' : 'border-zinc-200'
+                    }`}
+                  >
+                    <div className="p-3">
+                      {meta.thumbnail}
+                    </div>
+                    <div className="px-4 pb-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold" style={{fontFamily: 'Manrope'}}>{name}</p>
+                        {selected && (
+                          <span className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-600 mt-1">{meta.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="p-6 bg-zinc-50 rounded-lg border border-zinc-200">
@@ -2728,46 +2985,8 @@ const InvoiceTemplatesTab = ({ businessId }) => {
             onClick={handleSaveTemplate}
             className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
           >
-            Save Template
+            Save & Set Active
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Your Templates</CardTitle>
-          <CardDescription>Previously saved invoice templates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {templates.length === 0 ? (
-            <p className="text-zinc-500 text-center py-8">No templates saved yet</p>
-          ) : (
-            <div className="space-y-3">
-              {templates.map((template) => (
-                <div key={template.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg group hover:bg-zinc-100 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-10 w-10 rounded border-2 border-zinc-300"
-                      style={{backgroundColor: template.primary_color}}
-                    ></div>
-                    <div>
-                      <p className="font-semibold">{template.template_name}</p>
-                      <p className="text-sm text-zinc-600">{template.primary_color}</p>
-                    </div>
-                  </div>
-                  <Button
-                    data-testid={`delete-template-${template.id}`}
-                    onClick={() => handleDeleteTemplate(template.id)}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
