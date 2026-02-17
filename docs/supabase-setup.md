@@ -14,7 +14,8 @@ To use Supabase Postgres, create the tables first.
 7. Open `supabase/migrations/20260216123500_business_industry.sql`, copy its SQL contents, paste into the editor, and run it
 8. Open `supabase/migrations/20260216130000_business_account_role.sql`, copy its SQL contents, paste into the editor, and run it
 9. Open `supabase/migrations/20260217090000_booking_reminder_scheduled_at.sql`, copy its SQL contents, paste into the editor, and run it
-10. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
+10. Open `supabase/migrations/20260217110000_password_reset_tokens.sql`, copy its SQL contents, paste into the editor, and run it
+11. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
@@ -44,3 +45,4 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 - Client reminder emails are sent 5 days + 1 day before the event via `POST`/`GET` `apps/web/src/app/api/cron/send-reminders/route.js` (protect with `CRON_SECRET`).
 - On Vercel, set up a daily Cron to call `/api/cron/send-reminders` and include the secret (either `Authorization: Bearer $CRON_SECRET` or `?cron_secret=$CRON_SECRET`).
 - If `CRON_SECRET` is not set, the app schedules reminder emails via Resend at booking creation time (set `REMINDERS_SCHEDULE_VIA_RESEND=true` to force this even when `CRON_SECRET` is set).
+- Password reset emails are sent via Resend when `RESEND_API_KEY` is set (reset link goes to `/auth?reset=1&token=...`).

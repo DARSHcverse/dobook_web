@@ -17,6 +17,7 @@ function defaultDb() {
     sessions: [],
     bookings: [],
     invoiceTemplates: [],
+    passwordResetTokens: [],
     extractions: [],
     invoices: [],
     counters: {},

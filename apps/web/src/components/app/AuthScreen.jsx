@@ -31,7 +31,12 @@ export default function AuthScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
+  const [forgotMode, setForgotMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const resetToken = useMemo(() => String(searchParams?.get("token") || "").trim(), [searchParams]);
+  const isReset = useMemo(() => Boolean(resetToken), [resetToken]);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPassword2, setResetPassword2] = useState("");
   const initialPlan = useMemo(() => {
     const plan = String(searchParams?.get("plan") || "").toLowerCase();
     if (plan === "pro") return "pro";
@@ -62,6 +67,35 @@ export default function AuthScreen() {
     setLoading(true);
 
     try {
+      if (isReset) {
+        if (!resetPassword || resetPassword.length < 6) {
+          toast.error("Password must be at least 6 characters");
+          return;
+        }
+        if (resetPassword !== resetPassword2) {
+          toast.error("Passwords do not match");
+          return;
+        }
+        await axios.post(`${API}/auth/password-reset/confirm`, { token: resetToken, password: resetPassword });
+        toast.success("Password updated. Please login.");
+        setResetPassword("");
+        setResetPassword2("");
+        setFormData((prev) => ({ ...prev, password: "" }));
+        router.replace("/auth");
+        return;
+      }
+
+      if (forgotMode) {
+        if (!formData.email) {
+          toast.error("Email is required");
+          return;
+        }
+        await axios.post(`${API}/auth/password-reset/request`, { email: formData.email });
+        toast.success("If that email exists, we sent a reset link.");
+        setForgotMode(false);
+        return;
+      }
+
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const payload = isLogin
         ? { email: formData.email, password: formData.password }
@@ -98,6 +132,18 @@ export default function AuthScreen() {
     }
   }
 
+  const computedTitle = useMemo(() => {
+    if (isReset) return "Reset password";
+    if (forgotMode) return "Forgot password";
+    return title;
+  }, [forgotMode, isReset, title]);
+
+  const computedSubtitle = useMemo(() => {
+    if (isReset) return "Set a new password for your account.";
+    if (forgotMode) return "We’ll email you a password reset link.";
+    return subtitle;
+  }, [forgotMode, isReset, subtitle]);
+
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-10">
       <Toaster position="top-center" richColors />
@@ -110,14 +156,100 @@ export default function AuthScreen() {
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="space-y-2">
             <CardTitle className="text-2xl font-bold tracking-tight" style={{ fontFamily: "Manrope" }}>
-              {title}
+              {computedTitle}
             </CardTitle>
-            <CardDescription style={{ fontFamily: "Inter" }}>{subtitle}</CardDescription>
+            <CardDescription style={{ fontFamily: "Inter" }}>{computedSubtitle}</CardDescription>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
+              {isReset && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="new_password">New password</Label>
+                    <Input
+                      id="new_password"
+                      type="password"
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="new_password2">Confirm new password</Label>
+                    <Input
+                      id="new_password2"
+                      type="password"
+                      value={resetPassword2}
+                      onChange={(e) => setResetPassword2(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
+                  >
+                    {loading ? "Please wait..." : "Update password"}
+                  </Button>
+
+                  <div className="mt-5 text-center text-sm">
+                    <button
+                      type="button"
+                      onClick={() => router.replace("/auth")}
+                      className="text-rose-600 hover:underline"
+                    >
+                      Back to login
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {!isReset && forgotMode && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      autoComplete="email"
+                      inputMode="email"
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
+                  >
+                    {loading ? "Please wait..." : "Send reset link"}
+                  </Button>
+
+                  <div className="mt-5 text-center text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(false)}
+                      className="text-rose-600 hover:underline"
+                    >
+                      Back to login
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {!isReset && !forgotMode && (
+                <>
+                  {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="business_name">Business name</Label>
                   <Input
@@ -129,9 +261,9 @@ export default function AuthScreen() {
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
                   />
                 </div>
-              )}
+                  )}
 
-              {!isLogin && (
+                  {!isLogin && (
                 <div className="space-y-2">
                   <Label>Plan</Label>
                   <div className="grid grid-cols-1 gap-3">
@@ -168,9 +300,9 @@ export default function AuthScreen() {
                     </button>
                   </div>
                 </div>
-              )}
+                  )}
 
-              {!isLogin && (
+                  {!isLogin && (
                 <div className="space-y-2">
                   <Label>Industry</Label>
                   <Select
@@ -191,36 +323,48 @@ export default function AuthScreen() {
                     </SelectContent>
                   </Select>
                 </div>
-              )}
+                  )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  autoComplete="email"
-                  inputMode="email"
-                  className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      autoComplete="email"
+                      inputMode="email"
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      required
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                    />
+                  </div>
 
-              {!isLogin && (
+                  {isLogin && (
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(true)}
+                        className="text-xs text-rose-600 hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+
+                  {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone (optional)</Label>
                   <Input
@@ -232,26 +376,30 @@ export default function AuthScreen() {
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
                   />
                 </div>
-              )}
+                  )}
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
-              >
-                {loading ? "Please wait..." : isLogin ? "Login" : "Create account"}
-              </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
+                  >
+                    {loading ? "Please wait..." : isLogin ? "Login" : "Create account"}
+                  </Button>
+                </>
+              )}
             </form>
 
-            <div className="mt-5 text-center text-sm">
-              <button
-                type="button"
-                onClick={() => setIsLogin((v) => !v)}
-                className="text-rose-600 hover:underline"
-              >
-                {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
-              </button>
-            </div>
+            {!isReset && !forgotMode && (
+              <div className="mt-5 text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => setIsLogin((v) => !v)}
+                  className="text-rose-600 hover:underline"
+                >
+                  {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
+                </button>
+              </div>
+            )}
 
             <div className="mt-5 flex items-center justify-center gap-4">
               <button

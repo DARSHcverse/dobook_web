@@ -232,6 +232,7 @@ function renderClassic({ doc, pageW, marginX, booking, business, logoAsset, acce
   const d = commonInvoiceData({ booking, business });
   const lineX1 = marginX;
   const lineX2 = pageW - marginX;
+  const contentW = lineX2 - lineX1;
 
   // Top accent
   setFillHex(doc, accentHex, { r: 225, g: 29, b: 72 });
@@ -319,13 +320,17 @@ function renderClassic({ doc, pageW, marginX, booking, business, logoAsset, acce
   doc.setLineWidth(1);
   doc.line(lineX1, tableTopY - 20, lineX2, tableTopY - 20);
 
+  const rateX = lineX1 + contentW * 0.68;
+  const qtyX = lineX1 + contentW * 0.80;
+  const totalX = lineX2;
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text("DESCRIPTION", marginX, tableTopY);
-  doc.text("RATE", 340, tableTopY);
-  doc.text("QTY", 430, tableTopY);
-  doc.text("TOTAL", lineX2, tableTopY, { align: "right" });
+  doc.text("RATE", rateX, tableTopY, { align: "right" });
+  doc.text("QTY", qtyX, tableTopY, { align: "right" });
+  doc.text("TOTAL", totalX, tableTopY, { align: "right" });
 
   doc.line(lineX1, tableTopY + 12, lineX2, tableTopY + 12);
 
@@ -334,9 +339,9 @@ function renderClassic({ doc, pageW, marginX, booking, business, logoAsset, acce
   doc.setFontSize(10);
   doc.setTextColor(70);
   doc.text(String(d.description), marginX, rowY);
-  doc.text(String(Number.isFinite(d.unit) ? d.unit.toFixed(0) : "0"), 340, rowY);
-  doc.text(String(d.qty), 430, rowY);
-  doc.text(asMoneyNoCents(d.total), lineX2, rowY, { align: "right" });
+  doc.text(asMoneyNoCents(d.unit), rateX, rowY, { align: "right" });
+  doc.text(String(d.qty), qtyX, rowY, { align: "right" });
+  doc.text(asMoneyNoCents(d.total), totalX, rowY, { align: "right" });
 
   // Totals block
   const totalsY = 585;
@@ -399,6 +404,7 @@ function renderClean({ doc, pageW, pageH, marginX, booking, business, logoAsset,
   const d = commonInvoiceData({ booking, business });
   const lineX2 = pageW - marginX;
   const top = 54;
+  const contentW = lineX2 - marginX;
 
   // Card background
   doc.setDrawColor(228);
@@ -455,24 +461,29 @@ function renderClean({ doc, pageW, pageH, marginX, booking, business, logoAsset,
 
   // Table header
   const tableY = 230;
+  const descX = marginX + 10;
+  const qtyX = marginX + contentW * 0.66;
+  const priceX = marginX + contentW * 0.80;
+  const totalX = lineX2 - 10;
+
   setFillHex(doc, "#f3f4f6", { r: 243, g: 244, b: 246 });
   doc.rect(marginX, tableY - 16, lineX2 - marginX, 26, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(70);
-  doc.text("DESCRIPTION", marginX + 10, tableY);
-  doc.text("QTY", marginX + 330, tableY);
-  doc.text("PRICE", marginX + 400, tableY);
-  doc.text("TOTAL", lineX2 - 10, tableY, { align: "right" });
+  doc.text("DESCRIPTION", descX, tableY);
+  doc.text("QTY", qtyX, tableY, { align: "right" });
+  doc.text("PRICE", priceX, tableY, { align: "right" });
+  doc.text("TOTAL", totalX, tableY, { align: "right" });
 
   // Row
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50);
-  doc.text(d.description, marginX + 10, tableY + 36);
-  doc.text(String(d.qty), marginX + 330, tableY + 36);
-  doc.text(asMoney(d.unit), marginX + 400, tableY + 36);
-  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.text(d.description, descX, tableY + 36, { maxWidth: qtyX - descX - 12 });
+  doc.text(String(d.qty), qtyX, tableY + 36, { align: "right" });
+  doc.text(asMoney(d.unit), priceX, tableY + 36, { align: "right" });
+  doc.text(asMoney(d.total), totalX, tableY + 36, { align: "right" });
   doc.setDrawColor(230);
   doc.line(marginX, tableY + 50, lineX2, tableY + 50);
 
@@ -566,6 +577,7 @@ function renderGradient({ doc, pageW, marginX, booking, business, logoAsset }) {
 function renderNavy({ doc, pageW, marginX, booking, business, logoAsset }) {
   const d = commonInvoiceData({ booking, business });
   const lineX2 = pageW - marginX;
+  const contentW = lineX2 - marginX;
 
   setFillHex(doc, "#1e3a8a", { r: 30, g: 58, b: 138 });
   doc.rect(0, 0, pageW, 110, "F");
@@ -611,21 +623,24 @@ function renderNavy({ doc, pageW, marginX, booking, business, logoAsset }) {
   doc.text(d.customerName, marginX, y + 90);
 
   const tableY = y + 136;
+  const descX = marginX + 10;
+  const qtyX = marginX + contentW * 0.74;
+  const totalX = lineX2 - 10;
   setFillHex(doc, "#e5e7eb", { r: 229, g: 231, b: 235 });
   doc.rect(marginX, tableY - 16, lineX2 - marginX, 26, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(70);
-  doc.text("SERVICE", marginX + 10, tableY);
-  doc.text("QTY", marginX + 360, tableY);
-  doc.text("TOTAL", lineX2 - 10, tableY, { align: "right" });
+  doc.text("SERVICE", descX, tableY);
+  doc.text("QTY", qtyX, tableY, { align: "right" });
+  doc.text("TOTAL", totalX, tableY, { align: "right" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50);
-  doc.text(d.description, marginX + 10, tableY + 36);
-  doc.text(String(d.qty), marginX + 360, tableY + 36);
-  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  doc.text(d.description, descX, tableY + 36, { maxWidth: qtyX - descX - 12 });
+  doc.text(String(d.qty), qtyX, tableY + 36, { align: "right" });
+  doc.text(asMoney(d.total), totalX, tableY + 36, { align: "right" });
   doc.setDrawColor(230);
   doc.line(marginX, tableY + 50, lineX2, tableY + 50);
 

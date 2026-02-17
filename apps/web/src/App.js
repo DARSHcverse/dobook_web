@@ -594,13 +594,23 @@ const LandingPage = ({
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
           </div>
-          <Button 
-            data-testid="get-started-btn"
-            onClick={() => router.push(getStartedHref)}
-            className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-          >
-            Get Started
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              data-testid="login-btn"
+              variant="outline"
+              onClick={() => router.push("/auth")}
+              className="h-12 px-6 rounded-full border-zinc-200"
+            >
+              Login
+            </Button>
+            <Button 
+              data-testid="get-started-btn"
+              onClick={() => router.push(getStartedHref)}
+              className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              Get Started
+            </Button>
+          </div>
         </div>
       </header>
 
