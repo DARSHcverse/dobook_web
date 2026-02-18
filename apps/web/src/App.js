@@ -17,6 +17,7 @@ import { Calendar as BigCalendar, dateFnsLocalizer, Views } from 'react-big-cale
 import { addDays, addMinutes, addMonths, addWeeks, format, getDay, parse, parseISO, startOfWeek } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import jsPDF from 'jspdf';
+import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -429,6 +430,7 @@ async function downloadInvoicePdf({ booking, business, template }) {
 
 const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [requestingReview, setRequestingReview] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
@@ -471,7 +473,13 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </div>
               <div>
                 <Label className="text-zinc-600">Status</Label>
-                <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
+                <span
+                  className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
+                    String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-emerald-100 text-emerald-700'
+                  }`}
+                >
                   {booking.status || 'confirmed'}
                 </span>
               </div>
@@ -488,6 +496,41 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-zinc-600">Invoice</Label>
                 <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={updatingStatus}
+                    className={`h-9 ${String(booking.status || '').toLowerCase() === 'cancelled' ? '' : 'border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800'}`}
+                    onClick={async () => {
+                      const isCancelled = String(booking.status || 'confirmed').toLowerCase() === 'cancelled';
+                      const next = isCancelled ? 'confirmed' : 'cancelled';
+                      const ok = window.confirm(
+                        isCancelled
+                          ? 'Mark this booking as confirmed again?'
+                          : 'Mark this booking as cancelled?',
+                      );
+                      if (!ok) return;
+                      setUpdatingStatus(true);
+                      try {
+                        const token = localStorage.getItem('dobook_token');
+                        await axios.put(
+                          `${API}/bookings/${booking.id}`,
+                          { status: next },
+                          { headers: { Authorization: `Bearer ${token}` } },
+                        );
+                        toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
+                        onClose?.();
+                      } catch (e) {
+                        toast.error(e.response?.data?.detail || 'Failed to update booking');
+                      } finally {
+                        setUpdatingStatus(false);
+                      }
+                    }}
+                  >
+                    {String(booking.status || 'confirmed').toLowerCase() === 'cancelled' ? 'Restore' : 'Cancel'}
+                  </Button>
+
                   {String(booking?.customer_email || '').trim() && (
                     <Button
                       type="button"
@@ -1188,7 +1231,7 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
-        {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} />}
+        {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
@@ -2109,6 +2152,10 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                 toast.error('Booking date and start time are required');
                 return;
               }
+              if (createData.customer_phone && !isValidPhone(createData.customer_phone)) {
+                toast.error(phoneValidationHint());
+                return;
+              }
 
               setCreating(true);
               try {
@@ -2162,10 +2209,13 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                 <Label htmlFor="cb_customer_phone">Customer phone</Label>
                 <Input
                   id="cb_customer_phone"
+                  type="tel"
+                  inputMode="tel"
                   value={createData.customer_phone}
                   onChange={(e) => setCreateData({ ...createData, customer_phone: e.target.value })}
                   className="bg-zinc-50 mt-2"
                 />
+                <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
               </div>
               <div>
                 <Label htmlFor="cb_event_location">Event location</Label>
@@ -2300,13 +2350,20 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
         </DialogContent>
       </Dialog>
 
-      <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
+      <BookingDetailsDialog
+        booking={selectedBooking}
+        business={business}
+        onClose={() => {
+          setSelectedBooking(null);
+          onRefresh?.();
+        }}
+      />
     </>
   );
 };
 
 // ============= Calendar View Tab =============
-const CalendarViewTab = ({ business, bookings }) => {
+const CalendarViewTab = ({ business, bookings, onRefresh }) => {
   const [displayMode, setDisplayMode] = useState('calendar'); // calendar | list
   const [view, setView] = useState(Views.MONTH);
   const [date, setDate] = useState(new Date(2026, 1, 1)); // February 2026
@@ -2502,7 +2559,14 @@ const CalendarViewTab = ({ business, bookings }) => {
           </div>
         )}
 
-        <BookingDetailsDialog booking={selectedBooking} business={business} onClose={() => setSelectedBooking(null)} />
+        <BookingDetailsDialog
+          booking={selectedBooking}
+          business={business}
+          onClose={() => {
+            setSelectedBooking(null);
+            onRefresh?.();
+          }}
+        />
       </CardContent>
     </Card>
   );
@@ -3397,6 +3461,10 @@ const BookingWidget = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.customer_phone && !isValidPhone(formData.customer_phone)) {
+      toast.error(phoneValidationHint());
+      return;
+    }
     setLoading(true);
 
     try {
@@ -3498,10 +3566,13 @@ const BookingWidget = () => {
                   <Input
                     id="customer_phone"
                     data-testid="widget-phone-input"
+                    type="tel"
                     value={formData.customer_phone}
                     onChange={(e) => setFormData({...formData, customer_phone: e.target.value})}
+                    inputMode="tel"
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
                   />
+                  <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
                 </div>
 
                 <div>

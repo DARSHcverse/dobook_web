@@ -1,5 +1,20 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
+
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
+}
+
+function isHm(value) {
+  return /^\d{2}:\d{2}$/.test(String(value || "").trim());
+}
+
+function isLikelyEmail(value) {
+  const s = String(value || "").trim();
+  if (!s) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
 
 function normalizeCustomFields(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -86,6 +101,40 @@ export async function PUT(request, { params }) {
   const body = await request.json();
   const updates = buildUpdates(body);
   if (!Object.keys(updates).length) return NextResponse.json({ detail: "No updates provided" }, { status: 400 });
+
+  if ("customer_email" in updates && !isLikelyEmail(updates.customer_email)) {
+    return NextResponse.json({ detail: "Invalid customer_email" }, { status: 400 });
+  }
+
+  if ("customer_phone" in updates) {
+    if (updates.customer_phone && !isValidPhone(updates.customer_phone)) {
+      return NextResponse.json(
+        { detail: "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678)." },
+        { status: 400 },
+      );
+    }
+    updates.customer_phone = updates.customer_phone ? normalizePhone(updates.customer_phone) : "";
+  }
+
+  if ("booking_date" in updates && updates.booking_date) {
+    if (!isYmd(updates.booking_date)) {
+      return NextResponse.json({ detail: "Invalid booking_date (YYYY-MM-DD)" }, { status: 400 });
+    }
+  }
+  if ("booking_time" in updates && updates.booking_time) {
+    if (!isHm(updates.booking_time)) {
+      return NextResponse.json({ detail: "Invalid booking_time (HH:MM)" }, { status: 400 });
+    }
+  }
+
+  if ("status" in updates) {
+    const status = String(updates.status || "").trim().toLowerCase();
+    const allowed = new Set(["confirmed", "cancelled"]);
+    if (!allowed.has(status)) {
+      return NextResponse.json({ detail: "Invalid status" }, { status: 400 });
+    }
+    updates.status = status;
+  }
 
   if (auth.mode === "supabase") {
     const { data, error } = await auth.supabase

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isValidPhone, phoneValidationHint } from "@/lib/phone";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -93,6 +94,11 @@ export default function AuthScreen() {
         await axios.post(`${API}/auth/password-reset/request`, { email: formData.email });
         toast.success("If that email exists, we sent a reset link.");
         setForgotMode(false);
+        return;
+      }
+
+      if (!isLogin && formData.phone && !isValidPhone(formData.phone)) {
+        toast.error(phoneValidationHint());
         return;
       }
 
@@ -364,19 +370,21 @@ export default function AuthScreen() {
                     </div>
                   )}
 
-                  {!isLogin && (
+              {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone (optional)</Label>
                   <Input
                     id="phone"
+                    type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     autoComplete="tel"
                     inputMode="tel"
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
                   />
+                  <p className="text-xs text-zinc-500">{phoneValidationHint()}</p>
                 </div>
-                  )}
+              )}
 
                   <Button
                     type="submit"

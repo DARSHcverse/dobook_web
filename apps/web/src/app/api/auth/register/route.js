@@ -5,13 +5,15 @@ import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBusinessWelcomeEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 export async function POST(request) {
   const body = await request.json();
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
   const businessName = String(body?.business_name || "").trim();
-  const phone = body?.phone ? String(body.phone) : null;
+  const phoneRaw = body?.phone ? String(body.phone) : "";
+  const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
   const requested_plan = String(body?.subscription_plan || "free").trim().toLowerCase();
   const allowedPlans = new Set(["free", "pro"]);
   if (!allowedPlans.has(requested_plan)) {
@@ -48,6 +50,12 @@ export async function POST(request) {
   }
   if (!password || password.length < 6) {
     return NextResponse.json({ detail: "Password must be at least 6 characters" }, { status: 400 });
+  }
+  if (phoneRaw && !isValidPhone(phoneRaw)) {
+    return NextResponse.json(
+      { detail: "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678)." },
+      { status: 400 },
+    );
   }
 
   if (hasSupabaseConfig()) {

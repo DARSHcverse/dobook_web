@@ -5,6 +5,7 @@ import { readDb, writeDb } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
 
@@ -27,6 +28,20 @@ function dueDateIsoFromBookingDate(bookingDateStr) {
   const [y, m, d] = s.split("-").map((n) => Number(n));
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
   return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0)).toISOString();
+}
+
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
+}
+
+function isHm(value) {
+  return /^\d{2}:\d{2}$/.test(String(value || "").trim());
+}
+
+function isLikelyEmail(value) {
+  const s = String(value || "").trim();
+  if (!s) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
 function normalizeCustomFields(value) {
@@ -86,6 +101,32 @@ export async function POST(request) {
     return NextResponse.json({ detail: "business_id is required" }, { status: 400 });
   }
 
+  const customerName = String(body?.customer_name || "").trim();
+  if (!customerName) {
+    return NextResponse.json({ detail: "customer_name is required" }, { status: 400 });
+  }
+
+  const bookingDateStr = String(body?.booking_date || "").trim();
+  const bookingTimeStr = String(body?.booking_time || "").trim();
+  if (!bookingDateStr || !isYmd(bookingDateStr)) {
+    return NextResponse.json({ detail: "booking_date is required (YYYY-MM-DD)" }, { status: 400 });
+  }
+  if (!bookingTimeStr || !isHm(bookingTimeStr)) {
+    return NextResponse.json({ detail: "booking_time is required (HH:MM)" }, { status: 400 });
+  }
+
+  const customerEmail = String(body?.customer_email || "").trim();
+  if (!isLikelyEmail(customerEmail)) {
+    return NextResponse.json({ detail: "Invalid customer_email" }, { status: 400 });
+  }
+
+  if (body?.customer_phone && !isValidPhone(body.customer_phone)) {
+    return NextResponse.json(
+      { detail: "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678)." },
+      { status: 400 },
+    );
+  }
+
   if (hasSupabaseConfig()) {
     const sb = supabaseAdmin();
     const { data: business, error: businessError } = await sb
@@ -122,16 +163,15 @@ export async function POST(request) {
     if (invoiceError) return NextResponse.json({ detail: invoiceError.message }, { status: 500 });
     const invoice_id = invoiceRows?.[0]?.invoice_id || null;
 
-    const bookingDateStr = String(body?.booking_date || "").trim();
-    const bookingTimeStr = String(body?.booking_time || "").trim();
     const custom_fields = normalizeCustomFields(body?.custom_fields);
+    const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
 
     const booking = {
       id: randomUUID(),
       business_id: businessId,
-      customer_name: String(body?.customer_name || ""),
-      customer_email: String(body?.customer_email || ""),
-      customer_phone: body?.customer_phone ? String(body.customer_phone) : "",
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
       service_type: String(body?.service_type || "Service"),
       booth_type: body?.booth_type ? String(body.booth_type) : "",
       package_duration: body?.package_duration ? String(body.package_duration) : "",
@@ -221,19 +261,20 @@ export async function POST(request) {
   const nextSeq = Number(business.invoice_seq || 0) + 1;
   business.invoice_seq = nextSeq;
   const invoice_id = `PB-${formatYYYYMMDD(invoiceDate)}-${String(nextSeq).padStart(3, "0")}`;
+  const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
 
   const booking = {
     id: randomUUID(),
     business_id: businessId,
-    customer_name: String(body?.customer_name || ""),
-    customer_email: String(body?.customer_email || ""),
-    customer_phone: body?.customer_phone ? String(body.customer_phone) : "",
+    customer_name: customerName,
+    customer_email: customerEmail,
+    customer_phone: customerPhone,
     service_type: String(body?.service_type || "Service"),
     booth_type: body?.booth_type ? String(body.booth_type) : "",
     package_duration: body?.package_duration ? String(body.package_duration) : "",
     event_location: body?.event_location ? String(body.event_location) : "",
-    booking_date: String(body?.booking_date || ""),
-    booking_time: String(body?.booking_time || ""),
+    booking_date: bookingDateStr,
+    booking_time: bookingTimeStr,
     end_time: null,
     duration_minutes: Number(body?.duration_minutes || 60),
     parking_info: body?.parking_info ? String(body.parking_info) : "",
@@ -243,7 +284,7 @@ export async function POST(request) {
     status: "confirmed",
     invoice_id,
     invoice_date: invoiceDate.toISOString(),
-    due_date: dueDateIsoFromBookingDate(body?.booking_date) || invoiceDate.toISOString(),
+    due_date: dueDateIsoFromBookingDate(bookingDateStr) || invoiceDate.toISOString(),
     custom_fields: normalizeCustomFields(body?.custom_fields),
     confirmation_sent_at: null,
     business_notice_sent_at: null,
