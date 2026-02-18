@@ -3401,34 +3401,14 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
 // ============= Widget Tab =============
 const WidgetTab = ({ businessId }) => {
   const widgetUrl = `${window.location.origin}/book/${businessId}`;
-  const iframeId = `dobook-widget-${String(businessId || "").slice(0, 8) || "embed"}`;
   const embedCode = [
     `<iframe`,
-    `  id="${iframeId}"`,
     `  src="${widgetUrl}"`,
     `  title="DoBook booking widget"`,
     `  loading="lazy"`,
     `  style="width:100%; border:0; display:block; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); min-height:720px;"`,
     `  height="720"`,
     `></iframe>`,
-    ``,
-    `<script>`,
-    `(function(){`,
-    `  var iframe = document.getElementById(${JSON.stringify(iframeId)});`,
-    `  if(!iframe) return;`,
-    `  var origin;`,
-    `  try { origin = new URL(iframe.src).origin; } catch(e) { origin = null; }`,
-    `  function onMessage(event){`,
-    `    if(origin && event.origin !== origin) return;`,
-    `    var data = event.data || {};`,
-    `    if(!data || data.type !== 'dobook:resize') return;`,
-    `    var h = parseInt(data.height, 10);`,
-    `    if(!h || h < 300) return;`,
-    `    iframe.style.height = (h + 24) + 'px';`,
-    `  }`,
-    `  window.addEventListener('message', onMessage, false);`,
-    `})();`,
-    `</script>`,
   ].join("\n");
 
   return (
@@ -3458,7 +3438,7 @@ const WidgetTab = ({ businessId }) => {
             <Textarea 
               value={embedCode} 
               readOnly 
-              className="bg-zinc-50 font-mono text-sm h-24"
+              className="bg-zinc-50 font-mono text-sm h-28"
             />
             <Button 
               data-testid="copy-embed-btn"
@@ -3472,7 +3452,8 @@ const WidgetTab = ({ businessId }) => {
 
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
           <p className="text-sm text-emerald-800">
-            <strong>Tip:</strong> Paste this code anywhere on your website where you want the booking widget to appear.
+            <strong>Tip:</strong> Paste this iframe where you want the widget. If it looks cut off, increase the{" "}
+            <code>height</code> and <code>min-height</code> values.
           </p>
         </div>
       </CardContent>
