@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isValidPhone, phoneValidationHint } from "@/lib/phone";
+import { minimizeBusinessForStorage } from "@/lib/businessStorage";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -109,7 +110,7 @@ export default function AuthScreen() {
 
       const response = await axios.post(`${API}${endpoint}`, payload);
       localStorage.setItem("dobook_token", response.data.token);
-      localStorage.setItem("dobook_business", JSON.stringify(response.data.business));
+      localStorage.setItem("dobook_business", JSON.stringify(minimizeBusinessForStorage(response.data.business)));
 
       if (!isLogin && formData.subscription_plan === "pro") {
         toast.success("Account created! Redirecting to payment…");

@@ -19,6 +19,7 @@ import { enUS } from 'date-fns/locale/en-US';
 import jsPDF from 'jspdf';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
+import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -576,19 +577,20 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     onClick={async () => {
                       try {
                         const token = localStorage.getItem('dobook_token');
-                        let activeTemplate = null;
-                        if (token) {
-                          try {
-                            const res = await axios.get(`${API}/invoices/templates`, {
-                              headers: { Authorization: `Bearer ${token}` },
-                            });
-                            activeTemplate = Array.isArray(res.data) ? res.data[0] : null;
-                          } catch {
-                            // ignore template load failures
-                          }
-                        }
-
-                        await downloadInvoicePdf({ booking, business, template: activeTemplate });
+                        if (!token) throw new Error('Not logged in');
+                        const res = await axios.get(`${API}/invoices/pdf/${booking.id}`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                          responseType: 'blob',
+                        });
+                        const blob = res?.data;
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
                         toast.success('Invoice downloaded!');
                       } catch (e) {
                         toast.error('Failed to generate invoice PDF');
@@ -838,7 +840,7 @@ const Dashboard = () => {
       const response = await axios.get(`${API}/business/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      localStorage.setItem('dobook_business', JSON.stringify(response.data));
+      localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       setBusiness(response.data);
     } catch {
       // ignore
@@ -1445,7 +1447,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       
       // Update business in parent
       const updatedBusiness = {...business, logo_url: response.data.logo_url};
-      localStorage.setItem('dobook_business', JSON.stringify(updatedBusiness));
+      localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(updatedBusiness)));
       onUpdate(updatedBusiness);
       
       toast.success('Logo uploaded successfully!');
@@ -1497,7 +1499,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      localStorage.setItem('dobook_business', JSON.stringify(response.data));
+      localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       onUpdate(response.data);
       toast.success('Account settings updated!');
     } catch (error) {
