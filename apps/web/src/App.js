@@ -17,6 +17,7 @@ import { Calendar as BigCalendar, dateFnsLocalizer, Views } from 'react-big-cale
 import { addDays, addMinutes, addMonths, addWeeks, format, getDay, parse, parseISO, startOfWeek } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
 import jsPDF from 'jspdf';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
@@ -886,6 +887,38 @@ const Dashboard = () => {
     revenue: bookings.reduce((sum, b) => sum + (Number(b?.price) || 0), 0)
   };
 
+  const monthlyTrends = useMemo(() => {
+    const now = new Date();
+    const monthStartUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+    const months = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = addMonths(monthStartUtc, -i);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      months.push({
+        key,
+        month: format(d, 'MMM yyyy'),
+        bookings: 0,
+        revenue: 0,
+      });
+    }
+
+    const byKey = new Map(months.map((m) => [m.key, m]));
+    const list = Array.isArray(bookings) ? bookings : [];
+    for (const b of list) {
+      if (String(b?.status || 'confirmed').trim().toLowerCase() === 'cancelled') continue;
+      const dateStr = String(b?.booking_date || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+      const [y, m] = dateStr.split('-');
+      const bucket = byKey.get(`${y}-${m}`);
+      if (!bucket) continue;
+      bucket.bookings += 1;
+      bucket.revenue += Number(b?.price || 0);
+    }
+
+    return months.map((m) => ({ ...m, revenue: Math.round(m.revenue * 100) / 100 }));
+  }, [bookings]);
+
   return (
     <div className="min-h-screen bg-zinc-50" data-testid="dashboard">
       <Toaster position="top-center" richColors />
@@ -1201,6 +1234,56 @@ const Dashboard = () => {
                 </CardHeader>
               </Card>
             </div>
+
+            <Card data-testid="monthly-trends-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-8">
+              <CardHeader>
+                <CardTitle style={{fontFamily: 'Manrope'}}>Monthly Trends</CardTitle>
+                <CardDescription style={{fontFamily: 'Inter'}}>Bookings and revenue for the last 6 months</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {monthlyTrends.every((m) => m.bookings === 0 && m.revenue === 0) ? (
+                  <p className="text-zinc-500 text-center py-10">No booking data yet</p>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="border border-zinc-200 rounded-xl p-4">
+                      <p className="text-sm font-semibold mb-3" style={{fontFamily: 'Manrope'}}>Bookings</p>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={monthlyTrends}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                            <Tooltip
+                              formatter={(value) => [value, 'Bookings']}
+                              labelStyle={{ fontWeight: 600 }}
+                            />
+                            <Bar dataKey="bookings" fill="#e11d48" radius={[8, 8, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div className="border border-zinc-200 rounded-xl p-4">
+                      <p className="text-sm font-semibold mb-3" style={{fontFamily: 'Manrope'}}>Revenue</p>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={monthlyTrends}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
+                            <Tooltip
+                              formatter={(value) => [`$${Number(value || 0).toFixed(2)}`, 'Revenue']}
+                              labelStyle={{ fontWeight: 600 }}
+                            />
+                            <Bar dataKey="revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card data-testid="recent-bookings-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
               <CardHeader>
