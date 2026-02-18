@@ -419,6 +419,18 @@ export default function AuthScreen() {
                 Back to home
               </button>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+              <a className="hover:text-zinc-700" href="/terms">
+                Terms
+              </a>
+              <a className="hover:text-zinc-700" href="/privacy">
+                Privacy
+              </a>
+              <a className="hover:text-zinc-700" href="/policies/cancellation">
+                Cancellation Policy
+              </a>
+            </div>
           </CardContent>
         </Card>
       </div>

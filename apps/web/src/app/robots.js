@@ -12,7 +12,7 @@ export default function robots() {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/industries/"],
+        allow: ["/", "/industries/", "/terms", "/privacy", "/policies/"],
         disallow: ["/dashboard", "/auth", "/api/", "/book/"],
       },
     ],

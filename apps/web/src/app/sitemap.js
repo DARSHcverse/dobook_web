@@ -10,6 +10,7 @@ export default function sitemap() {
   const lastModified = new Date();
 
   const industries = ["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"];
+  const staticPages = ["/terms", "/privacy", "/policies/cancellation"];
 
   return [
     {
@@ -18,6 +19,12 @@ export default function sitemap() {
       changeFrequency: "weekly",
       priority: 1,
     },
+    ...staticPages.map((path) => ({
+      url: `${base}${path}`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    })),
     ...industries.map((industry) => ({
       url: `${base}/industries/${industry}`,
       lastModified,

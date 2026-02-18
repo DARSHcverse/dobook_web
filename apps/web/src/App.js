@@ -801,6 +801,33 @@ const LandingPage = ({
           </Button>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <BrandLogo size="sm" />
+              <div className="text-sm text-zinc-600">© {new Date().getFullYear()} DoBook</div>
+            </div>
+
+            <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
+              <a className="text-zinc-600 hover:text-zinc-900" href="/terms">
+                Terms
+              </a>
+              <a className="text-zinc-600 hover:text-zinc-900" href="/privacy">
+                Privacy
+              </a>
+              <a className="text-zinc-600 hover:text-zinc-900" href="/policies/cancellation">
+                Cancellation Policy
+              </a>
+              <a className="text-zinc-600 hover:text-zinc-900" href="mailto:support@do-book.com">
+                Contact
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
@@ -3867,6 +3894,21 @@ const BookingWidget = () => {
             </form>
           </CardContent>
         </Card>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+          <a className="hover:text-zinc-700" href="/terms">
+            Terms
+          </a>
+          <a className="hover:text-zinc-700" href="/privacy">
+            Privacy
+          </a>
+          <a className="hover:text-zinc-700" href="/policies/cancellation">
+            Cancellation Policy
+          </a>
+          <a className="hover:text-zinc-700" href="/">
+            Powered by DoBook
+          </a>
+        </div>
       </div>
     </div>
   );
