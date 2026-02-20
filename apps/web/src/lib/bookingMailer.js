@@ -317,6 +317,9 @@ export async function scheduleBookingRemindersViaResend({ booking, business }) {
 export async function sendBookingReminderEmail({ booking, business, daysBefore, scheduledAt }) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
+  if (String(booking?.status || "confirmed").trim().toLowerCase() === "cancelled") {
+    return { ok: false, skipped: true, error: "Booking cancelled" };
+  }
 
   const subject = `Reminder: your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}`;
   const lines = bookingSummaryLines({ booking });
@@ -341,5 +344,50 @@ export async function sendBookingReminderEmail({ booking, business, daysBefore, 
     text,
     scheduledAt,
     replyTo: safeEmail(business?.email) || undefined,
+  });
+}
+
+export async function sendBookingCancelledEmail({ booking, business }) {
+  const customerEmail = safeEmail(booking?.customer_email);
+  if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
+
+  const businessName = safeName(business?.business_name) || "this business";
+  const customerName = safeName(booking?.customer_name) || "there";
+  const businessEmail = safeEmail(business?.email);
+
+  const subject = `Booking cancelled • ${businessName}`;
+  const lines = bookingSummaryLines({ booking });
+  const summaryText = lines.join("\n");
+
+  const html = emailLayout({
+    title: "Booking cancelled",
+    preheader: `Your booking with ${businessName} has been cancelled.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: businessName,
+    contentHtml: `
+      ${paragraphHtml(
+        `Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(
+          businessName,
+        )}</strong> has been cancelled.`,
+      )}
+      ${bookingSummaryTableHtml({ booking })}
+      <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
+        If you have questions or want to reschedule, please reply to this email.
+      </div>
+    `,
+  });
+
+  const text =
+    `Booking cancelled\n\n` +
+    `Hi ${customerName} — your booking with ${businessName} has been cancelled.\n\n` +
+    `${summaryText}\n\n` +
+    `If you have questions or want to reschedule, reply to this email.\n`;
+
+  return sendEmailViaResend({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+    replyTo: businessEmail || undefined,
   });
 }

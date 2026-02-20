@@ -163,9 +163,10 @@ function bookingToEvent(booking) {
 
   const booth = booking?.booth_type || booking?.service_type || 'Booking';
   const customer = booking?.customer_name || 'Customer';
+  const isCancelled = String(booking?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
   return {
     id: booking.id,
-    title: `${customer} - ${booth}`,
+    title: `${customer} - ${booth}${isCancelled ? ' (Cancelled)' : ''}`,
     start,
     end,
     resource: booking,
@@ -910,10 +911,15 @@ const Dashboard = () => {
     toast.success('Logged out successfully');
   };
 
+  const activeBookings = useMemo(
+    () => bookings.filter((b) => String(b?.status || 'confirmed').trim().toLowerCase() !== 'cancelled'),
+    [bookings],
+  );
+
   const stats = {
-    totalBookings: bookings.length,
-    upcomingBookings: bookings.filter(b => new Date(b.booking_date) >= new Date()).length,
-    revenue: bookings.reduce((sum, b) => sum + (Number(b?.price) || 0), 0)
+    totalBookings: activeBookings.length,
+    upcomingBookings: activeBookings.filter((b) => new Date(b.booking_date) >= new Date()).length,
+    revenue: activeBookings.reduce((sum, b) => sum + (Number(b?.price) || 0), 0),
   };
 
   const monthlyTrends = useMemo(() => {
@@ -1319,11 +1325,11 @@ const Dashboard = () => {
                 <CardTitle style={{fontFamily: 'Manrope'}}>Recent Bookings</CardTitle>
               </CardHeader>
               <CardContent>
-                {bookings.length === 0 ? (
+                {activeBookings.length === 0 ? (
                   <p className="text-zinc-500 text-center py-8">No bookings yet</p>
                 ) : (
                   <div className="space-y-4">
-                    {bookings.slice(0, 5).map((booking) => (
+                    {activeBookings.slice(0, 5).map((booking) => (
                       <div key={booking.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
                         <div>
                           <p className="font-semibold">{booking.customer_name}</p>
@@ -2215,8 +2221,14 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                       <td className="py-3 px-4">{booking.booking_time}</td>
                       <td className="py-3 px-4">${(Number(booking.price) || 0).toFixed(2)}</td>
                       <td className="py-3 px-4">
-                        <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
-                          {booking.status}
+                        <span
+                          className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
+                            String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}
+                        >
+                          {booking.status || 'confirmed'}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -2620,6 +2632,19 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                 onNavigate={(nextDate) => setDate(nextDate)}
                 onView={(nextView) => setView(nextView)}
                 onSelectEvent={(event) => setSelectedBooking(event.resource)}
+                eventPropGetter={(event) => {
+                  const isCancelled =
+                    String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
+                  if (!isCancelled) return {};
+                  return {
+                    style: {
+                      backgroundColor: '#fee2e2',
+                      borderColor: '#fecaca',
+                      color: '#b91c1c',
+                      textDecoration: 'line-through',
+                    },
+                  };
+                }}
                 popup
                 selectable
                 dayLayoutAlgorithm="no-overlap"
@@ -2637,8 +2662,20 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
               >
                 <div className="p-5 flex items-center justify-between gap-6">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="h-12 w-12 bg-rose-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Calendar className="h-6 w-6 text-rose-600" />
+                    <div
+                      className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                          ? 'bg-red-100'
+                          : 'bg-rose-100'
+                      }`}
+                    >
+                      <Calendar
+                        className={`h-6 w-6 ${
+                          String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                            ? 'text-red-600'
+                            : 'text-rose-600'
+                        }`}
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold truncate" style={{fontFamily: 'Manrope'}}>
@@ -2661,7 +2698,13 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                     <div className="text-emerald-700 font-semibold">
                       ${(Number(booking.price) || 0).toFixed(2)}
                     </div>
-                    <span className="inline-flex items-center px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
+                    <span
+                      className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
+                        String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                    >
                       {booking.status || 'confirmed'}
                     </span>
                   </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { sendBookingCancelledEmail } from "@/lib/bookingMailer";
 
 function isYmd(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
@@ -137,6 +138,24 @@ export async function PUT(request, { params }) {
   }
 
   if (auth.mode === "supabase") {
+    const { data: before, error: beforeErr } = await auth.supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .eq("business_id", auth.business.id)
+      .maybeSingle();
+    if (beforeErr) return NextResponse.json({ detail: beforeErr.message }, { status: 500 });
+    if (!before) return NextResponse.json({ detail: "Booking not found" }, { status: 404 });
+
+    const prevStatus = String(before?.status || "confirmed").trim().toLowerCase();
+    const nextStatus = "status" in updates ? String(updates.status || "").trim().toLowerCase() : prevStatus;
+    const becameCancelled = prevStatus !== "cancelled" && nextStatus === "cancelled";
+
+    if (becameCancelled) {
+      updates.reminder_5d_scheduled_at = null;
+      updates.reminder_1d_scheduled_at = null;
+    }
+
     const { data, error } = await auth.supabase
       .from("bookings")
       .update(updates)
@@ -147,12 +166,40 @@ export async function PUT(request, { params }) {
 
     if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
     if (!data) return NextResponse.json({ detail: "Booking not found" }, { status: 404 });
+
+    if (becameCancelled) {
+      try {
+        await sendBookingCancelledEmail({ booking: data, business: auth.business });
+      } catch {
+        // best-effort
+      }
+    }
+
     return NextResponse.json(data);
   }
 
   const idx = auth.db.bookings.findIndex((b) => b.id === bookingId && b.business_id === auth.business.id);
   if (idx === -1) return NextResponse.json({ detail: "Booking not found" }, { status: 404 });
-  auth.db.bookings[idx] = { ...auth.db.bookings[idx], ...updates };
+  const before = auth.db.bookings[idx];
+  const prevStatus = String(before?.status || "confirmed").trim().toLowerCase();
+  const nextStatus = "status" in updates ? String(updates.status || "").trim().toLowerCase() : prevStatus;
+  const becameCancelled = prevStatus !== "cancelled" && nextStatus === "cancelled";
+
+  const next = { ...before, ...updates };
+  if (becameCancelled) {
+    next.reminder_5d_scheduled_at = null;
+    next.reminder_1d_scheduled_at = null;
+  }
+
+  auth.db.bookings[idx] = next;
   auth.saveDb(auth.db);
+
+  if (becameCancelled) {
+    try {
+      await sendBookingCancelledEmail({ booking: auth.db.bookings[idx], business: auth.business });
+    } catch {
+      // best-effort
+    }
+  }
   return NextResponse.json(auth.db.bookings[idx]);
 }
