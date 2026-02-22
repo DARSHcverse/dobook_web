@@ -1582,7 +1582,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       onUpdate(response.data);
       toast.success('Account settings updated!');
     } catch (error) {
-      toast.error('Failed to update settings');
+      toast.error(error.response?.data?.detail || 'Failed to update settings');
     } finally {
       setLoading(false);
     }

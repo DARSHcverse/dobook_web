@@ -46,3 +46,14 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 - On Vercel, set up a daily Cron to call `/api/cron/send-reminders` and include the secret (either `Authorization: Bearer $CRON_SECRET` or `?cron_secret=$CRON_SECRET`).
 - If `CRON_SECRET` is not set, the app schedules reminder emails via Resend at booking creation time (set `REMINDERS_SCHEDULE_VIA_RESEND=true` to force this even when `CRON_SECRET` is set).
 - Password reset emails are sent via Resend when `RESEND_API_KEY` is set (reset link goes to `/auth?reset=1&token=...`).
+
+## Applying new migrations (important)
+
+If you pull the latest code and the UI shows errors like **“Failed to update settings”**, your Supabase database may be missing newly-added columns.
+
+Apply the latest SQL migrations from `supabase/migrations/` to your Supabase project (in order). Recently added:
+
+- `20260221120000_booking_line_items_and_surcharges.sql`
+- `20260221130000_business_public_profile.sql`
+
+You can run them via the Supabase SQL editor or via the Supabase CLI migrations workflow.
