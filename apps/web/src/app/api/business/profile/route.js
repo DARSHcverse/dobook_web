@@ -45,6 +45,8 @@ export async function PUT(request) {
     "travel_fee_enabled",
     "travel_fee_label",
     "travel_fee_amount",
+    "travel_fee_free_km",
+    "travel_fee_rate_per_km",
     "cbd_fee_enabled",
     "cbd_fee_label",
     "cbd_fee_amount",
@@ -69,6 +71,15 @@ export async function PUT(request) {
       }
       if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
         updates[key] = asMoney(body[key]);
+        continue;
+      }
+      if (key === "travel_fee_free_km") {
+        const v = Math.max(0, Math.min(5000, Math.floor(Number(body.travel_fee_free_km || 0))));
+        updates.travel_fee_free_km = Number.isFinite(v) ? v : 40;
+        continue;
+      }
+      if (key === "travel_fee_rate_per_km") {
+        updates.travel_fee_rate_per_km = asMoney(body.travel_fee_rate_per_km);
         continue;
       }
       if (key === "public_enabled") {
@@ -141,6 +152,15 @@ export async function PUT(request) {
     }
     if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
       auth.business[key] = asMoney(body[key]);
+      continue;
+    }
+    if (key === "travel_fee_free_km") {
+      const v = Math.max(0, Math.min(5000, Math.floor(Number(body.travel_fee_free_km || 0))));
+      auth.business.travel_fee_free_km = Number.isFinite(v) ? v : 40;
+      continue;
+    }
+    if (key === "travel_fee_rate_per_km") {
+      auth.business.travel_fee_rate_per_km = asMoney(body.travel_fee_rate_per_km);
       continue;
     }
     if (key === "public_enabled") {

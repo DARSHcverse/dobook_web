@@ -1432,6 +1432,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     travel_fee_enabled: Boolean(business?.travel_fee_enabled),
     travel_fee_label: business?.travel_fee_label || 'Travel fee',
     travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
+    travel_fee_free_km: business?.travel_fee_free_km !== undefined && business?.travel_fee_free_km !== null ? String(business.travel_fee_free_km) : '40',
+    travel_fee_rate_per_km: business?.travel_fee_rate_per_km !== undefined && business?.travel_fee_rate_per_km !== null ? String(business.travel_fee_rate_per_km) : '0.4',
     cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
     cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
     cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
@@ -1472,6 +1474,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         travel_fee_enabled: Boolean(business?.travel_fee_enabled),
         travel_fee_label: business?.travel_fee_label || 'Travel fee',
         travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
+        travel_fee_free_km: business?.travel_fee_free_km !== undefined && business?.travel_fee_free_km !== null ? String(business.travel_fee_free_km) : '40',
+        travel_fee_rate_per_km: business?.travel_fee_rate_per_km !== undefined && business?.travel_fee_rate_per_km !== null ? String(business.travel_fee_rate_per_km) : '0.4',
         cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
         cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
         cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
@@ -1606,6 +1610,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 
       const payload = { ...formData, booth_types, booking_custom_fields };
       payload.travel_fee_amount = Number(formData.travel_fee_amount || 0);
+      payload.travel_fee_free_km = Math.max(0, Math.floor(Number(formData.travel_fee_free_km || 40)));
+      payload.travel_fee_rate_per_km = Number(formData.travel_fee_rate_per_km || 0);
       payload.cbd_fee_amount = Number(formData.cbd_fee_amount || 0);
 
       const response = await axios.put(`${API}/business/profile`, payload, {
@@ -2091,20 +2097,33 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 />
               </div>
               <div>
-                <Label htmlFor="travel_fee_amount">Amount ($)</Label>
+                <Label htmlFor="travel_fee_free_km">Free distance (km)</Label>
                 <Input
-                  id="travel_fee_amount"
+                  id="travel_fee_free_km"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.travel_fee_free_km}
+                  onChange={(e) => setFormData({ ...formData, travel_fee_free_km: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="travel_fee_rate_per_km">Rate ($/km) (over free distance)</Label>
+                <Input
+                  id="travel_fee_rate_per_km"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={formData.travel_fee_amount}
-                  onChange={(e) => setFormData({ ...formData, travel_fee_amount: e.target.value })}
+                  value={formData.travel_fee_rate_per_km}
+                  onChange={(e) => setFormData({ ...formData, travel_fee_rate_per_km: e.target.value })}
                   className="bg-zinc-50 mt-2"
                 />
               </div>
             </div>
             <p className="text-xs text-zinc-500 mt-3">
-              Your customer will see this as an optional add-on checkbox in the booking link.
+              Travel charges are calculated automatically based on distance from your business address to the event
+              location.
             </p>
           </div>
 
@@ -2439,6 +2458,7 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
     booth_type: isPhotoBooth ? (boothTypes[0] || '') : '',
     package_duration: isPhotoBooth ? '2 Hours' : '',
     event_location: '',
+    event_location_geo: null,
     booking_date: '',
     booking_time: '',
     duration_minutes: isPhotoBooth ? 120 : 60,
@@ -2639,7 +2659,9 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                 <Label htmlFor="cb_event_location">Event location</Label>
                 <AddressAutocomplete
                   value={createData.event_location}
-                  onChange={(val) => setCreateData({ ...createData, event_location: val })}
+                  onChange={(val, item) =>
+                    setCreateData({ ...createData, event_location: val, event_location_geo: item || null })
+                  }
                   placeholder="Start typing an address…"
                   className="bg-zinc-50 mt-2"
                   inputProps={{ id: "cb_event_location" }}
@@ -3812,6 +3834,7 @@ const BookingWidget = () => {
     booth_type: 'Open Booth',
     package_duration: '2 Hours',
     event_location: '',
+    event_location_geo: null,
     booking_date: '',
     booking_time: '',
     duration_minutes: 120,
@@ -3819,7 +3842,6 @@ const BookingWidget = () => {
     notes: '',
     price: '',
     quantity: 1,
-    apply_travel_fee: false,
     apply_cbd_fee: false,
     custom_fields: {}
   });
@@ -4025,7 +4047,9 @@ const BookingWidget = () => {
                   <Label htmlFor="event_location">Event Location *</Label>
                   <AddressAutocomplete
                     value={formData.event_location}
-                    onChange={(val) => setFormData({ ...formData, event_location: val })}
+                    onChange={(val, item) =>
+                      setFormData({ ...formData, event_location: val, event_location_geo: item || null })
+                    }
                     placeholder="Enter venue or address"
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
                     inputProps={{ id: "event_location", "data-testid": "widget-location-input", required: true }}
@@ -4202,29 +4226,21 @@ const BookingWidget = () => {
                 </div>
               )}
 
-              {(Boolean(business?.travel_fee_enabled) && Number(business?.travel_fee_amount || 0) > 0) ||
+              {Boolean(business?.travel_fee_enabled) ||
               (Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0) ? (
                 <div className="pt-2 border-t">
-                  <div className="text-sm font-semibold mb-2 text-zinc-800">Optional add-ons</div>
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Additional charges</div>
                   <div className="space-y-3">
-                    {Boolean(business?.travel_fee_enabled) && Number(business?.travel_fee_amount || 0) > 0 && (
-                      <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={Boolean(formData.apply_travel_fee)}
-                            onCheckedChange={(v) => setFormData({ ...formData, apply_travel_fee: Boolean(v) })}
-                          />
-                          <div>
-                            <div className="font-medium">
-                              {String(business?.travel_fee_label || 'Travel fee')}
-                            </div>
-                            <div className="text-xs text-zinc-500">Add travel charges if required</div>
-                          </div>
+                    {Boolean(business?.travel_fee_enabled) && (
+                      <div className="p-3 rounded-xl border border-zinc-200 bg-white">
+                        <div className="font-medium">{String(business?.travel_fee_label || 'Travel charge')}</div>
+                        <div className="text-xs text-zinc-500 mt-1">
+                          Travel charges are added automatically if your address is more than{" "}
+                          <strong>{Number(business?.travel_fee_free_km || 40)}</strong> km away. Rate:{" "}
+                          <strong>${Number(business?.travel_fee_rate_per_km || 0.4).toFixed(2)}/km</strong> for the
+                          distance over {Number(business?.travel_fee_free_km || 40)} km.
                         </div>
-                        <div className="font-semibold text-zinc-800">
-                          +${Number(business?.travel_fee_amount || 0).toFixed(2)}
-                        </div>
-                      </label>
+                      </div>
                     )}
 
                     {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (

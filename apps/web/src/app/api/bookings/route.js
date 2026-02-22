@@ -6,6 +6,12 @@ import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import {
+  drivingDistanceKmGeoapify,
+  extractLatLonFromAutocompleteItem,
+  geocodeAddressGeoapify,
+  haversineDistanceKm,
+} from "@/lib/geoapify";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
 
@@ -47,16 +53,15 @@ function buildLineItemsAndTotal({ body, business }) {
     },
   ];
 
-  const travelEnabled = Boolean(business?.travel_fee_enabled);
-  const travelLabel = String(business?.travel_fee_label || "Travel fee").trim() || "Travel fee";
-  const travelAmount = asMoney(business?.travel_fee_amount);
-  const applyTravel = asBool(body?.apply_travel_fee);
-  if (travelEnabled && travelAmount > 0 && applyTravel) {
+  // Travel fee is calculated automatically (distance-based) before calling this function.
+  // It is passed in via `body._computed_travel_fee` by the route handler.
+  const computed = body?._computed_travel_fee;
+  if (computed?.amount && computed.amount > 0) {
     items.push({
-      description: travelLabel,
-      qty: 1,
-      unit_price: travelAmount,
-      total: travelAmount,
+      description: computed.description || "Travel charge",
+      qty: Number(computed.qty || 1),
+      unit_price: asMoney(computed.unit_price),
+      total: asMoney(computed.amount),
     });
   }
 
@@ -75,6 +80,48 @@ function buildLineItemsAndTotal({ body, business }) {
 
   const totalAmount = asMoney(items.reduce((sum, it) => sum + asMoney(it?.total), 0));
   return { line_items: items, total_amount: totalAmount };
+}
+
+async function computeTravelFee({ business, body }) {
+  if (!business) return null;
+  if (!Boolean(business?.travel_fee_enabled)) return null;
+
+  const freeKm = Math.max(0, Math.floor(Number(business?.travel_fee_free_km ?? 40)));
+  const rate = asMoney(business?.travel_fee_rate_per_km ?? 0.4);
+  if (!(rate > 0)) return null;
+
+  const eventAddress = String(body?.event_location || "").trim();
+  if (!eventAddress) return null;
+  const businessAddress = String(business?.business_address || "").trim();
+  if (!businessAddress) return null;
+
+  const eventFromAutocomplete = extractLatLonFromAutocompleteItem(body?.event_location_geo || null);
+  const eventGeo = eventFromAutocomplete || (await geocodeAddressGeoapify(eventAddress));
+  const bizGeo = await geocodeAddressGeoapify(businessAddress);
+  if (!eventGeo || !bizGeo) return null;
+
+  let km = await drivingDistanceKmGeoapify(bizGeo, eventGeo);
+  if (!Number.isFinite(km) || km <= 0) {
+    km = haversineDistanceKm(bizGeo, eventGeo);
+  }
+  if (!Number.isFinite(km) || km <= 0) return null;
+
+  const roundedKm = Math.round(km);
+  const billableKm = Math.max(0, roundedKm - freeKm);
+  const amount = Math.round(billableKm * rate * 100) / 100;
+  if (!(amount > 0)) {
+    return { distance_km: Math.round(km * 100) / 100, travel_km_billable: 0, travel_fee_amount: 0, lineItem: null };
+  }
+
+  const label = String(business?.travel_fee_label || "Travel charge").trim() || "Travel charge";
+  const description = `${label} (${billableKm} km @ $${rate.toFixed(2)}/km)`;
+
+  return {
+    distance_km: Math.round(km * 100) / 100,
+    travel_km_billable: billableKm,
+    travel_fee_amount: amount,
+    lineItem: { description, qty: billableKm, unit_price: rate, amount },
+  };
 }
 
 function formatYYYYMMDD(date) {
@@ -233,7 +280,12 @@ export async function POST(request) {
 
     const custom_fields = normalizeCustomFields(body?.custom_fields);
     const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
-    const { line_items, total_amount } = buildLineItemsAndTotal({ body, business });
+    const travel = await computeTravelFee({ business, body });
+    const bodyWithComputed = {
+      ...body,
+      _computed_travel_fee: travel?.lineItem || null,
+    };
+    const { line_items, total_amount } = buildLineItemsAndTotal({ body: bodyWithComputed, business });
 
     const booking = {
       id: randomUUID(),
@@ -255,6 +307,9 @@ export async function POST(request) {
       quantity: body?.quantity !== undefined ? Number(body.quantity) : 1,
       line_items,
       total_amount,
+      distance_km: travel?.distance_km ?? null,
+      travel_km_billable: travel?.travel_km_billable ?? null,
+      travel_fee_amount: travel?.travel_fee_amount ?? null,
       status: "confirmed",
       invoice_id,
       invoice_date: invoiceDate.toISOString(),
@@ -333,7 +388,12 @@ export async function POST(request) {
   business.invoice_seq = nextSeq;
   const invoice_id = `PB-${formatYYYYMMDD(invoiceDate)}-${String(nextSeq).padStart(3, "0")}`;
   const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
-  const { line_items, total_amount } = buildLineItemsAndTotal({ body, business });
+  const travel = await computeTravelFee({ business, body });
+  const bodyWithComputed = {
+    ...body,
+    _computed_travel_fee: travel?.lineItem || null,
+  };
+  const { line_items, total_amount } = buildLineItemsAndTotal({ body: bodyWithComputed, business });
 
   const booking = {
     id: randomUUID(),
@@ -355,6 +415,9 @@ export async function POST(request) {
     quantity: body?.quantity !== undefined ? Number(body.quantity) : 1,
     line_items,
     total_amount,
+    distance_km: travel?.distance_km ?? null,
+    travel_km_billable: travel?.travel_km_billable ?? null,
+    travel_fee_amount: travel?.travel_fee_amount ?? null,
     status: "confirmed",
     invoice_id,
     invoice_date: invoiceDate.toISOString(),

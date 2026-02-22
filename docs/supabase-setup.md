@@ -65,5 +65,6 @@ Apply the latest SQL migrations from `supabase/migrations/` to your Supabase pro
 
 - `20260221120000_booking_line_items_and_surcharges.sql`
 - `20260221130000_business_public_profile.sql`
+- `20260221150000_travel_fee_distance_fields.sql`
 
 You can run them via the Supabase SQL editor or via the Supabase CLI migrations workflow.
