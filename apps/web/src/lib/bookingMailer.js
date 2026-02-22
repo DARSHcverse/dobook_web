@@ -34,7 +34,12 @@ function bookingSummaryLines({ booking }) {
   if (booking?.event_location) lines.push(`Address: ${booking.event_location}`);
   if (booking?.booth_type) lines.push(`Booth/Service: ${booking.booth_type}`);
   else if (booking?.service_type) lines.push(`Booth/Service: ${booking.service_type}`);
-  if (booking?.price !== undefined) lines.push(`Price: $${Number(booking.price || 0).toFixed(2)}`);
+  const qty = Math.max(1, Number(booking?.quantity || 1));
+  const unit = Number(booking?.price || 0);
+  const total = booking?.total_amount !== undefined && booking?.total_amount !== null
+    ? Number(booking.total_amount || 0)
+    : unit * qty;
+  lines.push(`Total: $${Number(total || 0).toFixed(2)}`);
   return lines;
 }
 
@@ -44,7 +49,12 @@ function bookingSummaryTableHtml({ booking }) {
   if (booking?.booking_time) rows.push(["Start", booking.booking_time]);
   if (booking?.event_location) rows.push(["Address", booking.event_location]);
   if (booking?.booth_type || booking?.service_type) rows.push(["Service", booking.booth_type || booking.service_type]);
-  if (booking?.price !== undefined) rows.push(["Price", `$${Number(booking.price || 0).toFixed(2)}`]);
+  const qty = Math.max(1, Number(booking?.quantity || 1));
+  const unit = Number(booking?.price || 0);
+  const total = booking?.total_amount !== undefined && booking?.total_amount !== null
+    ? Number(booking.total_amount || 0)
+    : unit * qty;
+  rows.push(["Total", `$${Number(total || 0).toFixed(2)}`]);
 
   const tr = rows
     .map(

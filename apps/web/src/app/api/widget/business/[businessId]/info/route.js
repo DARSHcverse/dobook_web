@@ -22,6 +22,12 @@ export async function GET(_request, { params }) {
       industry: safe.industry || "photobooth",
       booth_types: safe.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
       booking_custom_fields: safe.booking_custom_fields || [],
+      travel_fee_enabled: Boolean(safe.travel_fee_enabled),
+      travel_fee_label: String(safe.travel_fee_label || "Travel fee"),
+      travel_fee_amount: Number(safe.travel_fee_amount || 0),
+      cbd_fee_enabled: Boolean(safe.cbd_fee_enabled),
+      cbd_fee_label: String(safe.cbd_fee_label || "CBD logistics"),
+      cbd_fee_amount: Number(safe.cbd_fee_amount || 0),
     });
   }
 
@@ -37,5 +43,11 @@ export async function GET(_request, { params }) {
     industry: safe.industry || "photobooth",
     booth_types: safe.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: safe.booking_custom_fields || [],
+    travel_fee_enabled: Boolean(safe.travel_fee_enabled),
+    travel_fee_label: String(safe.travel_fee_label || "Travel fee"),
+    travel_fee_amount: Number(safe.travel_fee_amount || 0),
+    cbd_fee_enabled: Boolean(safe.cbd_fee_enabled),
+    cbd_fee_label: String(safe.cbd_fee_label || "CBD logistics"),
+    cbd_fee_amount: Number(safe.cbd_fee_amount || 0),
   });
 }

@@ -9,6 +9,74 @@ import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
 
+function asBool(value) {
+  if (value === true || value === false) return value;
+  const s = String(value || "").trim().toLowerCase();
+  if (!s) return false;
+  return s === "1" || s === "true" || s === "yes" || s === "on";
+}
+
+function asMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function formatHours(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const rounded = Math.round(n * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+function buildLineItemsAndTotal({ body, business }) {
+  const qty = Math.max(1, Number(body?.quantity || 1));
+  const unit = asMoney(body?.price);
+  const booth = String(body?.booth_type || body?.service_type || "Service").trim() || "Service";
+  const hoursRaw = body?.duration_minutes ? Number(body.duration_minutes) / 60 : 0;
+  const hours = formatHours(hoursRaw) || "1";
+  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
+  const baseDesc = `${hours} ${hourLabel} ${booth}`;
+
+  const items = [
+    {
+      description: baseDesc,
+      qty,
+      unit_price: unit,
+      total: asMoney(unit * qty),
+    },
+  ];
+
+  const travelEnabled = Boolean(business?.travel_fee_enabled);
+  const travelLabel = String(business?.travel_fee_label || "Travel fee").trim() || "Travel fee";
+  const travelAmount = asMoney(business?.travel_fee_amount);
+  const applyTravel = asBool(body?.apply_travel_fee);
+  if (travelEnabled && travelAmount > 0 && applyTravel) {
+    items.push({
+      description: travelLabel,
+      qty: 1,
+      unit_price: travelAmount,
+      total: travelAmount,
+    });
+  }
+
+  const cbdEnabled = Boolean(business?.cbd_fee_enabled);
+  const cbdLabel = String(business?.cbd_fee_label || "CBD logistics").trim() || "CBD logistics";
+  const cbdAmount = asMoney(business?.cbd_fee_amount);
+  const applyCbd = asBool(body?.apply_cbd_fee);
+  if (cbdEnabled && cbdAmount > 0 && applyCbd) {
+    items.push({
+      description: cbdLabel,
+      qty: 1,
+      unit_price: cbdAmount,
+      total: cbdAmount,
+    });
+  }
+
+  const totalAmount = asMoney(items.reduce((sum, it) => sum + asMoney(it?.total), 0));
+  return { line_items: items, total_amount: totalAmount };
+}
+
 function formatYYYYMMDD(date) {
   const y = String(date.getFullYear());
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -165,6 +233,7 @@ export async function POST(request) {
 
     const custom_fields = normalizeCustomFields(body?.custom_fields);
     const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
+    const { line_items, total_amount } = buildLineItemsAndTotal({ body, business });
 
     const booking = {
       id: randomUUID(),
@@ -184,6 +253,8 @@ export async function POST(request) {
       notes: body?.notes ? String(body.notes) : "",
       price: body?.price !== undefined && body?.price !== "" ? Number(body.price) : 0,
       quantity: body?.quantity !== undefined ? Number(body.quantity) : 1,
+      line_items,
+      total_amount,
       status: "confirmed",
       invoice_id,
       invoice_date: invoiceDate.toISOString(),
@@ -262,6 +333,7 @@ export async function POST(request) {
   business.invoice_seq = nextSeq;
   const invoice_id = `PB-${formatYYYYMMDD(invoiceDate)}-${String(nextSeq).padStart(3, "0")}`;
   const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
+  const { line_items, total_amount } = buildLineItemsAndTotal({ body, business });
 
   const booking = {
     id: randomUUID(),
@@ -281,6 +353,8 @@ export async function POST(request) {
     notes: body?.notes ? String(body.notes) : "",
     price: body?.price !== undefined && body?.price !== "" ? Number(body.price) : 0,
     quantity: body?.quantity !== undefined ? Number(body.quantity) : 1,
+    line_items,
+    total_amount,
     status: "confirmed",
     invoice_id,
     invoice_date: invoiceDate.toISOString(),

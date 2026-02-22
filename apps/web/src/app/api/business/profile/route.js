@@ -12,6 +12,17 @@ export async function PUT(request) {
   if (auth.error) return auth.error;
 
   const body = await request.json();
+  const asBool = (value) => {
+    if (value === true || value === false) return value;
+    const s = String(value || "").trim().toLowerCase();
+    if (!s) return false;
+    return s === "1" || s === "true" || s === "yes" || s === "on";
+  };
+  const asMoney = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.round(n * 100) / 100;
+  };
   const normalizeIndustry = (value) => {
     const raw = String(value || "").trim().toLowerCase();
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
@@ -31,6 +42,12 @@ export async function PUT(request) {
     "industry",
     "booth_types",
     "booking_custom_fields",
+    "travel_fee_enabled",
+    "travel_fee_label",
+    "travel_fee_amount",
+    "cbd_fee_enabled",
+    "cbd_fee_label",
+    "cbd_fee_amount",
   ];
 
   if (auth.mode === "supabase") {
@@ -39,6 +56,14 @@ export async function PUT(request) {
       if (!(key in body)) continue;
       if (key === "industry") {
         updates.industry = normalizeIndustry(body.industry);
+        continue;
+      }
+      if (key === "travel_fee_enabled" || key === "cbd_fee_enabled") {
+        updates[key] = asBool(body[key]);
+        continue;
+      }
+      if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
+        updates[key] = asMoney(body[key]);
         continue;
       }
       if (key === "booth_types") {
@@ -78,6 +103,14 @@ export async function PUT(request) {
     if (!(key in body)) continue;
     if (key === "industry") {
       auth.business.industry = normalizeIndustry(body.industry);
+      continue;
+    }
+    if (key === "travel_fee_enabled" || key === "cbd_fee_enabled") {
+      auth.business[key] = asBool(body[key]);
+      continue;
+    }
+    if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
+      auth.business[key] = asMoney(body[key]);
       continue;
     }
     if (key === "booth_types") {

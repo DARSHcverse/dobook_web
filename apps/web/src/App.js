@@ -20,6 +20,7 @@ import jsPDF from 'jspdf';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -171,6 +172,16 @@ function bookingToEvent(booking) {
     end,
     resource: booking,
   };
+}
+
+function bookingTotalAmount(booking) {
+  const qty = Math.max(1, Number(booking?.quantity || 1));
+  const unit = Number(booking?.price || 0);
+  const totalRaw =
+    booking?.total_amount !== undefined && booking?.total_amount !== null && booking?.total_amount !== ''
+      ? Number(booking.total_amount || 0)
+      : unit * qty;
+  return Number.isFinite(totalRaw) ? totalRaw : 0;
 }
 
 function splitAddressLines(value) {
@@ -460,7 +471,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </div>
               <div>
                 <Label className="text-zinc-600">Price</Label>
-                <p className="font-semibold text-emerald-600">${(Number(booking.price) || 0).toFixed(2)}</p>
+                <p className="font-semibold text-emerald-600">${bookingTotalAmount(booking).toFixed(2)}</p>
               </div>
               <div>
                 <Label className="text-zinc-600">Date</Label>
@@ -890,6 +901,10 @@ const Dashboard = () => {
       const normalized = list.map((b) => ({
         ...b,
         price: b?.price !== undefined && b?.price !== null && b?.price !== '' ? Number(b.price) : 0,
+        total_amount:
+          b?.total_amount !== undefined && b?.total_amount !== null && b?.total_amount !== ''
+            ? Number(b.total_amount)
+            : null,
         quantity: b?.quantity !== undefined && b?.quantity !== null && b?.quantity !== '' ? Number(b.quantity) : 1,
         duration_minutes:
           b?.duration_minutes !== undefined && b?.duration_minutes !== null && b?.duration_minutes !== ''
@@ -919,7 +934,7 @@ const Dashboard = () => {
   const stats = {
     totalBookings: activeBookings.length,
     upcomingBookings: activeBookings.filter((b) => new Date(b.booking_date) >= new Date()).length,
-    revenue: activeBookings.reduce((sum, b) => sum + (Number(b?.price) || 0), 0),
+    revenue: activeBookings.reduce((sum, b) => sum + bookingTotalAmount(b), 0),
   };
 
   const monthlyTrends = useMemo(() => {
@@ -948,7 +963,7 @@ const Dashboard = () => {
       const bucket = byKey.get(`${y}-${m}`);
       if (!bucket) continue;
       bucket.bookings += 1;
-      bucket.revenue += Number(b?.price || 0);
+      bucket.revenue += bookingTotalAmount(b);
     }
 
     return months.map((m) => ({ ...m, revenue: Math.round(m.revenue * 100) / 100 }));
@@ -1373,6 +1388,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     bsb: business?.bsb || '',
     account_number: business?.account_number || '',
     payment_link: business?.payment_link || '',
+    travel_fee_enabled: Boolean(business?.travel_fee_enabled),
+    travel_fee_label: business?.travel_fee_label || 'Travel fee',
+    travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
+    cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
+    cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
+    cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
     industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
     booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -1402,6 +1423,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         bsb: business.bsb || '',
         account_number: business.account_number || '',
         payment_link: business.payment_link || '',
+        travel_fee_enabled: Boolean(business?.travel_fee_enabled),
+        travel_fee_label: business?.travel_fee_label || 'Travel fee',
+        travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
+        cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
+        cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
+        cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
         industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -1853,6 +1880,91 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         </CardContent>
       </Card>
 
+      {/* Additional Charges */}
+      <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Additional Charges</CardTitle>
+          <CardDescription>
+            Optional surcharges your customers can select in the booking widget (and they’ll be included on invoices).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.travel_fee_enabled)}
+                onCheckedChange={(v) => setFormData({ ...formData, travel_fee_enabled: Boolean(v) })}
+              />
+              <div className="font-semibold">Travel charge</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label htmlFor="travel_fee_label">Label</Label>
+                <Input
+                  id="travel_fee_label"
+                  value={formData.travel_fee_label}
+                  onChange={(e) => setFormData({ ...formData, travel_fee_label: e.target.value })}
+                  placeholder="Travel fee"
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="travel_fee_amount">Amount ($)</Label>
+                <Input
+                  id="travel_fee_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.travel_fee_amount}
+                  onChange={(e) => setFormData({ ...formData, travel_fee_amount: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 mt-3">
+              Your customer will see this as an optional add-on checkbox in the booking link.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.cbd_fee_enabled)}
+                onCheckedChange={(v) => setFormData({ ...formData, cbd_fee_enabled: Boolean(v) })}
+              />
+              <div className="font-semibold">CBD logistics charge</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label htmlFor="cbd_fee_label">Label</Label>
+                <Input
+                  id="cbd_fee_label"
+                  value={formData.cbd_fee_label}
+                  onChange={(e) => setFormData({ ...formData, cbd_fee_label: e.target.value })}
+                  placeholder="CBD logistics"
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cbd_fee_amount">Amount ($)</Label>
+                <Input
+                  id="cbd_fee_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.cbd_fee_amount}
+                  onChange={(e) => setFormData({ ...formData, cbd_fee_amount: e.target.value })}
+                  className="bg-zinc-50 mt-2"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-zinc-500 mt-3">
+              Enable this if you sometimes need extra logistics for city/CBD events.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Booking Editor Configuration */}
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
@@ -2219,7 +2331,7 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
                       <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
                       <td className="py-3 px-4">{booking.booking_date}</td>
                       <td className="py-3 px-4">{booking.booking_time}</td>
-                      <td className="py-3 px-4">${(Number(booking.price) || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4">${bookingTotalAmount(booking).toFixed(2)}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
@@ -2696,7 +2808,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
                   <div className="flex flex-col items-end gap-2 whitespace-nowrap">
                     <div className="text-emerald-700 font-semibold">
-                      ${(Number(booking.price) || 0).toFixed(2)}
+                      ${bookingTotalAmount(booking).toFixed(2)}
                     </div>
                     <span
                       className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
@@ -3524,6 +3636,8 @@ const BookingWidget = () => {
     notes: '',
     price: '',
     quantity: 1,
+    apply_travel_fee: false,
+    apply_cbd_fee: false,
     custom_fields: {}
   });
   const [loading, setLoading] = useState(false);
@@ -3906,6 +4020,54 @@ const BookingWidget = () => {
                   </div>
                 </div>
               )}
+
+              {(Boolean(business?.travel_fee_enabled) && Number(business?.travel_fee_amount || 0) > 0) ||
+              (Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0) ? (
+                <div className="pt-2 border-t">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Optional add-ons</div>
+                  <div className="space-y-3">
+                    {Boolean(business?.travel_fee_enabled) && Number(business?.travel_fee_amount || 0) > 0 && (
+                      <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-zinc-200 bg-white">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={Boolean(formData.apply_travel_fee)}
+                            onCheckedChange={(v) => setFormData({ ...formData, apply_travel_fee: Boolean(v) })}
+                          />
+                          <div>
+                            <div className="font-medium">
+                              {String(business?.travel_fee_label || 'Travel fee')}
+                            </div>
+                            <div className="text-xs text-zinc-500">Add travel charges if required</div>
+                          </div>
+                        </div>
+                        <div className="font-semibold text-zinc-800">
+                          +${Number(business?.travel_fee_amount || 0).toFixed(2)}
+                        </div>
+                      </label>
+                    )}
+
+                    {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (
+                      <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-zinc-200 bg-white">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={Boolean(formData.apply_cbd_fee)}
+                            onCheckedChange={(v) => setFormData({ ...formData, apply_cbd_fee: Boolean(v) })}
+                          />
+                          <div>
+                            <div className="font-medium">
+                              {String(business?.cbd_fee_label || 'CBD logistics')}
+                            </div>
+                            <div className="text-xs text-zinc-500">Extra logistics for city/CBD events</div>
+                          </div>
+                        </div>
+                        <div className="font-semibold text-zinc-800">
+                          +${Number(business?.cbd_fee_amount || 0).toFixed(2)}
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               <Button 
                 data-testid="widget-submit-btn"

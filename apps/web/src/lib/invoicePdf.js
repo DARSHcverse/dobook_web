@@ -10,6 +10,54 @@ function asMoneyNoCents(value) {
   return `$${Number.isFinite(n) ? n.toFixed(0) : "0"}`;
 }
 
+function asNumber(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return n;
+}
+
+function normalizeInvoiceItems({ booking, business }) {
+  const raw = booking?.line_items;
+  const items = Array.isArray(raw) ? raw : [];
+
+  const normalized = items
+    .map((it) => {
+      const description = String(it?.description || "").trim();
+      if (!description) return null;
+      const qty = Math.max(1, Math.floor(asNumber(it?.qty, 1)));
+      const unit_price = asNumber(it?.unit_price, 0);
+      const total = Number.isFinite(asNumber(it?.total, NaN)) ? asNumber(it?.total, 0) : unit_price * qty;
+      return {
+        description,
+        qty,
+        unit_price,
+        total,
+      };
+    })
+    .filter(Boolean);
+
+  if (normalized.length) return normalized;
+
+  // Back-compat: build a single line item from booking fields.
+  const qty = Math.max(1, asNumber(booking?.quantity, 1));
+  const unit = asNumber(booking?.price, 0);
+
+  const booth = String(booking?.booth_type || booking?.service_type || "Booking").trim() || "Booking";
+  const hoursRaw = booking?.duration_minutes ? asNumber(booking.duration_minutes, 60) / 60 : 0;
+  const hours = formatHours(hoursRaw) || "1";
+  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
+  const description = `${hours} ${hourLabel} ${booth}`;
+
+  return [
+    {
+      description,
+      qty,
+      unit_price: unit,
+      total: unit * qty,
+    },
+  ];
+}
+
 function clampByte(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return 0;
@@ -176,15 +224,15 @@ function drawLogo(doc, asset, box) {
 }
 
 function commonInvoiceData({ booking, business }) {
-  const qty = Math.max(1, Number(booking?.quantity || 1));
-  const unit = Number(booking?.price || 0);
-  const total = unit * qty;
+  const items = normalizeInvoiceItems({ booking, business });
+  const subtotal = items.reduce((sum, it) => sum + asNumber(it?.total, 0), 0);
+  const tax = 0;
+  const total = subtotal + tax;
 
-  const booth = String(booking?.booth_type || booking?.service_type || "Booking").trim() || "Booking";
-  const hoursRaw = booking?.duration_minutes ? Number(booking.duration_minutes) / 60 : 0;
-  const hours = formatHours(hoursRaw) || "1";
-  const hourLabel = Number(hours) === 1 ? "Hour" : "Hours";
-  const description = `${hours} ${hourLabel} ${booth}`;
+  const first = items[0] || { description: "Booking", qty: 1, unit_price: 0, total: 0 };
+  const qty = Math.max(1, asNumber(first.qty, 1));
+  const unit = asNumber(first.unit_price, 0);
+  const description = String(first.description || "Booking");
 
   const invoiceNo = booking?.invoice_id || `INV-${String(booking?.id || "").slice(0, 8).toUpperCase()}`;
   const invoiceDate = booking?.invoice_date || new Date().toISOString();
@@ -210,7 +258,10 @@ function commonInvoiceData({ booking, business }) {
     qty,
     unit,
     total,
+    subtotal,
+    tax,
     description,
+    items,
     invoiceNo,
     invoiceDate,
     dueDate,
@@ -334,14 +385,22 @@ function renderClassic({ doc, pageW, marginX, booking, business, logoAsset, acce
 
   doc.line(lineX1, tableTopY + 12, lineX2, tableTopY + 12);
 
-  const rowY = tableTopY + 44;
+  let rowY = tableTopY + 44;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(70);
-  doc.text(String(d.description), marginX, rowY);
-  doc.text(asMoneyNoCents(d.unit), rateX, rowY, { align: "right" });
-  doc.text(String(d.qty), qtyX, rowY, { align: "right" });
-  doc.text(asMoneyNoCents(d.total), totalX, rowY, { align: "right" });
+
+  const descMaxW = rateX - marginX - 12;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, marginX, rowY);
+    doc.text(asMoneyNoCents(item.unit_price), rateX, rowY, { align: "right" });
+    doc.text(String(item.qty), qtyX, rowY, { align: "right" });
+    doc.text(asMoneyNoCents(item.total), totalX, rowY, { align: "right" });
+    rowY += Math.max(16, lines.length * 12);
+  }
 
   // Totals block
   const totalsY = 585;
@@ -476,19 +535,27 @@ function renderClean({ doc, pageW, pageH, marginX, booking, business, logoAsset,
   doc.text("PRICE", priceX, tableY, { align: "right" });
   doc.text("TOTAL", totalX, tableY, { align: "right" });
 
-  // Row
+  // Rows
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50);
-  doc.text(d.description, descX, tableY + 36, { maxWidth: qtyX - descX - 12 });
-  doc.text(String(d.qty), qtyX, tableY + 36, { align: "right" });
-  doc.text(asMoney(d.unit), priceX, tableY + 36, { align: "right" });
-  doc.text(asMoney(d.total), totalX, tableY + 36, { align: "right" });
+  const descMaxW = qtyX - descX - 12;
+  let y = tableY + 36;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, descX, y);
+    doc.text(String(item.qty), qtyX, y, { align: "right" });
+    doc.text(asMoney(item.unit_price), priceX, y, { align: "right" });
+    doc.text(asMoney(item.total), totalX, y, { align: "right" });
+    y += Math.max(18, lines.length * 12);
+  }
   doc.setDrawColor(230);
-  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+  doc.line(marginX, y + 6, lineX2, y + 6);
 
   // Totals
-  const totalsTop = tableY + 92;
+  const totalsTop = y + 48;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(80);
@@ -563,15 +630,23 @@ function renderGradient({ doc, pageW, marginX, booking, business, logoAsset }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50);
-  doc.text(d.description, marginX + 10, tableY + 36);
-  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  let rowY = tableY + 36;
+  const descMaxW = lineX2 - marginX - 120;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, marginX + 10, rowY);
+    doc.text(asMoney(item.total), lineX2 - 10, rowY, { align: "right" });
+    rowY += Math.max(18, lines.length * 12);
+  }
   doc.setDrawColor(230);
-  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+  doc.line(marginX, rowY + 6, lineX2, rowY + 6);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(40);
-  doc.text(asMoney(d.total), lineX2 - 10, tableY + 98, { align: "right" });
+  doc.text(asMoney(d.total), lineX2 - 10, rowY + 46, { align: "right" });
 }
 
 function renderNavy({ doc, pageW, marginX, booking, business, logoAsset }) {
@@ -638,16 +713,24 @@ function renderNavy({ doc, pageW, marginX, booking, business, logoAsset }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50);
-  doc.text(d.description, descX, tableY + 36, { maxWidth: qtyX - descX - 12 });
-  doc.text(String(d.qty), qtyX, tableY + 36, { align: "right" });
-  doc.text(asMoney(d.total), totalX, tableY + 36, { align: "right" });
+  let rowY = tableY + 36;
+  const descMaxW = qtyX - descX - 12;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, descX, rowY);
+    doc.text(String(item.qty), qtyX, rowY, { align: "right" });
+    doc.text(asMoney(item.total), totalX, rowY, { align: "right" });
+    rowY += Math.max(18, lines.length * 12);
+  }
   doc.setDrawColor(230);
-  doc.line(marginX, tableY + 50, lineX2, tableY + 50);
+  doc.line(marginX, rowY + 6, lineX2, rowY + 6);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   setTextHex(doc, "#1e3a8a", { r: 30, g: 58, b: 138 });
-  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, tableY + 100, { align: "right" });
+  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, rowY + 52, { align: "right" });
 }
 
 function renderElegant({ doc, pageW, marginX, booking, business, logoAsset }) {
@@ -704,16 +787,24 @@ function renderElegant({ doc, pageW, marginX, booking, business, logoAsset }) {
   doc.setFont("times", "normal");
   doc.setFontSize(11);
   doc.setTextColor(50);
-  doc.text(d.description, marginX, tableY + 36);
-  doc.text(asMoney(d.total), lineX2, tableY + 36, { align: "right" });
+  let rowY = tableY + 36;
+  const descMaxW = lineX2 - marginX - 140;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, marginX, rowY);
+    doc.text(asMoney(item.total), lineX2, rowY, { align: "right" });
+    rowY += Math.max(20, lines.length * 12);
+  }
 
   doc.setDrawColor(220);
-  doc.line(marginX, tableY + 56, lineX2, tableY + 56);
+  doc.line(marginX, rowY + 8, lineX2, rowY + 8);
 
   doc.setFont("times", "bold");
   doc.setFontSize(18);
   doc.setTextColor(30);
-  doc.text(`Total Due: ${asMoney(d.total)}`, lineX2, tableY + 110, { align: "right" });
+  doc.text(`Total Due: ${asMoney(d.total)}`, lineX2, rowY + 60, { align: "right" });
 }
 
 function renderSidebar({ doc, pageW, pageH, marginX, booking, business, logoAsset }) {
@@ -777,15 +868,23 @@ function renderSidebar({ doc, pageW, pageH, marginX, booking, business, logoAsse
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(50);
-  doc.text(d.description, x + 10, tableY + 36);
-  doc.text(asMoney(d.total), lineX2 - 10, tableY + 36, { align: "right" });
+  let rowY = tableY + 36;
+  const descMaxW = lineX2 - x - 130;
+  for (const item of d.items || []) {
+    const desc = String(item?.description || "").trim();
+    if (!desc) continue;
+    const lines = doc.splitTextToSize(desc, descMaxW);
+    doc.text(lines, x + 10, rowY);
+    doc.text(asMoney(item.total), lineX2 - 10, rowY, { align: "right" });
+    rowY += Math.max(18, lines.length * 12);
+  }
   doc.setDrawColor(230);
-  doc.line(x, tableY + 52, lineX2, tableY + 52);
+  doc.line(x, rowY + 6, lineX2, rowY + 6);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(30);
-  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, tableY + 106, { align: "right" });
+  doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, rowY + 52, { align: "right" });
 }
 
 export async function generateInvoicePdfBase64({ booking, business, template }) {
