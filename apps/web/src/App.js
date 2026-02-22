@@ -661,6 +661,222 @@ const LandingPage = ({
   customerHref = '/discover',
 } = {}) => {
   const router = useRouter();
+  const [heroPreviewTab, setHeroPreviewTab] = useState('bookings');
+  const [productPreviewTab, setProductPreviewTab] = useState('bookings');
+
+  const uiPreviewTabs = [
+    { id: 'bookings', label: 'Bookings' },
+    { id: 'calendar', label: 'Calendar' },
+    { id: 'invoices', label: 'Invoices' },
+  ];
+
+  const tabClass = (active) =>
+    `h-9 px-3 rounded-full text-xs font-semibold border transition-colors ${
+      active
+        ? 'bg-rose-600 border-rose-600 text-white'
+        : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+    }`;
+
+  const pillClass = (tone) => {
+    if (tone === 'success') return 'bg-emerald-50 text-emerald-700';
+    if (tone === 'danger') return 'bg-rose-50 text-rose-700';
+    return 'bg-zinc-100 text-zinc-700';
+  };
+
+  function UiPreviewContent({ tab }) {
+    const normalizedTab = new Set(['bookings', 'calendar', 'invoices']).has(tab) ? tab : 'bookings';
+    const Sidebar = () => (
+      <div className="hidden sm:block w-44 shrink-0 border-r border-zinc-200 bg-white">
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-xl bg-rose-600" aria-hidden="true" />
+            <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              DoBook
+            </div>
+          </div>
+        </div>
+        <div className="px-3 pb-4 space-y-1 text-xs" style={{ fontFamily: 'Inter' }}>
+          {[
+            { id: 'bookings', label: 'Bookings' },
+            { id: 'calendar', label: 'Calendar View' },
+            { id: 'invoices', label: 'Invoice Templates' },
+          ].map((item) => (
+            <div
+              key={item.id}
+              className={`flex items-center justify-between rounded-xl px-3 py-2 border ${
+                normalizedTab === item.id
+                  ? 'bg-rose-50 border-rose-100 text-rose-700'
+                  : 'bg-white border-transparent text-zinc-700'
+              }`}
+            >
+              <span className="font-medium">{item.label}</span>
+              {normalizedTab === item.id ? <span className="text-[10px] font-semibold">Active</span> : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    if (normalizedTab === 'bookings') {
+      return (
+        <div className="flex min-h-[22rem]">
+          <Sidebar />
+          <div className="flex-1 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  All bookings
+                </div>
+                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+                  Manage appointments in one list
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="h-9 w-24 rounded-full bg-rose-600 text-white text-xs font-semibold flex items-center justify-center">
+                  + Add booking
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white overflow-hidden">
+              <div className="grid grid-cols-6 gap-2 px-4 py-3 text-[11px] font-semibold text-zinc-500 border-b border-zinc-200">
+                <div className="col-span-2">Customer</div>
+                <div className="col-span-2">Service</div>
+                <div>Date</div>
+                <div>Status</div>
+              </div>
+              {[
+                { name: 'Alex Morgan', service: 'Consultation', date: '2026-03-26', tone: 'success', status: 'confirmed' },
+                { name: 'Priya Singh', service: 'Follow-up', date: '2026-03-07', tone: 'success', status: 'confirmed' },
+                { name: 'Chris Lee', service: 'Session', date: '2026-02-21', tone: 'danger', status: 'cancelled' },
+                { name: 'Jordan Park', service: 'Initial', date: '2026-02-17', tone: 'success', status: 'confirmed' },
+              ].map((row) => (
+                <div key={`${row.name}-${row.date}`} className="grid grid-cols-6 gap-2 px-4 py-3 text-xs text-zinc-700 border-b border-zinc-100 last:border-b-0">
+                  <div className="col-span-2">
+                    <div className="font-semibold text-zinc-900">{row.name}</div>
+                    <div className="text-[11px] text-zinc-500">client@email.com</div>
+                  </div>
+                  <div className="col-span-2 flex items-center">
+                    <div className="font-medium">{row.service}</div>
+                  </div>
+                  <div className="flex items-center text-[11px] text-zinc-600">{row.date}</div>
+                  <div className="flex items-center">
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${pillClass(row.tone)}`}>
+                      {row.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (normalizedTab === 'calendar') {
+      return (
+        <div className="flex min-h-[22rem]">
+          <Sidebar />
+          <div className="flex-1 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  Calendar view
+                </div>
+                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+                  Month / week / day scheduling
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="h-9 w-24 rounded-full bg-rose-600 text-white text-xs font-semibold flex items-center justify-center">
+                  Month
+                </div>
+                <div className="h-9 w-24 rounded-full border border-zinc-200 bg-white text-zinc-700 text-xs font-semibold flex items-center justify-center">
+                  Week
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3">
+              <div className="grid grid-cols-7 gap-2 text-[10px] font-semibold text-zinc-500 px-1">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                  <div key={d} className="text-center">{d}</div>
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-2">
+                {Array.from({ length: 28 }).map((_, i) => {
+                  const day = i + 1;
+                  const hasEvent = day === 17 || day === 19 || day === 20 || day === 28;
+                  return (
+                    <div
+                      key={day}
+                      className={`h-16 rounded-xl border border-zinc-200 bg-zinc-50 p-2 ${
+                        day === 22 ? 'bg-rose-50 border-rose-100' : ''
+                      }`}
+                    >
+                      <div className="text-[10px] font-semibold text-zinc-600">{String(day).padStart(2, '0')}</div>
+                      {hasEvent ? (
+                        <div className="mt-2 h-4 rounded-full bg-rose-600/90" aria-hidden="true" />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (normalizedTab === 'invoices') {
+      return (
+        <div className="flex min-h-[22rem]">
+          <Sidebar />
+          <div className="flex-1 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  Invoice templates
+                </div>
+                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+                  Choose a style that fits your brand
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="h-9 w-28 rounded-full bg-zinc-100 text-zinc-700 text-xs font-semibold flex items-center justify-center">
+                  Active: Sidebar
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {[
+                { name: 'Classic', accent: 'bg-zinc-900' },
+                { name: 'Clean', accent: 'bg-zinc-200' },
+                { name: 'Gradient', accent: 'bg-gradient-to-r from-rose-600 to-violet-600' },
+                { name: 'Sidebar', accent: 'bg-zinc-800 ring-2 ring-rose-200' },
+              ].map((t) => (
+                <div key={t.name} className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <div className={`h-8 rounded-xl ${t.accent}`} aria-hidden="true" />
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="text-xs font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{t.name}</div>
+                    {t.name === 'Sidebar' ? (
+                      <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700">
+                        Selected
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 h-10 rounded-xl bg-zinc-50 border border-zinc-200" aria-hidden="true" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -678,7 +894,7 @@ const LandingPage = ({
             <img
               src={DOBOOK_LOGO_PNG}
               alt="DoBook"
-              className="h-9 w-auto object-contain select-none"
+              className="h-[68px] md:h-[76px] w-auto object-contain select-none"
               draggable={false}
               onError={(e) => {
                 e.currentTarget.src = DOBOOK_LOGO_SVG;
@@ -825,7 +1041,7 @@ const LandingPage = ({
               </div>
               <div>
                 <div className="text-xs font-medium text-zinc-500">Setup</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">~10 minutes</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">~5 minutes</div>
               </div>
             </div>
           </div>
@@ -838,60 +1054,43 @@ const LandingPage = ({
                   <span className="h-3 w-3 rounded-full bg-amber-400" />
                   <span className="h-3 w-3 rounded-full bg-emerald-400" />
                 </div>
-                <div className="text-xs font-medium text-zinc-500">DoBook UI preview (mock)</div>
-              </div>
-
-              <div className="p-5 grid gap-4 md:grid-cols-12">
-                <div className="md:col-span-7 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-medium text-zinc-500">Today</div>
-                      <div className="mt-1 text-sm font-semibold text-zinc-900">Appointments</div>
-                    </div>
-                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">+ New booking</span>
-                  </div>
-                  <div className="mt-4 grid gap-2">
-                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-zinc-900">Cut + Style</div>
-                        <div className="text-xs text-zinc-500">9:30 AM · 45 min · Alex M.</div>
-                      </div>
-                      <span className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Confirmed</span>
-                    </div>
-                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-zinc-900">Consultation</div>
-                        <div className="text-xs text-zinc-500">11:00 AM · 60 min · Priya S.</div>
-                      </div>
-                      <span className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Reminder sent</span>
-                    </div>
-                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-zinc-900">Tutoring</div>
-                        <div className="text-xs text-zinc-500">3:15 PM · 50 min · Chris L.</div>
-                      </div>
-                      <span className="rounded-lg bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700">Pending</span>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-medium text-zinc-500">UI preview</div>
+                  <span className="hidden sm:inline text-[11px] text-zinc-400">·</span>
+                  <div className="hidden sm:flex items-center gap-2" role="tablist" aria-label="UI preview tabs">
+                    {uiPreviewTabs.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={heroPreviewTab === t.id}
+                        className={tabClass(heroPreviewTab === t.id)}
+                        onClick={() => setHeroPreviewTab(t.id)}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </div>
 
-                <div className="md:col-span-5 rounded-2xl border border-zinc-200 bg-white p-4">
-                  <div className="text-xs font-medium text-zinc-500">This week</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-900">Revenue & insights</div>
-                  <div className="mt-4 grid gap-3">
-                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-                      <div className="text-xs font-medium text-zinc-500">Bookings</div>
-                      <div className="mt-1 text-2xl font-bold text-zinc-900">42</div>
-                    </div>
-                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-                      <div className="text-xs font-medium text-zinc-500">Paid invoices</div>
-                      <div className="mt-1 text-2xl font-bold text-zinc-900">$1,980</div>
-                    </div>
-                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
-                      <div className="text-xs font-medium text-zinc-500">No-show rate</div>
-                      <div className="mt-1 text-2xl font-bold text-zinc-900">↓ 18%</div>
-                    </div>
-                  </div>
+              <div className="p-5 bg-zinc-50">
+                <div className="sm:hidden flex flex-wrap gap-2 mb-4" role="tablist" aria-label="UI preview tabs">
+                  {uiPreviewTabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={heroPreviewTab === t.id}
+                      className={tabClass(heroPreviewTab === t.id)}
+                      onClick={() => setHeroPreviewTab(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden">
+                  <UiPreviewContent tab={heroPreviewTab} />
                 </div>
               </div>
             </div>
@@ -960,16 +1159,7 @@ const LandingPage = ({
             </Card>
           </div>
 
-          <div className="mt-10 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
-            <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Logos (placeholder)</div>
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" aria-label="Customer logos">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-xs font-semibold text-zinc-400">
-                  LOGO
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Logos section intentionally omitted until real customer logos are available. */}
         </div>
       </section>
 
@@ -1077,72 +1267,27 @@ const LandingPage = ({
               Product preview
             </h2>
             <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              Placeholder previews—swap with real screenshots anytime. Designed to load fast and look great on mobile.
+              A quick look at the core screens: bookings, calendar, and invoice templates.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-12">
-            <div className="lg:col-span-7 rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Booking page</div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Mobile-first</span>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-white border border-zinc-200 p-4">
-                  <div className="text-xs text-zinc-500">Service</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-900">Consultation (30 min)</div>
-                </div>
-                <div className="rounded-2xl bg-white border border-zinc-200 p-4">
-                  <div className="text-xs text-zinc-500">Price</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-900">$49</div>
-                </div>
-                <div className="sm:col-span-2 rounded-2xl bg-white border border-zinc-200 p-4">
-                  <div className="text-xs text-zinc-500">Pick a time</div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold">
-                    <div className="rounded-xl bg-zinc-100 px-2 py-2 text-center text-zinc-700">9:00</div>
-                    <div className="rounded-xl bg-rose-600 px-2 py-2 text-center text-white">10:30</div>
-                    <div className="rounded-xl bg-zinc-100 px-2 py-2 text-center text-zinc-700">12:00</div>
-                  </div>
-                </div>
-                <div className="sm:col-span-2 rounded-2xl bg-white border border-zinc-200 p-4">
-                  <div className="h-12 rounded-full bg-rose-600 text-white flex items-center justify-center font-semibold">
-                    Continue
-                  </div>
-                  <div className="mt-2 text-center text-xs text-zinc-500">Secure checkout optional · Instant confirmation</div>
-                </div>
-              </div>
-            </div>
+          <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Product preview tabs">
+            {uiPreviewTabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={productPreviewTab === t.id}
+                className={tabClass(productPreviewTab === t.id)}
+                onClick={() => setProductPreviewTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-            <div className="lg:col-span-5 grid gap-6">
-              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Invoice PDF</div>
-                <div className="mt-4 rounded-2xl bg-white border border-zinc-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-zinc-900">Invoice</div>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Paid</span>
-                  </div>
-                  <div className="mt-3 space-y-2 text-xs text-zinc-600">
-                    <div className="flex justify-between"><span>Service</span><span className="font-semibold text-zinc-900">Session</span></div>
-                    <div className="flex justify-between"><span>Date</span><span className="font-semibold text-zinc-900">Thu, 2:00 PM</span></div>
-                    <div className="flex justify-between"><span>Total</span><span className="font-bold text-zinc-900">$120</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Reminders</div>
-                <div className="mt-4 grid gap-2">
-                  <div className="rounded-2xl bg-white border border-zinc-200 p-4">
-                    <div className="text-xs font-semibold text-zinc-500">SMS reminder</div>
-                    <div className="mt-1 text-xs text-zinc-700">“See you tomorrow at 10:30 AM. Reply C to confirm.”</div>
-                  </div>
-                  <div className="rounded-2xl bg-white border border-zinc-200 p-4">
-                    <div className="text-xs font-semibold text-zinc-500">Email confirmation</div>
-                    <div className="mt-1 text-xs text-zinc-700">“Your booking is confirmed. Add to calendar.”</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="mt-6 rounded-3xl border border-zinc-200 bg-zinc-50 shadow-sm overflow-hidden">
+            <UiPreviewContent tab={productPreviewTab} />
           </div>
         </div>
       </section>
@@ -1237,7 +1382,7 @@ const LandingPage = ({
             <div className="lg:col-span-6">
               <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
                 <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  Example results (placeholder)
+                  Nearby businesses
                 </div>
                 <div className="mt-4 grid gap-3">
                   {[
@@ -1400,7 +1545,7 @@ const LandingPage = ({
                 <img
                   src={DOBOOK_LOGO_PNG}
                   alt="DoBook"
-                  className="h-9 w-auto object-contain select-none"
+                  className="h-[68px] md:h-[76px] w-auto object-contain select-none"
                   draggable={false}
                   onError={(e) => {
                     e.currentTarget.src = DOBOOK_LOGO_SVG;
@@ -1610,7 +1755,7 @@ const Dashboard = () => {
             <img
               src={DOBOOK_LOGO_PNG}
               alt="DoBook"
-              className="h-9 w-auto object-contain select-none"
+              className="h-[68px] md:h-[76px] w-auto object-contain select-none"
               draggable={false}
               onError={(e) => {
                 e.currentTarget.src = DOBOOK_LOGO_SVG;
