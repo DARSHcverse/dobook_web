@@ -139,7 +139,7 @@ export default function AddressAutocomplete({
         <div
           id={listboxId}
           role="listbox"
-          className="absolute z-50 mt-2 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden"
+          className="absolute z-50 mt-2 w-full rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-lg overflow-hidden max-h-72 overflow-y-auto"
         >
           {items.map((item, idx) => {
             const label = formatSuggestion(item);
@@ -150,9 +150,11 @@ export default function AddressAutocomplete({
                 type="button"
                 role="option"
                 aria-selected={active}
-                className={`w-full text-left px-4 py-3 text-sm ${
-                  active ? "bg-rose-50 text-rose-700" : "bg-white text-zinc-800 hover:bg-zinc-50"
-                }`}
+                className="w-full text-left px-4 py-3 text-sm"
+                style={{
+                  backgroundColor: active ? "#fff1f2" : "#ffffff",
+                  color: active ? "#be123c" : "#111827",
+                }}
                 onMouseEnter={() => setHighlight(idx)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => selectItem(item)}
