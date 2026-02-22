@@ -654,6 +654,13 @@ const LandingPage = ({
           </div>
           <div className="flex items-center gap-3">
             <Button
+              variant="ghost"
+              onClick={() => router.push("/discover")}
+              className="h-12 px-4 rounded-full text-zinc-700 hover:bg-zinc-50"
+            >
+              Find services
+            </Button>
+            <Button
               data-testid="login-btn"
               variant="outline"
               onClick={() => router.push("/auth")}
@@ -1394,6 +1401,11 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
     cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
     cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
+    public_enabled: Boolean(business?.public_enabled),
+    public_description: business?.public_description || '',
+    public_postcode: business?.public_postcode || '',
+    public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+    public_website: business?.public_website || '',
     industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
     booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -1429,6 +1441,11 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
         cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
         cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
+        public_enabled: Boolean(business?.public_enabled),
+        public_description: business?.public_description || '',
+        public_postcode: business?.public_postcode || '',
+        public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+        public_website: business?.public_website || '',
         industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -1554,6 +1571,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         });
 
       const payload = { ...formData, booth_types, booking_custom_fields };
+      payload.travel_fee_amount = Number(formData.travel_fee_amount || 0);
+      payload.cbd_fee_amount = Number(formData.cbd_fee_amount || 0);
 
       const response = await axios.put(`${API}/business/profile`, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1876,6 +1895,135 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 className="bg-zinc-50 mt-2"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Public Profile */}
+      <Card data-testid="public-profile-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Public Profile</CardTitle>
+          <CardDescription>
+            Let customers discover you on DoBook. Only your public details are shown (never bank details).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={Boolean(formData.public_enabled)}
+              onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
+            />
+            <div>
+              <div className="font-semibold">Show my business on the directory</div>
+              <div className="text-xs text-zinc-500">Customers can find you via “Find services”.</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="public_postcode">Postcode (optional)</Label>
+              <Input
+                id="public_postcode"
+                value={formData.public_postcode || ''}
+                onChange={(e) => setFormData({ ...formData, public_postcode: e.target.value })}
+                placeholder="e.g. 3000"
+                className="bg-zinc-50 mt-2"
+                inputMode="numeric"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="public_website">Website (optional)</Label>
+              <Input
+                id="public_website"
+                value={formData.public_website || ''}
+                onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
+                placeholder="https://yourwebsite.com"
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="public_description">Business description</Label>
+            <Textarea
+              id="public_description"
+              value={formData.public_description || ''}
+              onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
+              placeholder="Tell customers what you do, what’s included, and what areas you service…"
+              className="bg-zinc-50 mt-2"
+              rows={5}
+            />
+            <p className="text-xs text-zinc-500 mt-2">Max 2000 characters.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Photos</div>
+                <div className="text-xs text-zinc-500">Add up to 8 photo URLs (or data URLs).</div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    public_photos: [...(Array.isArray(formData.public_photos) ? formData.public_photos : []), ""].slice(
+                      0,
+                      8,
+                    ),
+                  })
+                }
+              >
+                Add photo
+              </Button>
+            </div>
+
+            {(Array.isArray(formData.public_photos) ? formData.public_photos : []).length === 0 ? (
+              <div className="text-sm text-zinc-500">No photos yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {(formData.public_photos || []).map((url, idx) => (
+                  <div key={`photo-${idx}`} className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden flex-shrink-0">
+                      {String(url || "").trim() ? (
+                        <img
+                          src={String(url)}
+                          alt={`Photo ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <Input
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...(formData.public_photos || [])];
+                        next[idx] = e.target.value;
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                      placeholder="https://... (image url)"
+                      className="bg-zinc-50"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => {
+                        const next = (formData.public_photos || []).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

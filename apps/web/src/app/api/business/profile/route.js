@@ -48,6 +48,11 @@ export async function PUT(request) {
     "cbd_fee_enabled",
     "cbd_fee_label",
     "cbd_fee_amount",
+    "public_enabled",
+    "public_description",
+    "public_postcode",
+    "public_photos",
+    "public_website",
   ];
 
   if (auth.mode === "supabase") {
@@ -64,6 +69,31 @@ export async function PUT(request) {
       }
       if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
         updates[key] = asMoney(body[key]);
+        continue;
+      }
+      if (key === "public_enabled") {
+        updates.public_enabled = asBool(body.public_enabled);
+        continue;
+      }
+      if (key === "public_description") {
+        updates.public_description = String(body.public_description || "").slice(0, 2000);
+        continue;
+      }
+      if (key === "public_postcode") {
+        updates.public_postcode = String(body.public_postcode || "").trim().slice(0, 16);
+        continue;
+      }
+      if (key === "public_website") {
+        updates.public_website = String(body.public_website || "").trim().slice(0, 200);
+        continue;
+      }
+      if (key === "public_photos") {
+        updates.public_photos = Array.isArray(body.public_photos)
+          ? body.public_photos
+            .map((v) => String(v || "").trim())
+            .filter(Boolean)
+            .slice(0, 8)
+          : [];
         continue;
       }
       if (key === "booth_types") {
@@ -111,6 +141,28 @@ export async function PUT(request) {
     }
     if (key === "travel_fee_amount" || key === "cbd_fee_amount") {
       auth.business[key] = asMoney(body[key]);
+      continue;
+    }
+    if (key === "public_enabled") {
+      auth.business.public_enabled = asBool(body.public_enabled);
+      continue;
+    }
+    if (key === "public_description") {
+      auth.business.public_description = String(body.public_description || "").slice(0, 2000);
+      continue;
+    }
+    if (key === "public_postcode") {
+      auth.business.public_postcode = String(body.public_postcode || "").trim().slice(0, 16);
+      continue;
+    }
+    if (key === "public_website") {
+      auth.business.public_website = String(body.public_website || "").trim().slice(0, 200);
+      continue;
+    }
+    if (key === "public_photos") {
+      auth.business.public_photos = Array.isArray(body.public_photos)
+        ? body.public_photos.map((v) => String(v || "").trim()).filter(Boolean).slice(0, 8)
+        : [];
       continue;
     }
     if (key === "booth_types") {
