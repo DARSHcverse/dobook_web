@@ -37,13 +37,13 @@ After tables exist, the Next.js API routes in `apps/web/src/app/api/*` need to b
 - For client-side usage, prefer `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Optional: set `OWNER_EMAILS` to grant “owner access” (Pro features without Stripe) to specific emails.
 
-## Address autocomplete (PlaceKit)
+## Address autocomplete (Geoapify)
 
 If you want address suggestions when typing an address (business address + event location), set:
 
-- `PLACEKIT_API_KEY` (recommended; server-side secret)
-- Optional: `PLACEKIT_COUNTRIES` (example: `au`)
-- Optional: `PLACEKIT_LANGUAGE` (default: `en`)
+- `GEOAPIFY_API_KEY` (server-side secret)
+- Optional: `GEOAPIFY_COUNTRIES` (example: `au`)
+- Optional: `GEOAPIFY_LANGUAGE` (default: `en`)
 
 On Vercel, add these under Project → Settings → Environment Variables, then redeploy.
 

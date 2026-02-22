@@ -54,14 +54,14 @@ export default function AddressAutocomplete({
 
     setLoading(true);
     try {
-      const url = new URL("/api/public/placekit/search", window.location.origin);
+      const url = new URL("/api/public/geoapify/autocomplete", window.location.origin);
       url.searchParams.set("q", trimmed);
-      url.searchParams.set("max", "6");
+      url.searchParams.set("limit", "6");
 
       const res = await fetch(url.toString(), { signal: controller.signal, cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load suggestions");
       const json = await res.json();
-      const results = Array.isArray(json?.results) ? json.results : Array.isArray(json) ? json : [];
+      const results = Array.isArray(json?.results) ? json.results : [];
       setItems(results);
       setOpen(results.length > 0);
       setHighlight(-1);
@@ -86,7 +86,7 @@ export default function AddressAutocomplete({
   useEffect(() => () => abortRef.current?.abort?.(), []);
 
   const selectItem = (item) => {
-    const next = formatSuggestion(item);
+    const next = String(item?.formatted || "").trim() || formatSuggestion(item);
     onChange?.(next, item);
     setOpen(false);
     setItems([]);
@@ -166,4 +166,3 @@ export default function AddressAutocomplete({
     </div>
   );
 }
-
