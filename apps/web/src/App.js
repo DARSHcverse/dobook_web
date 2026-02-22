@@ -820,10 +820,8 @@ const LandingPage = ({
                 <div className="mt-1 text-sm font-semibold text-zinc-900">Used by 1,000+ businesses</div>
               </div>
               <div>
-                <div className="text-xs font-medium text-zinc-500">Rating</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">
-                  4.9 <span className="text-amber-500" aria-hidden="true">★★★★★</span>
-                </div>
+                <div className="text-xs font-medium text-zinc-500">Built for</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">Local service teams</div>
               </div>
               <div>
                 <div className="text-xs font-medium text-zinc-500">Setup</div>
@@ -913,19 +911,11 @@ const LandingPage = ({
                 Realistic results from teams using DoBook as their online booking system and service business scheduling hub.
               </p>
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-              <div className="text-xs font-medium text-zinc-500">Overall rating</div>
-              <div className="mt-1 text-sm font-semibold text-zinc-900">
-                4.9/5 <span className="text-amber-500" aria-hidden="true">★★★★★</span>{' '}
-                <span className="text-xs font-medium text-zinc-500">(312 reviews)</span>
-              </div>
-            </div>
           </div>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-3">
             <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
               <CardContent className="p-6 space-y-4">
-                <div className="text-amber-500" aria-hidden="true">★★★★★</div>
                 <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
                   “We replaced two tools and a spreadsheet. Clients book themselves, reminders go out, and invoices look professional.”
                 </p>
@@ -941,7 +931,6 @@ const LandingPage = ({
 
             <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
               <CardContent className="p-6 space-y-4">
-                <div className="text-amber-500" aria-hidden="true">★★★★★</div>
                 <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
                   “SMS reminders cut our no‑shows fast. Patients love picking times online—our front desk finally has breathing room.”
                 </p>
@@ -957,7 +946,6 @@ const LandingPage = ({
 
             <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
               <CardContent className="p-6 space-y-4">
-                <div className="text-amber-500" aria-hidden="true">★★★★☆</div>
                 <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
                   “I send one link and everything’s handled: booking, confirmation, payment, invoice. I look more professional instantly.”
                 </p>
@@ -1253,9 +1241,9 @@ const LandingPage = ({
                 </div>
                 <div className="mt-4 grid gap-3">
                   {[
-                    { name: 'Northside Barber Co.', meta: 'Barber · 1.2 km away · ★ 4.8' },
-                    { name: 'Calm Path Therapy', meta: 'Wellness · 2.6 km away · ★ 4.9' },
-                    { name: 'Ace Math Tutoring', meta: 'Tutoring · 3.9 km away · ★ 4.7' },
+                    { name: 'Northside Barber Co.', meta: 'Barber · 1.2 km away' },
+                    { name: 'Calm Path Therapy', meta: 'Wellness · 2.6 km away' },
+                    { name: 'Ace Math Tutoring', meta: 'Tutoring · 3.9 km away' },
                   ].map((r) => (
                     <div key={r.name} className="rounded-2xl bg-white border border-zinc-200 p-4 flex items-center justify-between gap-4">
                       <div className="min-w-0">
