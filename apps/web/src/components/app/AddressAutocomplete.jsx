@@ -5,6 +5,9 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 function formatSuggestion(item) {
+  const formatted = String(item?.formatted || item?.properties?.formatted || "").trim();
+  if (formatted) return formatted;
+
   const name = String(item?.name || item?.label || item?.display_name || "").trim();
   if (name) return name;
 
