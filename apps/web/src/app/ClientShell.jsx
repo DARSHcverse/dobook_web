@@ -61,10 +61,6 @@ export default function ClientShell({ children }) {
       router.replace("/auth");
       return;
     }
-
-    if (pathname === "/" && mobile) {
-      router.replace("/auth");
-    }
   }, [mobile, pathname, router, showSplash]);
 
   return (
@@ -74,4 +70,3 @@ export default function ClientShell({ children }) {
     </>
   );
 }
-

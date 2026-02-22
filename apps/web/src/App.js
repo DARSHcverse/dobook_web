@@ -21,6 +21,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 import { Checkbox } from '@/components/ui/checkbox';
+import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -1838,12 +1839,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 
             <div className="col-span-2">
               <Label htmlFor="business_address">Business Address</Label>
-              <Input
-                id="business_address"
-                data-testid="address-input"
+              <AddressAutocomplete
                 value={formData.business_address}
-                onChange={(e) => setFormData({...formData, business_address: e.target.value})}
+                onChange={(val) => setFormData({ ...formData, business_address: val })}
+                placeholder="Start typing your address…"
                 className="bg-zinc-50 mt-2"
+                inputProps={{ id: "business_address", "data-testid": "address-input" }}
               />
             </div>
 
@@ -2636,11 +2637,12 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
               </div>
               <div>
                 <Label htmlFor="cb_event_location">Event location</Label>
-                <Input
-                  id="cb_event_location"
+                <AddressAutocomplete
                   value={createData.event_location}
-                  onChange={(e) => setCreateData({ ...createData, event_location: e.target.value })}
+                  onChange={(val) => setCreateData({ ...createData, event_location: val })}
+                  placeholder="Start typing an address…"
                   className="bg-zinc-50 mt-2"
+                  inputProps={{ id: "cb_event_location" }}
                 />
               </div>
               <div>
@@ -4021,14 +4023,12 @@ const BookingWidget = () => {
 
                 <div className="md:col-span-2">
                   <Label htmlFor="event_location">Event Location *</Label>
-                  <Input
-                    id="event_location"
-                    data-testid="widget-location-input"
+                  <AddressAutocomplete
                     value={formData.event_location}
-                    onChange={(e) => setFormData({...formData, event_location: e.target.value})}
+                    onChange={(val) => setFormData({ ...formData, event_location: val })}
                     placeholder="Enter venue or address"
-                    required
                     className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                    inputProps={{ id: "event_location", "data-testid": "widget-location-input", required: true }}
                   />
                 </div>
 
