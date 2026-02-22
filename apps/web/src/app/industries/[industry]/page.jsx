@@ -27,7 +27,7 @@ export async function generateMetadata({ params }) {
   if (!cfg) return {};
 
   const description =
-    "DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.";
+    "DoBook is an all-in-one online booking system and appointment scheduling software. A booking system for small business and service business scheduling—manage appointments, clients, invoices, reminders, and payments.";
 
   const siteUrl = resolveSiteUrl();
   const metadataBase = new URL(siteUrl);
@@ -39,6 +39,9 @@ export async function generateMetadata({ params }) {
     alternates: { canonical: `/industries/${key}` },
     keywords: [
       "online booking system",
+      "appointment scheduling software",
+      "booking system for small business",
+      "service business scheduling",
       `${cfg.label} booking system`,
       "appointment booking",
       "invoice generator",

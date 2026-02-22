@@ -5,7 +5,25 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import '@/App.css';
 import { Toaster, toast } from 'sonner';
-import { Calendar, Clock, FileText, Home, List, LogOut, Plus, Settings, Upload, Users } from 'lucide-react';
+import {
+  BarChart3,
+  Bell,
+  Calendar,
+  Clock,
+  CreditCard,
+  FileText,
+  Home,
+  Link2,
+  List,
+  LogOut,
+  MapPin,
+  MessageSquare,
+  Plus,
+  Settings,
+  Smartphone,
+  Upload,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -637,7 +655,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 const LandingPage = ({
   heroPrefix = 'Online Booking System',
   heroAccent = 'for Businesses',
-  heroDescription = 'DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.',
+  heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
   getStartedHref = '/auth',
   startFreeHref = '/auth?plan=free',
   customerHref = '/discover',
@@ -646,238 +664,821 @@ const LandingPage = ({
 
   return (
     <div className="min-h-screen bg-zinc-50">
+      <style>{`html{scroll-behavior:smooth} @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}`}</style>
       <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="md" />
-          </div>
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/85 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3">
+          <a
+            href="#top"
+            className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+            aria-label="DoBook home"
+          >
+            <img
+              src={DOBOOK_LOGO_PNG}
+              alt="DoBook"
+              className="h-9 w-auto object-contain select-none"
+              draggable={false}
+              onError={(e) => {
+                e.currentTarget.src = DOBOOK_LOGO_SVG;
+              }}
+            />
+          </a>
+
+          <nav className="hidden md:flex items-center gap-6 text-sm text-zinc-700" aria-label="Primary">
+            <a className="hover:text-zinc-900" href="#features">Features</a>
+            <a className="hover:text-zinc-900" href="#how">How it works</a>
+            <a className="hover:text-zinc-900" href="#pricing">Pricing</a>
+            <a className="hover:text-zinc-900" href="#faq">FAQ</a>
+          </nav>
+
+          <div className="hidden md:flex items-center gap-3">
             <Button
+              type="button"
               variant="ghost"
-              onClick={() => router.push("/discover")}
-              className="h-12 px-4 rounded-full text-zinc-700 hover:bg-zinc-50"
+              onClick={() => router.push(customerHref)}
+              className="h-11 px-4 rounded-full text-zinc-700 hover:bg-zinc-50"
             >
               Find services
             </Button>
             <Button
               data-testid="login-btn"
+              type="button"
               variant="outline"
               onClick={() => router.push("/auth")}
-              className="h-12 px-6 rounded-full border-zinc-200"
+              className="h-11 px-5 rounded-full border-zinc-200"
             >
               Login
             </Button>
-            <Button 
+            <Button
               data-testid="get-started-btn"
-              onClick={() => router.push(getStartedHref)}
-              className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+              type="button"
+              onClick={() => router.push(startFreeHref)}
+              className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
             >
-              Get Started
+              Start Free (Business)
             </Button>
           </div>
+
+          <details className="md:hidden relative">
+            <summary className="list-none">
+              <span className="sr-only">Open menu</span>
+              <Button type="button" variant="outline" className="h-11 rounded-full border-zinc-200">
+                <List className="h-4 w-4 mr-2" />
+                Menu
+              </Button>
+            </summary>
+            <div className="absolute right-0 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-zinc-200 bg-white shadow-lg p-3">
+              <div className="grid gap-1">
+                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#features">
+                  Features
+                </a>
+                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#how">
+                  How it works
+                </a>
+                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#pricing">
+                  Pricing
+                </a>
+                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#faq">
+                  FAQ
+                </a>
+              </div>
+              <div className="mt-2 grid gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-full border-zinc-200"
+                  onClick={() => router.push(customerHref)}
+                >
+                  Find services near me
+                </Button>
+                <Button
+                  type="button"
+                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                  onClick={() => router.push(startFreeHref)}
+                >
+                  Start Free (Business)
+                </Button>
+              </div>
+            </div>
+          </details>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-6 md:px-12 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center">
-          <div className="md:col-span-7">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6" style={{fontFamily: 'Manrope'}}>
-              {heroPrefix}
-              <span className="text-rose-600"> {heroAccent}</span>
+      <section id="top" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-14 sm:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          <div className="lg:col-span-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
+              <span className="inline-flex h-2 w-2 rounded-full bg-rose-600" aria-hidden="true" />
+              Online booking system · appointment scheduling software
+            </div>
+
+            <h1 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              {heroPrefix} <span className="text-rose-600">{heroAccent}</span>
             </h1>
-            <p className="text-lg text-zinc-600 mb-8" style={{fontFamily: 'Inter'}}>
+
+            <p className="mt-4 text-lg text-zinc-600" style={{ fontFamily: 'Inter' }}>
               {heroDescription}
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
+
+            <ul className="mt-6 grid gap-3 text-sm text-zinc-700" style={{ fontFamily: 'Inter' }} aria-label="Key benefits">
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Fill your calendar with <strong className="text-zinc-900">24/7 online bookings</strong>.</li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Reduce no‑shows with <strong className="text-zinc-900">email & SMS reminders</strong>.</li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Get paid faster with <strong className="text-zinc-900">online payments</strong>.</li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</li>
+            </ul>
+
+            <div className="mt-8 flex flex-col sm:flex-row gap-4">
+              <Button
                 data-testid="hero-get-started-btn"
+                type="button"
                 onClick={() => router.push(startFreeHref)}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
-                Start free (business)
+                Start Free (Business)
               </Button>
               <Button
                 data-testid="hero-customer-btn"
+                type="button"
                 variant="outline"
                 onClick={() => router.push(customerHref)}
                 className="h-14 px-10 rounded-full border-zinc-200"
               >
-                Join as customer
+                Find services near me
               </Button>
             </div>
-            <div className="mt-3 text-xs text-zinc-500">
-              Customers can search and book nearby services. Businesses can accept bookings and send invoices.
+
+            <div className="mt-3 text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+              No credit card required for Free. Upgrade anytime.
+            </div>
+
+            <div className="mt-8 grid grid-cols-3 gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div>
+                <div className="text-xs font-medium text-zinc-500">Trust</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">Used by 1,000+ businesses</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-zinc-500">Rating</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">
+                  4.9 <span className="text-amber-500" aria-hidden="true">★★★★★</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-zinc-500">Setup</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">~10 minutes</div>
+              </div>
             </div>
           </div>
-          <div className="md:col-span-5">
-            <img 
-              src="https://images.unsplash.com/photo-1765366417046-f46361a7f26f?crop=entropy&cs=srgb&fm=jpg&q=85" 
-              alt="Calendar Preview"
-              className="rounded-xl shadow-xl w-full"
-            />
+
+          <div className="lg:col-span-6">
+            <div className="rounded-3xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+                <div className="flex items-center gap-2" aria-hidden="true">
+                  <span className="h-3 w-3 rounded-full bg-red-400" />
+                  <span className="h-3 w-3 rounded-full bg-amber-400" />
+                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                </div>
+                <div className="text-xs font-medium text-zinc-500">DoBook UI preview (mock)</div>
+              </div>
+
+              <div className="p-5 grid gap-4 md:grid-cols-12">
+                <div className="md:col-span-7 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-medium text-zinc-500">Today</div>
+                      <div className="mt-1 text-sm font-semibold text-zinc-900">Appointments</div>
+                    </div>
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">+ New booking</span>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-zinc-900">Cut + Style</div>
+                        <div className="text-xs text-zinc-500">9:30 AM · 45 min · Alex M.</div>
+                      </div>
+                      <span className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Confirmed</span>
+                    </div>
+                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-zinc-900">Consultation</div>
+                        <div className="text-xs text-zinc-500">11:00 AM · 60 min · Priya S.</div>
+                      </div>
+                      <span className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Reminder sent</span>
+                    </div>
+                    <div className="rounded-xl bg-white border border-zinc-200 p-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-zinc-900">Tutoring</div>
+                        <div className="text-xs text-zinc-500">3:15 PM · 50 min · Chris L.</div>
+                      </div>
+                      <span className="rounded-lg bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700">Pending</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-5 rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="text-xs font-medium text-zinc-500">This week</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">Revenue & insights</div>
+                  <div className="mt-4 grid gap-3">
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
+                      <div className="text-xs font-medium text-zinc-500">Bookings</div>
+                      <div className="mt-1 text-2xl font-bold text-zinc-900">42</div>
+                    </div>
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
+                      <div className="text-xs font-medium text-zinc-500">Paid invoices</div>
+                      <div className="mt-1 text-2xl font-bold text-zinc-900">$1,980</div>
+                    </div>
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3">
+                      <div className="text-xs font-medium text-zinc-500">No-show rate</div>
+                      <div className="mt-1 text-2xl font-bold text-zinc-900">↓ 18%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section id="social-proof" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                Social proof that moves the needle
+              </h2>
+              <p className="mt-2 text-zinc-600 max-w-2xl" style={{ fontFamily: 'Inter' }}>
+                Realistic results from teams using DoBook as their online booking system and service business scheduling hub.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <div className="text-xs font-medium text-zinc-500">Overall rating</div>
+              <div className="mt-1 text-sm font-semibold text-zinc-900">
+                4.9/5 <span className="text-amber-500" aria-hidden="true">★★★★★</span>{' '}
+                <span className="text-xs font-medium text-zinc-500">(312 reviews)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-4">
+                <div className="text-amber-500" aria-hidden="true">★★★★★</div>
+                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
+                  “We replaced two tools and a spreadsheet. Clients book themselves, reminders go out, and invoices look professional.”
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-900">Mia R.</div>
+                    <div className="text-xs text-zinc-500">Salon owner · 4 staff</div>
+                  </div>
+                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Salons</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-4">
+                <div className="text-amber-500" aria-hidden="true">★★★★★</div>
+                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
+                  “SMS reminders cut our no‑shows fast. Patients love picking times online—our front desk finally has breathing room.”
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-900">Dr. Sam K.</div>
+                    <div className="text-xs text-zinc-500">Clinic manager</div>
+                  </div>
+                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Wellness</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-4">
+                <div className="text-amber-500" aria-hidden="true">★★★★☆</div>
+                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
+                  “I send one link and everything’s handled: booking, confirmation, payment, invoice. I look more professional instantly.”
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-900">Jordan P.</div>
+                    <div className="text-xs text-zinc-500">Coach · Solo business</div>
+                  </div>
+                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Consulting</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-10 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
+            <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">Logos (placeholder)</div>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" aria-label="Customer logos">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-xs font-semibold text-zinc-400">
+                  LOGO
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4" style={{fontFamily: 'Manrope'}}>Everything You Need</h2>
-          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Powerful features for modern booking management</p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card data-testid="feature-calendar-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl hover:border-rose-200 transition-colors">
-            <CardHeader>
-              <div className="h-12 w-12 bg-rose-100 rounded-lg flex items-center justify-center mb-4">
-                <Calendar className="h-6 w-6 text-rose-600" />
-              </div>
-              <CardTitle style={{fontFamily: 'Manrope'}}>Smart Calendar</CardTitle>
-              <CardDescription style={{fontFamily: 'Inter'}}>Flexible time slots with configurable durations</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card data-testid="feature-invoice-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl hover:border-rose-200 transition-colors">
-            <CardHeader>
-              <div className="h-12 w-12 bg-emerald-100 rounded-lg flex items-center justify-center mb-4">
-                <FileText className="h-6 w-6 text-emerald-600" />
-              </div>
-              <CardTitle style={{fontFamily: 'Manrope'}}>Auto Invoicing</CardTitle>
-              <CardDescription style={{fontFamily: 'Inter'}}>Generate PDF invoices automatically on booking</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card data-testid="feature-embed-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl hover:border-rose-200 transition-colors">
-            <CardHeader>
-              <div className="h-12 w-12 bg-rose-100 rounded-lg flex items-center justify-center mb-4">
-                <Upload className="h-6 w-6 text-rose-600" />
-              </div>
-              <CardTitle style={{fontFamily: 'Manrope'}}>Embed Anywhere</CardTitle>
-              <CardDescription style={{fontFamily: 'Inter'}}>Widget for your website with one line of code</CardDescription>
-            </CardHeader>
-          </Card>
+      <section id="who-for" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+            Who DoBook is for
+          </h2>
+          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            Built for small to medium service businesses that want a booking system for small business needs—fast setup, clear schedules, and happier customers.
+          </p>
         </div>
 
-        <div className="mt-8">
-          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div>
-                <div className="text-lg font-semibold" style={{fontFamily: 'Manrope'}}>For customers</div>
-                <div className="text-sm text-zinc-600" style={{fontFamily: 'Inter'}}>
-                  Search businesses using DoBook and book instantly.
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { title: 'Salons', desc: 'Appointments, staff schedules, repeat clients, and add‑on services—organized.' },
+            { title: 'Medical / Wellness', desc: 'Reduce no‑shows with reminders and keep client history at your fingertips.' },
+            { title: 'Consultants', desc: 'Share a link, book paid sessions, and send invoice PDFs automatically.' },
+            { title: 'Education / Tutoring', desc: 'Run recurring sessions, manage families, and stay on top of payments.' },
+            { title: 'Home services', desc: 'Capture job details, route bookings, and keep a clean calendar.' },
+            { title: 'Freelancers', desc: 'Look professional from day one with client-friendly booking and invoices.' },
+          ].map((item) => (
+            <Card key={item.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-2">
+                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{item.title}</div>
+                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{item.desc}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section id="features" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              Key features that drive bookings (and reduce admin)
+            </h2>
+            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              Everything you expect from modern appointment scheduling software—plus the essentials service businesses need day to day.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: Calendar, title: 'Smart calendar & scheduling', desc: 'Availability rules, buffers, and clean views that prevent double bookings.' },
+              { icon: FileText, title: 'Automatic invoicing (PDF)', desc: 'Generate invoices from bookings and share professional PDF invoices in seconds.' },
+              { icon: Bell, title: 'Email & SMS reminders', desc: 'Reduce no‑shows with confirmations, reminders, and follow-ups automatically.' },
+              { icon: CreditCard, title: 'Online payments', desc: 'Accept deposits or full payment at booking so cash flow stays predictable.' },
+              { icon: Users, title: 'Client management', desc: 'Keep customer history, notes, and contact details organized for better service.' },
+              { icon: BarChart3, title: 'Analytics dashboard', desc: 'See revenue trends, top services, and booking patterns at a glance.' },
+              { icon: Link2, title: 'Embed booking widget', desc: 'Add “Book now” to your website so clients can schedule without leaving your brand.' },
+              { icon: Smartphone, title: 'Mobile‑friendly booking', desc: 'A fast booking flow designed for phones—where most customers book.' },
+              { icon: MessageSquare, title: 'Multi‑staff support', desc: 'Assign services to staff and manage schedules as you grow.' },
+            ].map((f) => (
+              <Card key={f.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl hover:border-rose-200 transition-colors">
+                <CardHeader className="space-y-3">
+                  <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center">
+                    <f.icon className="h-6 w-6 text-rose-700" aria-hidden="true" />
+                  </div>
+                  <CardTitle style={{ fontFamily: 'Manrope' }}>{f.title}</CardTitle>
+                  <CardDescription style={{ fontFamily: 'Inter' }}>{f.desc}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+            How it works
+          </h2>
+          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            A simple flow designed for real service business scheduling—set up once, then let customers book themselves.
+          </p>
+        </div>
+
+        <ol className="mt-10 grid gap-6 lg:grid-cols-4" aria-label="How DoBook works">
+          {[
+            { step: 'Step 1', title: 'Set up your services', desc: 'Add durations, pricing, staff, and availability.' },
+            { step: 'Step 2', title: 'Share your booking link', desc: 'Post it on your site, socials, Google, or email.' },
+            { step: 'Step 3', title: 'Customers book instantly', desc: 'Clients choose a time, pay (optional), and get confirmed.' },
+            { step: 'Step 4', title: 'Get paid & manage clients', desc: 'Invoices, reminders, and client history—organized.' },
+          ].map((s) => (
+            <Card key={s.step} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-rose-700">{s.step}</div>
+                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{s.title}</div>
+                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{s.desc}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </ol>
+      </section>
+
+      {/* Product screenshots / UI preview */}
+      <section id="preview" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              Product preview
+            </h2>
+            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              Placeholder previews—swap with real screenshots anytime. Designed to load fast and look great on mobile.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7 rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Booking page</div>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Mobile-first</span>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl bg-white border border-zinc-200 p-4">
+                  <div className="text-xs text-zinc-500">Service</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">Consultation (30 min)</div>
+                </div>
+                <div className="rounded-2xl bg-white border border-zinc-200 p-4">
+                  <div className="text-xs text-zinc-500">Price</div>
+                  <div className="mt-1 text-sm font-semibold text-zinc-900">$49</div>
+                </div>
+                <div className="sm:col-span-2 rounded-2xl bg-white border border-zinc-200 p-4">
+                  <div className="text-xs text-zinc-500">Pick a time</div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold">
+                    <div className="rounded-xl bg-zinc-100 px-2 py-2 text-center text-zinc-700">9:00</div>
+                    <div className="rounded-xl bg-rose-600 px-2 py-2 text-center text-white">10:30</div>
+                    <div className="rounded-xl bg-zinc-100 px-2 py-2 text-center text-zinc-700">12:00</div>
+                  </div>
+                </div>
+                <div className="sm:col-span-2 rounded-2xl bg-white border border-zinc-200 p-4">
+                  <div className="h-12 rounded-full bg-rose-600 text-white flex items-center justify-center font-semibold">
+                    Continue
+                  </div>
+                  <div className="mt-2 text-center text-xs text-zinc-500">Secure checkout optional · Instant confirmation</div>
                 </div>
               </div>
+            </div>
+
+            <div className="lg:col-span-5 grid gap-6">
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Invoice PDF</div>
+                <div className="mt-4 rounded-2xl bg-white border border-zinc-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-zinc-900">Invoice</div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Paid</span>
+                  </div>
+                  <div className="mt-3 space-y-2 text-xs text-zinc-600">
+                    <div className="flex justify-between"><span>Service</span><span className="font-semibold text-zinc-900">Session</span></div>
+                    <div className="flex justify-between"><span>Date</span><span className="font-semibold text-zinc-900">Thu, 2:00 PM</span></div>
+                    <div className="flex justify-between"><span>Total</span><span className="font-bold text-zinc-900">$120</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Reminders</div>
+                <div className="mt-4 grid gap-2">
+                  <div className="rounded-2xl bg-white border border-zinc-200 p-4">
+                    <div className="text-xs font-semibold text-zinc-500">SMS reminder</div>
+                    <div className="mt-1 text-xs text-zinc-700">“See you tomorrow at 10:30 AM. Reply C to confirm.”</div>
+                  </div>
+                  <div className="rounded-2xl bg-white border border-zinc-200 p-4">
+                    <div className="text-xs font-semibold text-zinc-500">Email confirmation</div>
+                    <div className="mt-1 text-xs text-zinc-700">“Your booking is confirmed. Add to calendar.”</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why choose DoBook */}
+      <section id="why" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+            Why choose DoBook
+          </h2>
+          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            DoBook is built for local service businesses—simpler than complex systems, affordable, and truly all‑in‑one.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          {[
+            { title: 'Simpler than complex systems', desc: 'Clean defaults and a guided setup that gets you live quickly.' },
+            { title: 'Affordable pricing', desc: 'Start free, then upgrade when automation and unlimited bookings matter.' },
+            { title: 'Built for local businesses', desc: 'Perfect for salons, clinics, consultants, tutors, repairs, and freelancers.' },
+            { title: 'All‑in‑one (no extra tools)', desc: 'Scheduling, reminders, invoices, and payments—together so nothing falls through.' },
+            { title: 'Fast setup (minutes)', desc: 'Add services, set availability, share your link—done.' },
+          ].map((d) => (
+            <Card key={d.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+              <CardContent className="p-6 space-y-2">
+                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{d.title}</div>
+                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{d.desc}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Find services near me (secondary goal) */}
+      <section id="find" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
+            <div className="lg:col-span-6">
+              <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                Find services near me
+              </h2>
+              <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+                Customers can search for nearby businesses and book instantly. (Search routes to the DoBook directory.)
+              </p>
+
+              <form
+                className="mt-6 rounded-3xl border border-zinc-200 bg-zinc-50 p-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = new FormData(e.currentTarget);
+                  const q = String(form.get('q') || '').trim();
+                  const postcode = String(form.get('postcode') || '').trim();
+                  const query = new URLSearchParams();
+                  if (q) query.set('q', q);
+                  if (postcode) query.set('postcode', postcode);
+                  router.push(`/discover${query.toString() ? `?${query.toString()}` : ''}`);
+                }}
+                aria-label="Find services"
+              >
+                <div className="grid gap-3 sm:grid-cols-5">
+                  <div className="sm:col-span-3">
+                    <label className="text-xs font-semibold text-zinc-700" htmlFor="discover_q">Service</label>
+                    <div className="mt-1 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3">
+                      <MapPin className="h-4 w-4 text-zinc-400" aria-hidden="true" />
+                      <input
+                        id="discover_q"
+                        name="q"
+                        type="text"
+                        placeholder="e.g., barber, physio, tutor"
+                        className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-zinc-700" htmlFor="discover_postcode">Postcode</label>
+                    <input
+                      id="discover_postcode"
+                      name="postcode"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g., 2000"
+                      className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-rose-100 focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="mt-3 h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold">
+                  Search
+                </Button>
+              </form>
+            </div>
+
+            <div className="lg:col-span-6">
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
+                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  Example results (placeholder)
+                </div>
+                <div className="mt-4 grid gap-3">
+                  {[
+                    { name: 'Northside Barber Co.', meta: 'Barber · 1.2 km away · ★ 4.8' },
+                    { name: 'Calm Path Therapy', meta: 'Wellness · 2.6 km away · ★ 4.9' },
+                    { name: 'Ace Math Tutoring', meta: 'Tutoring · 3.9 km away · ★ 4.7' },
+                  ].map((r) => (
+                    <div key={r.name} className="rounded-2xl bg-white border border-zinc-200 p-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-zinc-900">{r.name}</div>
+                        <div className="mt-1 text-xs text-zinc-500">{r.meta}</div>
+                      </div>
+                      <Button type="button" className="h-10 rounded-full bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
+                        View
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+            Pricing
+          </h2>
+          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            Two plans. No surprises. Upgrade when you want invoice PDFs, reminders, and unlimited bookings.
+          </p>
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
+          <Card className="bg-white border border-zinc-200 shadow-sm rounded-3xl">
+            <CardHeader className="space-y-2">
+              <CardTitle style={{ fontFamily: 'Manrope' }}>FREE</CardTitle>
+              <CardDescription style={{ fontFamily: 'Inter' }}>
+                <span className="text-3xl font-bold text-zinc-900">$0</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Free plan">
+                <li>• Up to 10 bookings/month</li>
+                <li>• Confirmation emails</li>
+                <li>• Calendar + dashboard</li>
+                <li>• No automated reminders or invoice PDFs</li>
+              </ul>
               <Button
                 type="button"
-                variant="outline"
-                className="h-12 px-6 rounded-full border-zinc-200"
-                onClick={() => router.push(customerHref)}
+                onClick={() => router.push(startFreeHref)}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
               >
-                Find nearby services
+                Start Free (Business)
               </Button>
+              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>No credit card required.</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border border-rose-200 shadow-sm rounded-3xl relative overflow-hidden">
+            <div className="absolute -top-10 -right-10 h-40 w-40 bg-rose-100 rounded-full blur-2xl" aria-hidden="true" />
+            <CardHeader className="space-y-2">
+              <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
+              <CardDescription style={{ fontFamily: 'Inter' }}>
+                <span className="text-3xl font-bold text-zinc-900">$30</span>{' '}
+                <span className="text-sm font-medium text-zinc-600">AUD/month</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Pro plan">
+                <li>• Unlimited bookings</li>
+                <li>• Unlimited invoice templates</li>
+                <li>• Invoice PDFs</li>
+                <li>• Client reminders</li>
+                <li>• Priority support</li>
+              </ul>
+              <Button
+                type="button"
+                onClick={() => router.push("/auth?plan=pro")}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
+              >
+                Choose Pro
+              </Button>
+              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime.</div>
             </CardContent>
           </Card>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4" style={{fontFamily: 'Manrope'}}>Simple pricing</h2>
-          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Start free, upgrade when you’re ready</p>
-        </div>
+      {/* FAQ */}
+      <section id="faq" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              FAQ
+            </h2>
+            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              Quick answers about setup, payments, and how the booking flow works.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-            <CardHeader>
-              <CardTitle style={{fontFamily: 'Manrope'}}>Free</CardTitle>
-              <CardDescription style={{fontFamily: 'Inter'}}>$0</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <ul className="text-sm text-zinc-700 space-y-2" style={{fontFamily: 'Inter'}}>
-                <li>• Up to 10 bookings / month</li>
-                <li>• Booking confirmation emails</li>
-                <li>• Calendar view + revenue dashboard</li>
-                <li>• No invoice PDFs or automated reminders</li>
-              </ul>
-              <Button
-                onClick={() => router.push(startFreeHref)}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full"
-              >
-                Get started free
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border border-rose-200 shadow-sm rounded-2xl">
-            <CardHeader>
-              <CardTitle style={{fontFamily: 'Manrope'}}>Pro</CardTitle>
-              <CardDescription style={{fontFamily: 'Inter'}}>$30 AUD / month</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <ul className="text-sm text-zinc-700 space-y-2" style={{fontFamily: 'Inter'}}>
-                <li>• Unlimited bookings</li>
-                <li>• Unlimited invoice templates</li>
-                <li>• Booking confirmation emails + invoice PDF</li>
-                <li>• Client reminders (5 days + 1 day)</li>
-              </ul>
-              <Button
-                onClick={() => router.push("/auth?plan=pro")}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full"
-              >
-                Choose Pro
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="mt-10 grid gap-4 max-w-3xl">
+            {[
+              { q: 'How fast can I set up DoBook?', a: 'Most businesses can add services, set availability, and share a booking link in about 10 minutes.' },
+              { q: 'Can I take deposits or full payment online?', a: 'Yes. Choose per service whether to take a deposit, full payment, or keep payment optional.' },
+              { q: 'Do customers get confirmations and reminders?', a: 'Confirmations are included on Free. Pro adds automated email & SMS reminders to reduce no‑shows.' },
+              { q: 'What about cancellations and rescheduling?', a: 'Set your cancellation window and rescheduling rules to protect your time and keep your calendar stable.' },
+              { q: 'Can I embed DoBook on my website?', a: 'Yes. Add a booking widget or link so visitors can schedule without leaving your brand.' },
+              { q: 'Does it work on mobile?', a: 'Yes. The booking experience is mobile-first, and the dashboard is responsive for phones and tablets.' },
+            ].map((item) => (
+              <details key={item.q} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                <summary className="cursor-pointer text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  {item.q}
+                </summary>
+                <div className="mt-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{item.a}</div>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* CTA Section */}
       <section className="bg-rose-600 py-20">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 className="text-4xl font-bold text-white mb-6" style={{fontFamily: 'Manrope'}}>
-            Ready to Streamline Your Bookings?
+        <div className="max-w-5xl mx-auto text-center px-4 sm:px-6">
+          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'Manrope' }}>
+            Start taking bookings today
           </h2>
-          <p className="text-rose-100 text-lg mb-8" style={{fontFamily: 'Inter'}}>
-            Join businesses using DoBook to manage appointments effortlessly
+          <p className="text-rose-100 text-lg mb-8" style={{ fontFamily: 'Inter' }}>
+            Join service businesses using DoBook for appointment scheduling, payments, and invoices—without the admin overload.
           </p>
-          <Button 
-            data-testid="cta-get-started-btn"
-            onClick={() => router.push(startFreeHref)}
-            className="h-14 px-10 bg-white text-rose-600 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
-          >
-            Get Started Now
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              data-testid="cta-get-started-btn"
+              type="button"
+              onClick={() => router.push(startFreeHref)}
+              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
+            >
+              Start Free (Business)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(customerHref)}
+              className="h-14 px-10 rounded-full border-white/30 text-white hover:bg-white/10"
+            >
+              Find services near me
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <BrandLogo size="sm" />
-              <div className="text-sm text-zinc-600">© {new Date().getFullYear()} DoBook</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12">
+          <div className="grid gap-10 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <div className="flex items-center gap-3">
+                <img
+                  src={DOBOOK_LOGO_PNG}
+                  alt="DoBook"
+                  className="h-9 w-auto object-contain select-none"
+                  draggable={false}
+                  onError={(e) => {
+                    e.currentTarget.src = DOBOOK_LOGO_SVG;
+                  }}
+                />
+                <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>DoBook</div>
+              </div>
+              <p className="mt-3 text-sm text-zinc-600 max-w-md" style={{ fontFamily: 'Inter' }}>
+                DoBook is an all‑in‑one online booking system for service businesses—appointment scheduling software with client management, invoices, reminders, and payments.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="Twitter (placeholder)">Twitter</a>
+                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="LinkedIn (placeholder)">LinkedIn</a>
+                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="Instagram (placeholder)">Instagram</a>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
-              <a className="text-zinc-600 hover:text-zinc-900" href="/terms">
-                Terms
-              </a>
-              <a className="text-zinc-600 hover:text-zinc-900" href="/privacy">
-                Privacy
-              </a>
-              <a className="text-zinc-600 hover:text-zinc-900" href="/policies/cancellation">
-                Cancellation Policy
-              </a>
-              <a className="text-zinc-600 hover:text-zinc-900" href="mailto:support@do-book.com">
-                Contact
-              </a>
+            <div className="lg:col-span-7">
+              <div className="grid gap-8 sm:grid-cols-3">
+                <div>
+                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Product</div>
+                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
+                    <a className="hover:text-zinc-900" href="#features">Features</a>
+                    <a className="hover:text-zinc-900" href="#pricing">Pricing</a>
+                    <button type="button" className="text-left hover:text-zinc-900" onClick={() => router.push(customerHref)}>Find services</button>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Company</div>
+                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
+                    <a className="hover:text-zinc-900" href="#">About</a>
+                    <a className="hover:text-zinc-900" href="mailto:support@do-book.com">Contact</a>
+                    <a className="hover:text-zinc-900" href="#">Careers</a>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Legal</div>
+                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
+                    <a className="hover:text-zinc-900" href="/privacy">Privacy</a>
+                    <a className="hover:text-zinc-900" href="/terms">Terms</a>
+                    <a className="hover:text-zinc-900" href="/policies/cancellation">Cancellation policy</a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10 rounded-3xl border border-zinc-200 bg-zinc-50 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Ready to grow?</div>
+                  <div className="mt-1 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
+                    Start free and turn your booking flow into a revenue engine.
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => router.push(startFreeHref)}
+                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                >
+                  Start Free (Business)
+                </Button>
+              </div>
             </div>
+          </div>
+
+          <div className="mt-10 border-t border-zinc-200 pt-6 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+            <div>© {new Date().getFullYear()} DoBook. All rights reserved.</div>
+            <div>online booking system · appointment scheduling software · booking system for small business · service business scheduling</div>
           </div>
         </div>
       </footer>
