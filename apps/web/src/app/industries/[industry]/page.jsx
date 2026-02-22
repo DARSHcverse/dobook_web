@@ -37,6 +37,13 @@ export async function generateMetadata({ params }) {
     title: cfg.title,
     description,
     alternates: { canonical: `/industries/${key}` },
+    keywords: [
+      "online booking system",
+      `${cfg.label} booking system`,
+      "appointment booking",
+      "invoice generator",
+      "booking reminders",
+    ],
     robots: { index: true, follow: true },
     openGraph: {
       type: "website",

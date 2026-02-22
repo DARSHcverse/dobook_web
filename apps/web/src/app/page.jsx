@@ -20,6 +20,15 @@ export async function generateMetadata() {
     title,
     description,
     alternates: { canonical: "/" },
+    keywords: [
+      "online booking system",
+      "appointment booking",
+      "booking calendar",
+      "invoice generator",
+      "booking reminders",
+      "local services directory",
+      "find nearby services",
+    ],
     robots: {
       index: true,
       follow: true,
@@ -66,6 +75,11 @@ export default function Page() {
         url: siteUrl,
         name: "DoBook",
         publisher: { "@id": `${siteUrl}/#organization` },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: `${siteUrl}/discover?q={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
       },
       {
         "@type": "SoftwareApplication",

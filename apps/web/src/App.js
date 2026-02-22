@@ -639,6 +639,7 @@ const LandingPage = ({
   heroDescription = 'DoBook is an all-in-one booking platform for businesses. Manage appointments, automatic invoices, reminders, and emails — free or Pro plans available.',
   getStartedHref = '/auth',
   startFreeHref = '/auth?plan=free',
+  customerHref = '/discover',
 } = {}) => {
   const router = useRouter();
 
@@ -690,14 +691,25 @@ const LandingPage = ({
             <p className="text-lg text-zinc-600 mb-8" style={{fontFamily: 'Inter'}}>
               {heroDescription}
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 data-testid="hero-get-started-btn"
                 onClick={() => router.push(startFreeHref)}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
-                Start Free
+                Start free (business)
               </Button>
+              <Button
+                data-testid="hero-customer-btn"
+                variant="outline"
+                onClick={() => router.push(customerHref)}
+                className="h-14 px-10 rounded-full border-zinc-200"
+              >
+                Join as customer
+              </Button>
+            </div>
+            <div className="mt-3 text-xs text-zinc-500">
+              Customers can search and book nearby services. Businesses can accept bookings and send invoices.
             </div>
           </div>
           <div className="md:col-span-5">
@@ -746,6 +758,27 @@ const LandingPage = ({
               <CardTitle style={{fontFamily: 'Manrope'}}>Embed Anywhere</CardTitle>
               <CardDescription style={{fontFamily: 'Inter'}}>Widget for your website with one line of code</CardDescription>
             </CardHeader>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <div className="text-lg font-semibold" style={{fontFamily: 'Manrope'}}>For customers</div>
+                <div className="text-sm text-zinc-600" style={{fontFamily: 'Inter'}}>
+                  Search businesses using DoBook and book instantly.
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 px-6 rounded-full border-zinc-200"
+                onClick={() => router.push(customerHref)}
+              >
+                Find nearby services
+              </Button>
+            </CardContent>
           </Card>
         </div>
       </section>
