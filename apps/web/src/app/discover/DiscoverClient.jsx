@@ -11,6 +11,21 @@ function asList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeWebsiteUrl(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+
+  let candidate = value;
+  if (/^\/\//.test(candidate)) candidate = `https:${candidate}`;
+  else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(candidate)) candidate = `https://${candidate}`;
+
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) {
   const router = useRouter();
   const [q, setQ] = useState(String(initialQ || ""));
@@ -124,8 +139,10 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {results.map((b) => (
-              <Card key={b.id} className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
+            {results.map((b) => {
+              const websiteUrl = normalizeWebsiteUrl(b.public_website);
+              return (
+                <Card key={b.id} className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="space-y-3">
                   <div className="flex items-center gap-3">
                     <img
@@ -168,23 +185,21 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                     >
                       Book now
                     </Button>
-                    {b.public_website ? (
-                      <Button
-                        variant="outline"
-                        className="h-11 rounded-xl"
-                        onClick={() => window.open(String(b.public_website), "_blank", "noopener,noreferrer")}
-                      >
-                        Website
+                    {websiteUrl ? (
+                      <Button asChild variant="outline" className="h-11 rounded-xl">
+                        <a href={websiteUrl} target="_blank" rel="noopener noreferrer">
+                          Website
+                        </a>
                       </Button>
                     ) : null}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
     </div>
   );
 }
-
