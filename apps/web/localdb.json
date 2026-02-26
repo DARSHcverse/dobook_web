@@ -50,6 +50,38 @@
       "invoice_seq": 0,
       "password_hash": "$2a$10$c2l0NQtO9GPo2i7P6o8kaOHDsMp/Tjg0GxDgic/y6qfjL.pY/g8zC",
       "created_at": "2026-02-26T03:48:53.421Z"
+    },
+    {
+      "id": "b2d922ee-8fc0-4a01-8f65-58d368e13615",
+      "business_name": "Test Business",
+      "email": "testuser@dobook.test",
+      "phone": null,
+      "business_address": "",
+      "abn": "",
+      "logo_url": "",
+      "bank_name": "",
+      "account_name": "",
+      "bsb": "",
+      "account_number": "",
+      "payment_link": "",
+      "industry": "photobooth",
+      "booth_types": [
+        "Open Booth",
+        "Glam Booth",
+        "Enclosed Booth"
+      ],
+      "booking_custom_fields": [],
+      "account_role": "user",
+      "subscription_plan": "free",
+      "subscription_status": "inactive",
+      "stripe_customer_id": null,
+      "stripe_subscription_id": null,
+      "stripe_price_id": null,
+      "subscription_current_period_end": null,
+      "booking_count": 0,
+      "invoice_seq": 0,
+      "password_hash": "$2a$10$3xe.A7caxm.QDwyNZe0GxO34Jp0HAK001/MldgJDAV0o90aAgCLQ6",
+      "created_at": "2026-02-26T04:04:22.948Z"
     }
   ],
   "sessions": [
@@ -112,6 +144,18 @@
       "businessId": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
       "createdAt": 1772077861736,
       "expiresAt": 1772682661736
+    },
+    {
+      "token": "247e836d-6170-4a00-afbb-d9ee6c38bf9a",
+      "businessId": "b2d922ee-8fc0-4a01-8f65-58d368e13615",
+      "createdAt": 1772078662948,
+      "expiresAt": 1772683462948
+    },
+    {
+      "token": "6e41fa20-b033-48e4-a4e5-0106e9d09e47",
+      "businessId": "b2d922ee-8fc0-4a01-8f65-58d368e13615",
+      "createdAt": 1772078665214,
+      "expiresAt": 1772683465214
     }
   ],
   "bookings": [

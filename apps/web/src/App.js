@@ -23,7 +23,6 @@ import {
   Smartphone,
   Upload,
   Users,
-  Crown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1847,16 +1846,6 @@ const Dashboard = () => {
             <span className="font-medium">Embed Widget</span>
           </button>
 
-          {isOwner && (
-            <button
-              onClick={() => router.push('/admin')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-purple-50 hover:text-purple-600"
-            >
-              <Crown className="h-5 w-5" />
-              <span className="font-medium">Admin Panel</span>
-            </button>
-          )}
-
           <button
             data-testid="account-settings-tab"
             onClick={() => setActiveTab('settings')}
@@ -1935,16 +1924,6 @@ const Dashboard = () => {
               <Settings className="h-5 w-5" />
               <span className="font-medium">Embed Widget</span>
             </button>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => { router.push('/admin'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-purple-50 hover:text-purple-600"
-              >
-                <Crown className="h-5 w-5" />
-                <span className="font-medium">Admin Panel</span>
-              </button>
-            )}
             <button
               type="button"
               onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
