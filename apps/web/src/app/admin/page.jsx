@@ -27,6 +27,14 @@ export default function AdminPanel() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  const getBusinessName = (business) => business?.business_name || business?.name || "";
+  const formatCreatedAt = (raw) => {
+    if (!raw) return "-";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString();
+  };
+
   // Check if current user is owner
   const isOwner = currentUser ? String(currentUser.account_role || '').trim().toLowerCase() === 'owner' : false;
 
@@ -104,7 +112,7 @@ export default function AdminPanel() {
 
     if (searchTerm) {
       filtered = filtered.filter(b => 
-        b.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getBusinessName(b)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         b.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -157,6 +165,32 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSetSubscription = async (businessId, nextPlan, nextStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/businesses/${businessId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          subscription_plan: nextPlan,
+          subscription_status: nextStatus,
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update subscription');
+      }
+
+      setMessage({ type: "success", text: `Subscription updated to ${String(nextPlan).toUpperCase()}` });
+      checkAuthAndFetch();
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    }
+  };
+
   const handleDeleteBusiness = async (businessId) => {
     if (!confirm('Are you sure you want to delete this business? This action cannot be undone.')) {
       return;
@@ -184,6 +218,13 @@ export default function AdminPanel() {
 
   const handleUpdateBusiness = async (businessData) => {
     try {
+      const payload = {
+        business_name: getBusinessName(businessData),
+        email: businessData?.email || "",
+        subscription_plan: businessData?.subscription_plan || "free",
+        subscription_status: businessData?.subscription_status || "inactive",
+      };
+
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/admin/businesses/${editingBusiness.id}`, {
         method: 'PUT',
@@ -191,7 +232,7 @@ export default function AdminPanel() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(businessData)
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -359,7 +400,7 @@ export default function AdminPanel() {
                   <TableRow key={business.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{business.name}</div>
+                        <div className="font-medium">{getBusinessName(business)}</div>
                         {business.account_role === 'owner' && (
                           <Badge variant="outline" className="text-xs">OWNER</Badge>
                         )}
@@ -369,21 +410,26 @@ export default function AdminPanel() {
                     <TableCell>{getPlanBadge(business.subscription_plan)}</TableCell>
                     <TableCell>{getStatusBadge(business.subscription_status)}</TableCell>
                     <TableCell>
-                      {new Date(business.created_at).toLocaleDateString()}
+                      {formatCreatedAt(business.created_at)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {business.subscription_plan === 'free' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpgradeToPro(business.id)}
-                            className="text-green-600 hover:text-green-700"
-                          >
-                            <Crown className="w-4 h-4 mr-1" />
-                            Upgrade
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSetSubscription(business.id, 'pro', 'active')}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <Crown className="w-4 h-4 mr-1" />
+                          Grant Pro
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSetSubscription(business.id, 'free', 'inactive')}
+                        >
+                          Set Free
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -430,8 +476,8 @@ export default function AdminPanel() {
                 <Label htmlFor="name">Business Name</Label>
                 <Input
                   id="name"
-                  value={editingBusiness.name || ''}
-                  onChange={(e) => setEditingBusiness({...editingBusiness, name: e.target.value})}
+                  value={getBusinessName(editingBusiness)}
+                  onChange={(e) => setEditingBusiness({ ...editingBusiness, business_name: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">

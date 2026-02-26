@@ -4,7 +4,7 @@ import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request, { params }) {
   try {
-    const { businessId } = await params;
+    const { businessId } = params;
 
     if (hasSupabaseConfig()) {
       // Update in Supabase

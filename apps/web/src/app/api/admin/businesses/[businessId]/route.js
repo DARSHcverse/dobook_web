@@ -4,29 +4,54 @@ import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PUT(request, { params }) {
   try {
-    const { businessId } = await params;
+    const { businessId } = params;
     const updateData = await request.json();
 
-    // Validate required fields
-    if (!updateData.name || !updateData.email) {
-      return NextResponse.json(
-        { detail: "Name and email are required" },
-        { status: 400 }
-      );
+    const nameRaw = updateData?.business_name ?? updateData?.name;
+    const emailRaw = updateData?.email;
+    const name = nameRaw !== undefined ? String(nameRaw).trim() : undefined;
+    const email = emailRaw !== undefined ? String(emailRaw).trim().toLowerCase() : undefined;
+    const subscription_plan =
+      updateData?.subscription_plan !== undefined ? String(updateData.subscription_plan).trim().toLowerCase() : undefined;
+    const subscription_status =
+      updateData?.subscription_status !== undefined ? String(updateData.subscription_status).trim().toLowerCase() : undefined;
+
+    if (name !== undefined && !name) {
+      return NextResponse.json({ detail: "business_name cannot be empty" }, { status: 400 });
+    }
+    if (email !== undefined && !email) {
+      return NextResponse.json({ detail: "email cannot be empty" }, { status: 400 });
+    }
+
+    const allowedPlans = new Set(["free", "pro"]);
+    if (subscription_plan !== undefined && subscription_plan && !allowedPlans.has(subscription_plan)) {
+      return NextResponse.json({ detail: "Invalid subscription_plan" }, { status: 400 });
+    }
+    const allowedStatuses = new Set(["active", "inactive", "cancelled"]);
+    if (subscription_status !== undefined && subscription_status && !allowedStatuses.has(subscription_status)) {
+      return NextResponse.json({ detail: "Invalid subscription_status" }, { status: 400 });
     }
 
     if (hasSupabaseConfig()) {
       // Update in Supabase
+      const updates = {
+        updated_at: new Date().toISOString(),
+      };
+      if (name !== undefined) updates.business_name = name;
+      if (email !== undefined) updates.email = email;
+      if (updateData.phone !== undefined) updates.phone = updateData.phone || "";
+      if (updateData.business_address !== undefined) updates.business_address = updateData.business_address || "";
+      if (updateData.abn !== undefined) updates.abn = updateData.abn || "";
+      if (subscription_plan !== undefined) updates.subscription_plan = subscription_plan || "free";
+      if (subscription_status !== undefined) updates.subscription_status = subscription_status || "inactive";
+
+      if (Object.keys(updates).length <= 1) {
+        return NextResponse.json({ detail: "No updates provided" }, { status: 400 });
+      }
+
       const { data: business, error } = await supabaseAdmin()
         .from("businesses")
-        .update({
-          business_name: updateData.name,
-          email: updateData.email,
-          phone: updateData.phone || "",
-          business_address: updateData.business_address || "",
-          abn: updateData.abn || "",
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq("id", businessId)
         .select()
         .single();
@@ -56,11 +81,13 @@ export async function PUT(request, { params }) {
       }
 
       // Update business fields
-      business.business_name = updateData.name;
-      business.email = updateData.email;
-      business.phone = updateData.phone || "";
-      business.business_address = updateData.business_address || "";
-      business.abn = updateData.abn || "";
+      if (name !== undefined) business.business_name = name;
+      if (email !== undefined) business.email = email;
+      if (updateData.phone !== undefined) business.phone = updateData.phone || "";
+      if (updateData.business_address !== undefined) business.business_address = updateData.business_address || "";
+      if (updateData.abn !== undefined) business.abn = updateData.abn || "";
+      if (subscription_plan !== undefined) business.subscription_plan = subscription_plan || "free";
+      if (subscription_status !== undefined) business.subscription_status = subscription_status || "inactive";
       business.updated_at = new Date().toISOString();
 
       writeDb(db);
@@ -83,7 +110,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { businessId } = await params;
+    const { businessId } = params;
 
     if (hasSupabaseConfig()) {
       // Delete from Supabase
@@ -102,6 +129,24 @@ export async function DELETE(request, { params }) {
 
       return NextResponse.json({ detail: "Business deleted successfully" });
     }
+    // Delete from local database
+    const db = readDb();
+    const before = (db.businesses || []).length;
+    db.businesses = (db.businesses || []).filter((b) => b.id !== businessId);
+    if (db.businesses.length === before) {
+      return NextResponse.json({ detail: "Business not found" }, { status: 404 });
+    }
+
+    db.sessions = (db.sessions || []).filter((s) => s.businessId !== businessId && s.business_id !== businessId);
+    db.bookings = (db.bookings || []).filter((b) => b.business_id !== businessId && b.businessId !== businessId);
+    db.invoiceTemplates = (db.invoiceTemplates || []).filter((t) => t.business_id !== businessId && t.businessId !== businessId);
+    db.passwordResetTokens = (db.passwordResetTokens || []).filter((t) => t.businessId !== businessId && t.business_id !== businessId);
+    db.extractions = (db.extractions || []).filter((e) => e.business_id !== businessId && e.businessId !== businessId);
+    db.invoices = (db.invoices || []).filter((inv) => inv.business_id !== businessId && inv.businessId !== businessId);
+
+    writeDb(db);
+
+    return NextResponse.json({ detail: "Business deleted successfully" });
 
   } catch (error) {
     console.error("Error in admin businesses DELETE:", error);
