@@ -22,6 +22,9 @@ function LogoMark() {
       <img
         src="/brand/dobook-logo.png"
         alt="DoBook"
+        width={192}
+        height={128}
+        style={{ height: 64, width: "auto" }}
         className="h-16 w-auto select-none"
         draggable={false}
       />

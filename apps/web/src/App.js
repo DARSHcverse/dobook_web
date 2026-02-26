@@ -1119,69 +1119,7 @@ const LandingPage = ({
       </section>
 
       {/* Social Proof */}
-      <section id="social-proof" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                Social proof that moves the needle
-              </h2>
-              <p className="mt-2 text-zinc-600 max-w-2xl" style={{ fontFamily: 'Inter' }}>
-                Realistic results from teams using DoBook as their online booking system and service business scheduling hub.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “We replaced two tools and a spreadsheet. Clients book themselves, reminders go out, and invoices look professional.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Mia R.</div>
-                    <div className="text-xs text-zinc-500">Salon owner · 4 staff</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Salons</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “SMS reminders cut our no‑shows fast. Patients love picking times online—our front desk finally has breathing room.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Dr. Sam K.</div>
-                    <div className="text-xs text-zinc-500">Clinic manager</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Wellness</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “I send one link and everything’s handled: booking, confirmation, payment, invoice. I look more professional instantly.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Jordan P.</div>
-                    <div className="text-xs text-zinc-500">Coach · Solo business</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Consulting</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Logos section intentionally omitted until real customer logos are available. */}
-        </div>
-      </section>
+      {/* Social proof section removed */}
 
       {/* Features Section */}
       <section id="who-for" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
@@ -1502,7 +1440,7 @@ const LandingPage = ({
               What businesses say
             </h2>
             <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              Reviews submitted by DoBook businesses and published after approval.
+              Reviews from businesses using DoBook.
             </p>
           </div>
 
@@ -1919,6 +1857,15 @@ const Dashboard = () => {
             <Settings className="h-5 w-5" />
             <span className="font-medium">Account Settings</span>
           </button>
+
+          <button
+            data-testid="public-profile-tab"
+            onClick={() => setActiveTab('public_profile')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+          >
+            <MapPin className="h-5 w-5" />
+            <span className="font-medium">Public Profile</span>
+          </button>
         </nav>
 
         <div className="absolute bottom-6 left-6 right-6">
@@ -1996,6 +1943,14 @@ const Dashboard = () => {
             >
               <Settings className="h-5 w-5" />
               <span className="font-medium">Account Settings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('public_profile'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            >
+              <MapPin className="h-5 w-5" />
+              <span className="font-medium">Public Profile</span>
             </button>
           </div>
           <div className="pt-2">
@@ -2207,6 +2162,7 @@ const Dashboard = () => {
         {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
+        {activeTab === 'public_profile' && business && <PublicProfileTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
         {activeTab === 'widget' && business && <WidgetTab businessId={business.id} />}
       </div>
@@ -2236,11 +2192,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
     cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
     cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
-    public_enabled: Boolean(business?.public_enabled),
-    public_description: business?.public_description || '',
-    public_postcode: business?.public_postcode || '',
-    public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
-    public_website: business?.public_website || '',
     industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
     booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -2281,11 +2232,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
         cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
         cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
-        public_enabled: Boolean(business?.public_enabled),
-        public_description: business?.public_description || '',
-        public_postcode: business?.public_postcode || '',
-        public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
-        public_website: business?.public_website || '',
         industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -2741,135 +2687,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         </CardContent>
       </Card>
 
-      {/* Public Profile */}
-      <Card data-testid="public-profile-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Public Profile</CardTitle>
-          <CardDescription>
-            Let customers discover you on DoBook. Only your public details are shown (never bank details).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={Boolean(formData.public_enabled)}
-              onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
-            />
-            <div>
-              <div className="font-semibold">Show my business on the directory</div>
-              <div className="text-xs text-zinc-500">Customers can find you via “Find services”.</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="public_postcode">Postcode (optional)</Label>
-              <Input
-                id="public_postcode"
-                value={formData.public_postcode || ''}
-                onChange={(e) => setFormData({ ...formData, public_postcode: e.target.value })}
-                placeholder="e.g. 3000"
-                className="bg-zinc-50 mt-2"
-                inputMode="numeric"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="public_website">Website (optional)</Label>
-              <Input
-                id="public_website"
-                value={formData.public_website || ''}
-                onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
-                placeholder="https://yourwebsite.com"
-                className="bg-zinc-50 mt-2"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="public_description">Business description</Label>
-            <Textarea
-              id="public_description"
-              value={formData.public_description || ''}
-              onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
-              placeholder="Tell customers what you do, what’s included, and what areas you service…"
-              className="bg-zinc-50 mt-2"
-              rows={5}
-            />
-            <p className="text-xs text-zinc-500 mt-2">Max 2000 characters.</p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="font-semibold">Photos</div>
-                <div className="text-xs text-zinc-500">Add up to 8 photo URLs (or data URLs).</div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    public_photos: [...(Array.isArray(formData.public_photos) ? formData.public_photos : []), ""].slice(
-                      0,
-                      8,
-                    ),
-                  })
-                }
-              >
-                Add photo
-              </Button>
-            </div>
-
-            {(Array.isArray(formData.public_photos) ? formData.public_photos : []).length === 0 ? (
-              <div className="text-sm text-zinc-500">No photos yet.</div>
-            ) : (
-              <div className="space-y-3">
-                {(formData.public_photos || []).map((url, idx) => (
-                  <div key={`photo-${idx}`} className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden flex-shrink-0">
-                      {String(url || "").trim() ? (
-                        <img
-                          src={String(url)}
-                          alt={`Photo ${idx + 1}`}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                    </div>
-                    <Input
-                      value={url}
-                      onChange={(e) => {
-                        const next = [...(formData.public_photos || [])];
-                        next[idx] = e.target.value;
-                        setFormData({ ...formData, public_photos: next });
-                      }}
-                      placeholder="https://... (image url)"
-                      className="bg-zinc-50"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10"
-                      onClick={() => {
-                        const next = (formData.public_photos || []).filter((_, i) => i !== idx);
-                        setFormData({ ...formData, public_photos: next });
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Additional Charges */}
       <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
@@ -3094,7 +2911,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Review DoBook</CardTitle>
-          <CardDescription>Share feedback about DoBook. Reviews are published after admin approval.</CardDescription>
+          <CardDescription>Share feedback about DoBook.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4629,6 +4446,315 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+};
+
+// ============= Public Profile Tab =============
+const PublicProfileTab = ({ business, onUpdate }) => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    public_enabled: Boolean(business?.public_enabled),
+    public_description: business?.public_description || '',
+    public_postcode: business?.public_postcode || '',
+    public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+    public_website: business?.public_website || '',
+    public_services: Array.isArray(business?.public_services) ? business.public_services : [],
+  });
+
+  useEffect(() => {
+    setFormData({
+      public_enabled: Boolean(business?.public_enabled),
+      public_description: business?.public_description || '',
+      public_postcode: business?.public_postcode || '',
+      public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+      public_website: business?.public_website || '',
+      public_services: Array.isArray(business?.public_services) ? business.public_services : [],
+    });
+  }, [business]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const payload = {
+        public_enabled: Boolean(formData.public_enabled),
+        public_postcode: String(formData.public_postcode || ''),
+        public_website: String(formData.public_website || ''),
+        public_description: String(formData.public_description || ''),
+        public_photos: Array.isArray(formData.public_photos) ? formData.public_photos : [],
+        public_services: Array.isArray(formData.public_services) ? formData.public_services : [],
+      };
+
+      const response = await axios.put(`${API}/business/profile`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
+      onUpdate(response.data);
+      toast.success('Public profile updated!');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update public profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const profileUrl = business?.id ? `${window.location.origin}/discover/${business.id}` : '';
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Public Profile</CardTitle>
+          <CardDescription>
+            Control what customers see on your discover page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={Boolean(formData.public_enabled)}
+              onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
+            />
+            <div>
+              <div className="font-semibold">Show my business on the directory</div>
+              <div className="text-xs text-zinc-500">Customers can find you via “Find services”.</div>
+            </div>
+          </div>
+
+          {Boolean(formData.public_enabled) && profileUrl ? (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-zinc-900">Preview link</div>
+                <div className="text-xs text-zinc-600 truncate">{profileUrl}</div>
+              </div>
+              <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={() => router.push(`/discover/${business.id}`)}>
+                Preview
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="public_postcode">Postcode (optional)</Label>
+              <Input
+                id="public_postcode"
+                value={formData.public_postcode || ''}
+                onChange={(e) => setFormData({ ...formData, public_postcode: e.target.value })}
+                placeholder="e.g. 3000"
+                className="bg-zinc-50 mt-2"
+                inputMode="numeric"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="public_website">Website (optional)</Label>
+              <Input
+                id="public_website"
+                value={formData.public_website || ''}
+                onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
+                placeholder="https://yourwebsite.com"
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="public_description">Business description</Label>
+            <Textarea
+              id="public_description"
+              value={formData.public_description || ''}
+              onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
+              placeholder="Tell customers what you do, what’s included, and what areas you service…"
+              className="bg-zinc-50 mt-2"
+              rows={5}
+            />
+            <p className="text-xs text-zinc-500 mt-2">Max 2000 characters.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Photos</div>
+                <div className="text-xs text-zinc-500">Add up to 8 photo URLs.</div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    public_photos: [...(Array.isArray(formData.public_photos) ? formData.public_photos : []), ""].slice(0, 8),
+                  })
+                }
+              >
+                Add photo
+              </Button>
+            </div>
+
+            {(Array.isArray(formData.public_photos) ? formData.public_photos : []).length === 0 ? (
+              <div className="text-sm text-zinc-500">No photos yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {(formData.public_photos || []).map((url, idx) => (
+                  <div key={`photo-${idx}`} className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden flex-shrink-0">
+                      {String(url || "").trim() ? (
+                        <img
+                          src={String(url)}
+                          alt={`Photo ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <Input
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...(formData.public_photos || [])];
+                        next[idx] = e.target.value;
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                      placeholder="https://... (image url)"
+                      className="bg-zinc-50"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => {
+                        const next = (formData.public_photos || []).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 pt-2 border-t border-zinc-200">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Services</div>
+                <div className="text-xs text-zinc-500">List what you offer (optional pricing).</div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    public_services: [
+                      ...(Array.isArray(formData.public_services) ? formData.public_services : []),
+                      { name: "", description: "", unit: "session", price: "" },
+                    ].slice(0, 25),
+                  })
+                }
+              >
+                Add service
+              </Button>
+            </div>
+
+            {(Array.isArray(formData.public_services) ? formData.public_services : []).length === 0 ? (
+              <div className="text-sm text-zinc-500">No services yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {(formData.public_services || []).map((s, idx) => (
+                  <div key={`service-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                      <div className="md:col-span-6">
+                        <Label>Service name</Label>
+                        <Input
+                          value={s?.name || ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), name: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white mt-2"
+                          placeholder="e.g. 2 Hours"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <Label>Price</Label>
+                        <Input
+                          value={s?.price ?? ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), price: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white mt-2"
+                          placeholder="e.g. 375"
+                          inputMode="decimal"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <Label>Unit</Label>
+                        <Input
+                          value={s?.unit || ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), unit: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white mt-2"
+                          placeholder="session"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Description (optional)</Label>
+                      <Textarea
+                        value={s?.description || ""}
+                        onChange={(e) => {
+                          const next = [...(formData.public_services || [])];
+                          next[idx] = { ...(next[idx] || {}), description: e.target.value };
+                          setFormData({ ...formData, public_services: next });
+                        }}
+                        className="bg-white mt-2"
+                        rows={3}
+                        placeholder="What’s included?"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10"
+                        onClick={() => {
+                          const next = (formData.public_services || []).filter((_, i) => i !== idx);
+                          setFormData({ ...formData, public_services: next });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+          >
+            {loading ? 'Saving...' : 'Save Public Profile'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -55,6 +55,7 @@ export async function PUT(request) {
     "public_postcode",
     "public_photos",
     "public_website",
+    "public_services",
   ];
 
   if (auth.mode === "supabase") {
@@ -104,6 +105,26 @@ export async function PUT(request) {
             .map((v) => String(v || "").trim())
             .filter(Boolean)
             .slice(0, 8)
+          : [];
+        continue;
+      }
+      if (key === "public_services") {
+        updates.public_services = Array.isArray(body.public_services)
+          ? body.public_services
+            .map((s) => ({
+              name: String(s?.name || "").trim().slice(0, 80),
+              description: String(s?.description || "").trim().slice(0, 400),
+              unit: String(s?.unit || "").trim().slice(0, 40),
+              price:
+                s?.price === null || s?.price === undefined || s?.price === ""
+                  ? null
+                  : (() => {
+                      const n = Number(s.price);
+                      return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+                    })(),
+            }))
+            .filter((s) => s.name)
+            .slice(0, 25)
           : [];
         continue;
       }
@@ -182,6 +203,26 @@ export async function PUT(request) {
     if (key === "public_photos") {
       auth.business.public_photos = Array.isArray(body.public_photos)
         ? body.public_photos.map((v) => String(v || "").trim()).filter(Boolean).slice(0, 8)
+        : [];
+      continue;
+    }
+    if (key === "public_services") {
+      auth.business.public_services = Array.isArray(body.public_services)
+        ? body.public_services
+          .map((s) => ({
+            name: String(s?.name || "").trim().slice(0, 80),
+            description: String(s?.description || "").trim().slice(0, 400),
+            unit: String(s?.unit || "").trim().slice(0, 40),
+            price:
+              s?.price === null || s?.price === undefined || s?.price === ""
+                ? null
+                : (() => {
+                    const n = Number(s.price);
+                    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+                  })(),
+          }))
+          .filter((s) => s.name)
+          .slice(0, 25)
         : [];
       continue;
     }

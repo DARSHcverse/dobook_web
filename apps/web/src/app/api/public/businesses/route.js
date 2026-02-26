@@ -16,6 +16,7 @@ function pickPublicBusiness(business) {
     business_address: String(b.business_address || "").trim(),
     industry: String(b.industry || "photobooth").trim(),
     booth_types: Array.isArray(b.booth_types) ? b.booth_types : [],
+    public_services: Array.isArray(b.public_services) ? b.public_services : [],
     public_description: String(b.public_description || "").trim(),
     public_postcode: String(b.public_postcode || "").trim(),
     public_photos: Array.isArray(b.public_photos) ? b.public_photos : [],
@@ -35,7 +36,7 @@ export async function GET(request) {
     const { data, error } = await sb
       .from("businesses")
       .select(
-        "id,business_name,email,phone,business_address,industry,booth_types,public_enabled,public_description,public_postcode,public_photos,public_website",
+        "id,business_name,email,phone,business_address,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos,public_website",
       )
       .eq("public_enabled", true)
       .order("created_at", { ascending: false })
@@ -70,4 +71,3 @@ export async function GET(request) {
   }
   return NextResponse.json(list.slice(0, 100));
 }
-

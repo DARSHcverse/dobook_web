@@ -194,3 +194,9 @@ input:focus, textarea:focus, select:focus {
     animation: none !important;
   }
 }
+
+@media print {
+  .dobook-splash {
+    display: none !important;
+  }
+}

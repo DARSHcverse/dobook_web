@@ -11,6 +11,14 @@ function asList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function summarizeServices(b) {
+  const fromPublic = asList(b?.public_services)
+    .map((s) => String(s?.name || "").trim())
+    .filter(Boolean);
+  if (fromPublic.length) return fromPublic.slice(0, 3);
+  return asList(b?.booth_types).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
+}
+
 function normalizeWebsiteUrl(raw) {
   const value = String(raw || "").trim();
   if (!value) return null;
@@ -152,9 +160,14 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                       draggable={false}
                     />
                     <div className="min-w-0">
-                      <div className="font-semibold truncate" style={{ fontFamily: "Manrope" }}>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/discover/${b.id}`)}
+                        className="text-left font-semibold truncate hover:underline"
+                        style={{ fontFamily: "Manrope" }}
+                      >
                         {b.business_name}
-                      </div>
+                      </button>
                       <div className="text-xs text-zinc-500 truncate">{b.industry}</div>
                     </div>
                   </div>
@@ -173,8 +186,8 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                         {b.business_address ? b.business_address : null}
                       </div>
                     ) : null}
-                    {asList(b.booth_types).length ? (
-                      <div className="truncate mt-1">{asList(b.booth_types).slice(0, 3).join(" • ")}</div>
+                    {summarizeServices(b).length ? (
+                      <div className="truncate mt-1">{summarizeServices(b).join(" • ")}</div>
                     ) : null}
                   </div>
 
@@ -184,6 +197,9 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                       onClick={() => router.push(b.booking_url || `/book/${b.id}`)}
                     >
                       Book now
+                    </Button>
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => router.push(`/discover/${b.id}`)}>
+                      Details
                     </Button>
                     {websiteUrl ? (
                       <Button asChild variant="outline" className="h-11 rounded-xl">

@@ -16,6 +16,9 @@ export default function SplashScreen({ open }) {
           <img
             src="/brand/dobook-logo.png"
             alt="DoBook"
+            width={288}
+            height={192}
+            style={{ height: 96, width: "auto" }}
             className="relative h-24 w-auto select-none"
             draggable={false}
           />
