@@ -84,26 +84,6 @@ export default function AdminPanel() {
     }
   };
 
-  useEffect(() => {
-    filterBusinesses();
-  }, [businesses, searchTerm, filterPlan]);
-
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('business');
-    }
-    router.push('/');
-  };
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">Checking admin access...</div>
-      </div>
-    );
-  }
-
   const calculateStats = (businesses) => {
     const stats = {
       total: businesses.length,
@@ -132,6 +112,26 @@ export default function AdminPanel() {
     setFilteredBusinesses(filtered);
   };
 
+  useEffect(() => {
+    filterBusinesses();
+  }, [businesses, searchTerm, filterPlan]);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('business');
+    }
+    router.push('/');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">Checking admin access...</div>
+      </div>
+    );
+  }
+
   const handleUpgradeToPro = async (businessId) => {
     try {
       const token = localStorage.getItem('token');
@@ -147,7 +147,7 @@ export default function AdminPanel() {
       }
 
       setMessage({ type: "success", text: "Business upgraded to pro plan successfully!" });
-      fetchBusinesses();
+      checkAuthAndFetch();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     }
@@ -172,7 +172,7 @@ export default function AdminPanel() {
       }
 
       setMessage({ type: "success", text: "Business deleted successfully!" });
-      fetchBusinesses();
+      checkAuthAndFetch();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     }
@@ -196,7 +196,7 @@ export default function AdminPanel() {
 
       setMessage({ type: "success", text: "Business updated successfully!" });
       setEditingBusiness(null);
-      fetchBusinesses();
+      checkAuthAndFetch();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     }
