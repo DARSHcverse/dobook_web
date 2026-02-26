@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Business, Plus, Search, Edit, Trash2, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
+import { Building2, Plus, Search, Edit, Trash2, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -41,6 +41,13 @@ export default function AdminPanel() {
 
   const checkAuthAndFetch = async () => {
     try {
+      // Check if we're in browser environment
+      if (typeof window === 'undefined') {
+        setAuthLoading(false);
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('token');
       if (!token) {
         router.push('/auth');
@@ -82,8 +89,10 @@ export default function AdminPanel() {
   }, [businesses, searchTerm, filterPlan]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('business');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('business');
+    }
     router.push('/');
   };
 
@@ -253,7 +262,7 @@ export default function AdminPanel() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Businesses</CardTitle>
-            <Business className="h-4 w-4 text-muted-foreground" />
+            <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
