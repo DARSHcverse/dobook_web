@@ -4560,6 +4560,11 @@ const BookingWidget = () => {
   const { businessId } = useParams();
   const resolvedBusinessId = Array.isArray(businessId) ? businessId[0] : businessId;
   const [business, setBusiness] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: '5', comment: '' });
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_email: '',
@@ -4628,6 +4633,12 @@ const BookingWidget = () => {
     loadBusiness();
   }, [resolvedBusinessId]);
 
+  useEffect(() => {
+    if (!resolvedBusinessId) return;
+    loadReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedBusinessId]);
+
   const loadBusiness = async () => {
     try {
       const response = await axios.get(`${API}/widget/business/${resolvedBusinessId}/info`);
@@ -4645,6 +4656,57 @@ const BookingWidget = () => {
       }));
     } catch (error) {
       console.error('Failed to load business:', error);
+    }
+  };
+
+  const loadReviews = async () => {
+    setReviewsLoading(true);
+    setReviewsError('');
+    try {
+      const res = await axios.get(`${API}/public/reviews`, { params: { businessId: resolvedBusinessId } });
+      setReviews(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      setReviews([]);
+      setReviewsError(String(e?.response?.data?.detail || e?.message || 'Failed to load reviews'));
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const submitReview = async (e) => {
+    e.preventDefault();
+    const name = String(reviewForm.customer_name || '').trim();
+    const comment = String(reviewForm.comment || '').trim();
+    const ratingNum = Number.parseInt(String(reviewForm.rating || '0'), 10);
+
+    if (!name || name.length < 2) {
+      toast.error('Please enter your name.');
+      return;
+    }
+    if (!comment || comment.length < 10) {
+      toast.error('Please write at least 10 characters.');
+      return;
+    }
+    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      toast.error('Please select a rating between 1 and 5.');
+      return;
+    }
+
+    setReviewSubmitting(true);
+    try {
+      await axios.post(`${API}/public/reviews`, {
+        business_id: resolvedBusinessId,
+        customer_name: name,
+        rating: ratingNum,
+        comment,
+      });
+      setReviewForm({ customer_name: '', rating: '5', comment: '' });
+      toast.success('Thanks! Your review was submitted for approval.');
+      await loadReviews();
+    } catch (err) {
+      toast.error(String(err?.response?.data?.detail || err?.message || 'Failed to submit review'));
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -4704,6 +4766,10 @@ const BookingWidget = () => {
     : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
   const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const reviewsList = Array.isArray(reviews) ? reviews : [];
+  const averageRating = reviewsList.length
+    ? Math.round((reviewsList.reduce((sum, r) => sum + Number(r?.rating || 0), 0) / reviewsList.length) * 10) / 10
+    : 0;
 
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
@@ -5009,6 +5075,88 @@ const BookingWidget = () => {
                 {loading ? 'Booking...' : 'Book Appointment'}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6 bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardTitle style={{ fontFamily: 'Manrope' }}>Reviews</CardTitle>
+            <CardDescription style={{ fontFamily: 'Inter' }}>
+              {reviewsLoading ? 'Loading reviews…' : reviewsList.length ? `${averageRating} / 5 • ${reviewsList.length} review(s)` : 'No reviews yet.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {reviewsError ? <div className="text-sm text-red-600">{reviewsError}</div> : null}
+
+            {reviewsList.length ? (
+              <div className="space-y-3">
+                {reviewsList.slice(0, 6).map((r) => (
+                  <div key={r.id} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold text-zinc-900">{r.customer_name || 'Customer'}</div>
+                      <div className="text-sm text-zinc-700">{'★'.repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}</div>
+                    </div>
+                    <div className="mt-2 text-sm text-zinc-700 leading-6 whitespace-pre-line">{r.comment}</div>
+                    {r.created_at ? (
+                      <div className="mt-2 text-xs text-zinc-500">{new Date(r.created_at).toLocaleDateString()}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="pt-2 border-t border-zinc-200">
+              <div className="text-sm font-semibold mb-2 text-zinc-800">Leave a review</div>
+              <form onSubmit={submitReview} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="review_name">Your name *</Label>
+                    <Input
+                      id="review_name"
+                      value={reviewForm.customer_name}
+                      onChange={(e) => setReviewForm({ ...reviewForm, customer_name: e.target.value })}
+                      className="bg-zinc-50 border-zinc-200 rounded-lg h-11"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Rating *</Label>
+                    <Select value={String(reviewForm.rating)} onValueChange={(val) => setReviewForm({ ...reviewForm, rating: String(val) })}>
+                      <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="1">1</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="review_comment">Comment *</Label>
+                  <Textarea
+                    id="review_comment"
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                    className="bg-zinc-50 border-zinc-200 rounded-lg"
+                    rows={4}
+                    placeholder="Share your experience…"
+                    required
+                  />
+                  <div className="text-xs text-zinc-500 mt-1">Reviews are published after approval.</div>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={reviewSubmitting}
+                  className="h-11 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl"
+                >
+                  {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                </Button>
+              </form>
+            </div>
           </CardContent>
         </Card>
 

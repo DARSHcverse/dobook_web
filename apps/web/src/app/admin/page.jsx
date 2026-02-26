@@ -18,6 +18,9 @@ export default function AdminPanel() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState([]);
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsFilter, setReviewsFilter] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -45,6 +48,44 @@ export default function AdminPanel() {
       } catch {
         return response.statusText || "Request failed";
       }
+    }
+  };
+
+  const fetchReviews = async (nextFilter) => {
+    setReviewsLoading(true);
+    try {
+      const url = new URL("/api/admin/reviews", window.location.origin);
+      if (nextFilter && nextFilter !== "all") url.searchParams.set("status", nextFilter);
+      const response = await fetch(url.toString(), { method: "GET" });
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to load reviews");
+      }
+      const data = await response.json();
+      setReviews(Array.isArray(data?.reviews) ? data.reviews : []);
+    } catch (error) {
+      setReviews([]);
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const updateReviewStatus = async (reviewId, status) => {
+    try {
+      const response = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to update review");
+      }
+      setMessage({ type: "success", text: `Review ${status}` });
+      await fetchReviews(reviewsFilter);
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
     }
   };
 
@@ -102,6 +143,7 @@ export default function AdminPanel() {
       const data = await response.json();
       setBusinesses(data.businesses || []);
       calculateStats(data.businesses || []);
+      await fetchReviews(reviewsFilter);
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -141,6 +183,14 @@ export default function AdminPanel() {
   useEffect(() => {
     filterBusinesses();
   }, [businesses, searchTerm, filterPlan]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const adminAuth = localStorage.getItem("adminAuth");
+    if (!adminAuth || adminAuth !== "true") return;
+    fetchReviews(reviewsFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewsFilter]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -286,6 +336,19 @@ export default function AdminPanel() {
     return (
       <Badge variant={variants[status] || "secondary"}>
         {status?.toUpperCase() || "INACTIVE"}
+      </Badge>
+    );
+  };
+
+  const getReviewStatusBadge = (status) => {
+    const variants = {
+      approved: "default",
+      pending: "secondary",
+      rejected: "destructive",
+    };
+    return (
+      <Badge variant={variants[status] || "secondary"}>
+        {String(status || "pending").toUpperCase()}
       </Badge>
     );
   };
@@ -476,6 +539,84 @@ export default function AdminPanel() {
               No businesses found matching your criteria.
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Reviews Moderation */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Reviews</CardTitle>
+          <CardDescription>Approve or deny reviews before they show on the website</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <Select value={reviewsFilter} onValueChange={setReviewsFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter reviews" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="text-sm text-muted-foreground">
+              {reviewsLoading ? "Loading..." : `${Array.isArray(reviews) ? reviews.length : 0} review(s)`}
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Business</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Rating</TableHead>
+                  <TableHead>Comment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(Array.isArray(reviews) ? reviews : []).map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-mono text-xs">{r.business_id || "-"}</TableCell>
+                    <TableCell>{r.customer_name || "-"}</TableCell>
+                    <TableCell>{Number(r.rating || 0) ? `${r.rating}/5` : "-"}</TableCell>
+                    <TableCell className="max-w-[360px] truncate">{r.comment || "-"}</TableCell>
+                    <TableCell>{getReviewStatusBadge(String(r.status || "pending").toLowerCase())}</TableCell>
+                    <TableCell>{formatCreatedAt(r.created_at)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateReviewStatus(r.id, "approved")}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateReviewStatus(r.id, "rejected")}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Deny
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {!reviewsLoading && (Array.isArray(reviews) ? reviews.length : 0) === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">No reviews in this filter.</div>
+          ) : null}
         </CardContent>
       </Card>
 

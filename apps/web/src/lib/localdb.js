@@ -20,6 +20,7 @@ function defaultDb() {
     passwordResetTokens: [],
     extractions: [],
     invoices: [],
+    reviews: [],
     counters: {},
   };
 }
