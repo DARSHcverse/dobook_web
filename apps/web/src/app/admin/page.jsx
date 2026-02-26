@@ -54,7 +54,7 @@ export default function AdminPanel() {
   const fetchReviews = async (nextFilter) => {
     setReviewsLoading(true);
     try {
-      const url = new URL("/api/admin/reviews", window.location.origin);
+      const url = new URL("/api/admin/platform-reviews", window.location.origin);
       if (nextFilter && nextFilter !== "all") url.searchParams.set("status", nextFilter);
       const response = await fetch(url.toString(), { method: "GET" });
       if (!response.ok) {
@@ -73,7 +73,7 @@ export default function AdminPanel() {
 
   const updateReviewStatus = async (reviewId, status) => {
     try {
-      const response = await fetch(`/api/admin/reviews/${reviewId}`, {
+      const response = await fetch(`/api/admin/platform-reviews/${reviewId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -542,11 +542,11 @@ export default function AdminPanel() {
         </CardContent>
       </Card>
 
-      {/* Reviews Moderation */}
+      {/* Platform Reviews Moderation */}
       <Card>
         <CardHeader>
-          <CardTitle>Reviews</CardTitle>
-          <CardDescription>Approve or deny reviews before they show on the website</CardDescription>
+          <CardTitle>DoBook Reviews</CardTitle>
+          <CardDescription>Approve or deny business reviews before they show on the DoBook website</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -571,7 +571,6 @@ export default function AdminPanel() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Business</TableHead>
-                  <TableHead>Name</TableHead>
                   <TableHead>Rating</TableHead>
                   <TableHead>Comment</TableHead>
                   <TableHead>Status</TableHead>
@@ -582,8 +581,10 @@ export default function AdminPanel() {
               <TableBody>
                 {(Array.isArray(reviews) ? reviews : []).map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">{r.business_id || "-"}</TableCell>
-                    <TableCell>{r.customer_name || "-"}</TableCell>
+                    <TableCell className="min-w-0">
+                      <div className="font-medium truncate">{r.business_name || "-"}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">{r.business_id || "-"}</div>
+                    </TableCell>
                     <TableCell>{Number(r.rating || 0) ? `${r.rating}/5` : "-"}</TableCell>
                     <TableCell className="max-w-[360px] truncate">{r.comment || "-"}</TableCell>
                     <TableCell>{getReviewStatusBadge(String(r.status || "pending").toLowerCase())}</TableCell>
