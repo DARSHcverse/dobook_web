@@ -1,49 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/app/api/_utils/auth";
-import { isOwnerBusiness } from "@/lib/entitlements";
+import { readDb, writeDb } from "@/lib/localdb";
+import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request, { params }) {
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
-  // Check if the authenticated user is an owner
-  if (!isOwnerBusiness(auth.business)) {
-    return NextResponse.json(
-      { detail: "Admin access required" },
-      { status: 403 }
-    );
-  }
-
   try {
     const { businessId } = params;
 
-    if (auth.mode === "localdb") {
-      // Update in local database
-      const business = auth.db.businesses.find(b => b.id === businessId);
-      
-      if (!business) {
-        return NextResponse.json(
-          { detail: "Business not found" },
-          { status: 404 }
-        );
-      }
-
-      // Upgrade to pro plan
-      business.subscription_plan = "pro";
-      business.subscription_status = "active";
-      business.updated_at = new Date().toISOString();
-
-      auth.saveDb(auth.db);
-
-      const { password_hash, ...safeBusiness } = business;
-      return NextResponse.json({
-        ...safeBusiness,
-        message: "Business upgraded to pro plan successfully"
-      });
-
-    } else {
+    if (hasSupabaseConfig()) {
       // Update in Supabase
-      const { data: business, error } = await auth.supabase
+      const { data: business, error } = await supabaseAdmin()
         .from("businesses")
         .update({
           subscription_plan: "pro",
@@ -64,6 +29,30 @@ export async function POST(request, { params }) {
 
       return NextResponse.json({
         ...business,
+        message: "Business upgraded to pro plan successfully"
+      });
+    } else {
+      // Update in local database
+      const db = readDb();
+      const business = db.businesses.find(b => b.id === businessId);
+      
+      if (!business) {
+        return NextResponse.json(
+          { detail: "Business not found" },
+          { status: 404 }
+        );
+      }
+
+      // Upgrade to pro plan
+      business.subscription_plan = "pro";
+      business.subscription_status = "active";
+      business.updated_at = new Date().toISOString();
+
+      writeDb(db);
+
+      const { password_hash, ...safeBusiness } = business;
+      return NextResponse.json({
+        ...safeBusiness,
         message: "Business upgraded to pro plan successfully"
       });
     }

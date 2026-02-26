@@ -12,12 +12,14 @@
       "account_name": "Darsh",
       "bsb": "672677",
       "account_number": "67343408034",
-      "subscription_plan": "free",
+      "subscription_plan": "pro",
       "booking_count": 5,
       "password_hash": "$2a$10$F4HR73x1nAmxQqVmx173jevRJXiuN3gyMi6AORhEQDbBJtrI6891.",
       "created_at": "2026-02-12T11:45:47.097Z",
       "invoice_seq": 4,
-      "payment_link": "www.test.com/pay"
+      "payment_link": "www.test.com/pay",
+      "subscription_status": "active",
+      "updated_at": "2026-02-26T04:19:24.735Z"
     },
     {
       "id": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
@@ -53,9 +55,9 @@
     },
     {
       "id": "b2d922ee-8fc0-4a01-8f65-58d368e13615",
-      "business_name": "Test Business",
+      "business_name": "Updated Test Business",
       "email": "testuser@dobook.test",
-      "phone": null,
+      "phone": "+1234567890",
       "business_address": "",
       "abn": "",
       "logo_url": "",
@@ -72,8 +74,8 @@
       ],
       "booking_custom_fields": [],
       "account_role": "user",
-      "subscription_plan": "free",
-      "subscription_status": "inactive",
+      "subscription_plan": "pro",
+      "subscription_status": "active",
       "stripe_customer_id": null,
       "stripe_subscription_id": null,
       "stripe_price_id": null,
@@ -81,7 +83,8 @@
       "booking_count": 0,
       "invoice_seq": 0,
       "password_hash": "$2a$10$3xe.A7caxm.QDwyNZe0GxO34Jp0HAK001/MldgJDAV0o90aAgCLQ6",
-      "created_at": "2026-02-26T04:04:22.948Z"
+      "created_at": "2026-02-26T04:04:22.948Z",
+      "updated_at": "2026-02-26T04:19:06.255Z"
     }
   ],
   "sessions": [

@@ -1,19 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/app/api/_utils/auth";
-import { isOwnerBusiness } from "@/lib/entitlements";
+import { readDb, writeDb } from "@/lib/localdb";
+import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PUT(request, { params }) {
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
-  // Check if the authenticated user is an owner
-  if (!isOwnerBusiness(auth.business)) {
-    return NextResponse.json(
-      { detail: "Admin access required" },
-      { status: 403 }
-    );
-  }
-
   try {
     const { businessId } = params;
     const updateData = await request.json();
@@ -26,35 +15,16 @@ export async function PUT(request, { params }) {
       );
     }
 
-    if (auth.mode === "localdb") {
-      // Update in local database
-      const businessIndex = auth.db.businesses.findIndex(b => b.id === businessId);
-      
-      if (businessIndex === -1) {
-        return NextResponse.json(
-          { detail: "Business not found" },
-          { status: 404 }
-        );
-      }
-
-      // Update the business
-      auth.db.businesses[businessIndex] = {
-        ...auth.db.businesses[businessIndex],
-        ...updateData,
-        updated_at: new Date().toISOString()
-      };
-
-      auth.saveDb(auth.db);
-
-      const { password_hash, ...safeBusiness } = auth.db.businesses[businessIndex];
-      return NextResponse.json(safeBusiness);
-
-    } else {
+    if (hasSupabaseConfig()) {
       // Update in Supabase
-      const { data: business, error } = await auth.supabase
+      const { data: business, error } = await supabaseAdmin()
         .from("businesses")
         .update({
-          ...updateData,
+          business_name: updateData.name,
+          email: updateData.email,
+          phone: updateData.phone || "",
+          business_address: updateData.business_address || "",
+          abn: updateData.abn || "",
           updated_at: new Date().toISOString()
         })
         .eq("id", businessId)
@@ -69,7 +39,37 @@ export async function PUT(request, { params }) {
         );
       }
 
-      return NextResponse.json(business);
+      return NextResponse.json({
+        ...business,
+        message: "Business updated successfully"
+      });
+    } else {
+      // Update in local database
+      const db = readDb();
+      const business = db.businesses.find(b => b.id === businessId);
+      
+      if (!business) {
+        return NextResponse.json(
+          { detail: "Business not found" },
+          { status: 404 }
+        );
+      }
+
+      // Update business fields
+      business.business_name = updateData.name;
+      business.email = updateData.email;
+      business.phone = updateData.phone || "";
+      business.business_address = updateData.business_address || "";
+      business.abn = updateData.abn || "";
+      business.updated_at = new Date().toISOString();
+
+      writeDb(db);
+
+      const { password_hash, ...safeBusiness } = business;
+      return NextResponse.json({
+        ...safeBusiness,
+        message: "Business updated successfully"
+      });
     }
 
   } catch (error) {
@@ -82,46 +82,12 @@ export async function PUT(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
-  // Check if the authenticated user is an owner
-  if (!isOwnerBusiness(auth.business)) {
-    return NextResponse.json(
-      { detail: "Admin access required" },
-      { status: 403 }
-    );
-  }
-
   try {
     const { businessId } = params;
 
-    if (auth.mode === "localdb") {
-      // Delete from local database
-      const businessIndex = auth.db.businesses.findIndex(b => b.id === businessId);
-      
-      if (businessIndex === -1) {
-        return NextResponse.json(
-          { detail: "Business not found" },
-          { status: 404 }
-        );
-      }
-
-      // Also delete related data (bookings, sessions, etc.)
-      auth.db.bookings = auth.db.bookings.filter(booking => booking.businessId !== businessId);
-      auth.db.sessions = auth.db.sessions.filter(session => session.businessId !== businessId);
-      auth.db.invoiceTemplates = auth.db.invoiceTemplates.filter(template => template.businessId !== businessId);
-      auth.db.invoices = auth.db.invoices.filter(invoice => invoice.businessId !== businessId);
-
-      // Delete the business
-      auth.db.businesses.splice(businessIndex, 1);
-      auth.saveDb(auth.db);
-
-      return NextResponse.json({ detail: "Business deleted successfully" });
-
-    } else {
-      // Delete from Supabase - you might want to handle cascading deletes at the database level
-      const { error } = await auth.supabase
+    if (hasSupabaseConfig()) {
+      // Delete from Supabase
+      const { error } = await supabaseAdmin()
         .from("businesses")
         .delete()
         .eq("id", businessId);
