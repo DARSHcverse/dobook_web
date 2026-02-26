@@ -3,6 +3,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/App.css";
 import ClientShell from "@/app/ClientShell";
 import SpeedInsightsClient from "@/components/app/SpeedInsightsClient";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
   title: "DoBook",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
       <body>
         <ClientShell>{children}</ClientShell>
         <SpeedInsightsClient />
+        <Analytics />
       </body>
     </html>
   );
