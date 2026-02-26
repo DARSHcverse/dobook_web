@@ -19,7 +19,7 @@
       "invoice_seq": 4,
       "payment_link": "www.test.com/pay",
       "subscription_status": "active",
-      "updated_at": "2026-02-26T04:19:24.735Z"
+      "updated_at": "2026-02-26T04:25:08.009Z"
     },
     {
       "id": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
@@ -51,7 +51,8 @@
       "booking_count": 0,
       "invoice_seq": 0,
       "password_hash": "$2a$10$c2l0NQtO9GPo2i7P6o8kaOHDsMp/Tjg0GxDgic/y6qfjL.pY/g8zC",
-      "created_at": "2026-02-26T03:48:53.421Z"
+      "created_at": "2026-02-26T03:48:53.421Z",
+      "updated_at": "2026-02-26T04:25:19.857Z"
     },
     {
       "id": "b2d922ee-8fc0-4a01-8f65-58d368e13615",

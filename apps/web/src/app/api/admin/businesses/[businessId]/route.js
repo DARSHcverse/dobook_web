@@ -4,7 +4,7 @@ import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PUT(request, { params }) {
   try {
-    const { businessId } = params;
+    const { businessId } = await params;
     const updateData = await request.json();
 
     // Validate required fields
@@ -83,7 +83,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { businessId } = params;
+    const { businessId } = await params;
 
     if (hasSupabaseConfig()) {
       // Delete from Supabase
