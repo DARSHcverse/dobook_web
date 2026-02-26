@@ -1,55 +1,36 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/app/api/_utils/auth";
-import { isOwnerBusiness } from "@/lib/entitlements";
+import { readDb } from "@/lib/localdb";
+import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET(request) {
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
-  // Check if the authenticated user is an owner
-  if (!isOwnerBusiness(auth.business)) {
-    return NextResponse.json(
-      { detail: "Admin access required" },
-      { status: 403 }
-    );
-  }
-
+export async function GET() {
   try {
-    let businesses;
+    let businesses = [];
 
-    if (auth.mode === "localdb") {
-      // For local database, return all businesses without password hashes
-      businesses = auth.db.businesses.map(business => {
-        const { password_hash, ...safeBusiness } = business;
-        return safeBusiness;
-      });
+    if (hasSupabaseConfig()) {
+      const sb = supabaseAdmin();
+      const { data, error } = await sb.from("businesses").select("*");
+      if (error) throw error;
+      businesses = data || [];
     } else {
-      // For Supabase, fetch all businesses
-      const { data: businessesData, error } = await auth.supabase
-        .from("businesses")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching businesses:", error);
-        return NextResponse.json(
-          { detail: "Failed to fetch businesses" },
-          { status: 500 }
-        );
-      }
-
-      businesses = businessesData;
+      const db = readDb();
+      businesses = db.businesses || [];
     }
 
+    // Remove password hashes from response
+    const sanitizedBusinesses = businesses.map(business => {
+      const { password_hash, ...sanitized } = business;
+      return sanitized;
+    });
+
     return NextResponse.json({
-      businesses,
-      total: businesses.length
+      businesses: sanitizedBusinesses,
+      total: sanitizedBusinesses.length
     });
 
   } catch (error) {
-    console.error("Error in admin businesses GET:", error);
+    console.error("Error fetching businesses:", error);
     return NextResponse.json(
-      { detail: "Internal server error" },
+      { error: "Failed to fetch businesses" },
       { status: 500 }
     );
   }

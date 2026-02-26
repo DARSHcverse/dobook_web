@@ -52,50 +52,32 @@ export default function AdminPanel() {
         return;
       }
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/auth');
+      // Simple admin authentication check
+      const adminAuth = localStorage.getItem('adminAuth');
+      const adminEmail = localStorage.getItem('adminEmail');
+      
+      if (!adminAuth || adminAuth !== 'true' || !adminEmail) {
+        router.push('/admin/auth');
         return;
       }
 
-      // Check if user has admin access
-      const response = await fetch('/api/admin/businesses', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      // Set current user as admin
+      setCurrentUser({
+        id: 'admin',
+        email: adminEmail,
+        account_role: 'owner'
       });
 
+      // Fetch businesses data (no auth header needed for simple admin)
+      const response = await fetch('/api/admin/businesses');
+      
       if (!response.ok) {
-        if (response.status === 403) {
-          setMessage({ type: "error", text: "Admin access required. You need owner privileges to access this panel." });
-        } else if (response.status === 401) {
-          router.push('/auth');
-        } else {
-          setMessage({ type: "error", text: "Failed to access admin panel" });
-        }
+        setMessage({ type: "error", text: "Failed to load businesses data" });
         setAuthLoading(false);
         return;
       }
 
       const data = await response.json();
-      
-      // Set current user from the first business (since we have admin access, this must be the owner)
-      if (data.businesses && data.businesses.length > 0) {
-        // Find the current user's business record
-        const businessData = localStorage.getItem('business');
-        if (businessData) {
-          try {
-            const parsedBusiness = JSON.parse(businessData);
-            const currentUserBusiness = data.businesses.find(b => b.id === parsedBusiness.id);
-            if (currentUserBusiness) {
-              setCurrentUser(currentUserBusiness);
-            }
-          } catch (e) {
-            console.error('Error parsing business data:', e);
-          }
-        }
-      }
-      
       setBusinesses(data.businesses || []);
       calculateStats(data.businesses || []);
     } catch (error) {
@@ -140,10 +122,10 @@ export default function AdminPanel() {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('business');
+      localStorage.removeItem('adminAuth');
+      localStorage.removeItem('adminEmail');
     }
-    router.push('/');
+    router.push('/admin/auth');
   };
 
   if (authLoading) {
