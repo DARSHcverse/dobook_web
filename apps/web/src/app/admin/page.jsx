@@ -20,11 +20,15 @@ export default function AdminPanel() {
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [editingBusiness, setEditingBusiness] = useState(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+
+  // Check if current user is owner
+  const isOwner = currentUser ? String(currentUser.account_role || '').trim().toLowerCase() === 'owner' : false;
 
   // Stats
   const [stats, setStats] = useState({
@@ -74,6 +78,24 @@ export default function AdminPanel() {
       }
 
       const data = await response.json();
+      
+      // Set current user from the first business (since we have admin access, this must be the owner)
+      if (data.businesses && data.businesses.length > 0) {
+        // Find the current user's business record
+        const businessData = localStorage.getItem('business');
+        if (businessData) {
+          try {
+            const parsedBusiness = JSON.parse(businessData);
+            const currentUserBusiness = data.businesses.find(b => b.id === parsedBusiness.id);
+            if (currentUserBusiness) {
+              setCurrentUser(currentUserBusiness);
+            }
+          } catch (e) {
+            console.error('Error parsing business data:', e);
+          }
+        }
+      }
+      
       setBusinesses(data.businesses || []);
       calculateStats(data.businesses || []);
     } catch (error) {
