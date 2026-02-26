@@ -60,7 +60,7 @@ export async function POST(request, { params }) {
   } catch (error) {
     console.error("Error in admin businesses upgrade:", error);
     return NextResponse.json(
-      { detail: "Internal server error" },
+      { detail: error?.message || "Internal server error" },
       { status: 500 }
     );
   }

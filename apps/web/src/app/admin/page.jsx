@@ -34,6 +34,19 @@ export default function AdminPanel() {
     if (Number.isNaN(d.getTime())) return "-";
     return d.toLocaleDateString();
   };
+  const readResponseError = async (response) => {
+    try {
+      const data = await response.json();
+      return data?.detail || data?.error || response.statusText || "Request failed";
+    } catch {
+      try {
+        const text = await response.text();
+        return text || response.statusText || "Request failed";
+      } catch {
+        return response.statusText || "Request failed";
+      }
+    }
+  };
 
   // Check if current user is owner
   const isOwner = currentUser ? String(currentUser.account_role || '').trim().toLowerCase() === 'owner' : false;
@@ -80,7 +93,8 @@ export default function AdminPanel() {
       const response = await fetch('/api/admin/businesses');
       
       if (!response.ok) {
-        setMessage({ type: "error", text: "Failed to load businesses data" });
+        const err = await readResponseError(response);
+        setMessage({ type: "error", text: err || "Failed to load businesses data" });
         setAuthLoading(false);
         return;
       }
@@ -155,7 +169,8 @@ export default function AdminPanel() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upgrade business');
+        const err = await readResponseError(response);
+        throw new Error(err || 'Failed to upgrade business');
       }
 
       setMessage({ type: "success", text: "Business upgraded to pro plan successfully!" });
@@ -181,7 +196,8 @@ export default function AdminPanel() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update subscription');
+        const err = await readResponseError(response);
+        throw new Error(err || 'Failed to update subscription');
       }
 
       setMessage({ type: "success", text: `Subscription updated to ${String(nextPlan).toUpperCase()}` });
@@ -206,7 +222,8 @@ export default function AdminPanel() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete business');
+        const err = await readResponseError(response);
+        throw new Error(err || 'Failed to delete business');
       }
 
       setMessage({ type: "success", text: "Business deleted successfully!" });
@@ -236,7 +253,8 @@ export default function AdminPanel() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update business');
+        const err = await readResponseError(response);
+        throw new Error(err || 'Failed to update business');
       }
 
       setMessage({ type: "success", text: "Business updated successfully!" });

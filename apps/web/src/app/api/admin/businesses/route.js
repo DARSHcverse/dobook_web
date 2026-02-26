@@ -30,7 +30,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching businesses:", error);
     return NextResponse.json(
-      { error: "Failed to fetch businesses" },
+      { error: error?.message || "Failed to fetch businesses" },
       { status: 500 }
     );
   }

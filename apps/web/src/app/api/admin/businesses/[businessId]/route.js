@@ -102,7 +102,7 @@ export async function PUT(request, { params }) {
   } catch (error) {
     console.error("Error in admin businesses PUT:", error);
     return NextResponse.json(
-      { detail: "Internal server error" },
+      { detail: error?.message || "Internal server error" },
       { status: 500 }
     );
   }
@@ -151,7 +151,7 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     console.error("Error in admin businesses DELETE:", error);
     return NextResponse.json(
-      { detail: "Internal server error" },
+      { detail: error?.message || "Internal server error" },
       { status: 500 }
     );
   }
