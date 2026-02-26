@@ -18,6 +18,38 @@
       "created_at": "2026-02-12T11:45:47.097Z",
       "invoice_seq": 4,
       "payment_link": "www.test.com/pay"
+    },
+    {
+      "id": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
+      "business_name": "Admin Test Business",
+      "email": "admin@dobook.test",
+      "phone": "+1234567890",
+      "business_address": "",
+      "abn": "",
+      "logo_url": "",
+      "bank_name": "",
+      "account_name": "",
+      "bsb": "",
+      "account_number": "",
+      "payment_link": "",
+      "industry": "photobooth",
+      "booth_types": [
+        "Open Booth",
+        "Glam Booth",
+        "Enclosed Booth"
+      ],
+      "booking_custom_fields": [],
+      "account_role": "owner",
+      "subscription_plan": "pro",
+      "subscription_status": "active",
+      "stripe_customer_id": null,
+      "stripe_subscription_id": null,
+      "stripe_price_id": null,
+      "subscription_current_period_end": null,
+      "booking_count": 0,
+      "invoice_seq": 0,
+      "password_hash": "$2a$10$c2l0NQtO9GPo2i7P6o8kaOHDsMp/Tjg0GxDgic/y6qfjL.pY/g8zC",
+      "created_at": "2026-02-26T03:48:53.421Z"
     }
   ],
   "sessions": [
@@ -56,6 +88,30 @@
       "businessId": "531497dc-d310-4b09-bd70-d81d630e64c3",
       "createdAt": 1771129284081,
       "expiresAt": 1771734084081
+    },
+    {
+      "token": "48866895-1d63-4ab7-987b-6753d27df3bf",
+      "businessId": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
+      "createdAt": 1772077733422,
+      "expiresAt": 1772682533422
+    },
+    {
+      "token": "3a2ef398-2a91-45ff-b6df-5e73f8781441",
+      "businessId": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
+      "createdAt": 1772077735534,
+      "expiresAt": 1772682535534
+    },
+    {
+      "token": "08145482-ff24-45b6-bf00-c55df344d2fd",
+      "businessId": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
+      "createdAt": 1772077750783,
+      "expiresAt": 1772682550783
+    },
+    {
+      "token": "85e2f097-0a15-40cb-b5d2-f38b28738aca",
+      "businessId": "06cca162-271b-4a9d-a74d-a5704ad8edc2",
+      "createdAt": 1772077861736,
+      "expiresAt": 1772682661736
     }
   ],
   "bookings": [
@@ -188,6 +244,7 @@
       "created_at": "2026-02-12T12:12:37.281Z"
     }
   ],
+  "passwordResetTokens": [],
   "extractions": [
     {
       "id": "7a82100a-fc2d-43c5-8915-40efe0a1b855",
