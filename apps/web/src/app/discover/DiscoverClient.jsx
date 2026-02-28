@@ -83,10 +83,15 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+            onClick={() => router.push("/")}
+            aria-label="Go to DoBook home"
+          >
             <img src="/brand/dobook-logo.png" alt="DoBook" className="h-10 w-auto" draggable={false} />
             <div className="font-semibold">Find nearby services</div>
-          </div>
+          </button>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="h-10 rounded-full" onClick={() => router.push("/auth")}>
               Business login

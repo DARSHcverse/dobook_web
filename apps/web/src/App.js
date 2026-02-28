@@ -40,6 +40,7 @@ import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -661,9 +662,43 @@ const LandingPage = ({
   customerHref = '/discover',
 } = {}) => {
   const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState({ token: null, business: null });
   const [heroPreviewTab, setHeroPreviewTab] = useState('bookings');
   const [productPreviewTab, setProductPreviewTab] = useState('bookings');
   const [platformReviews, setPlatformReviews] = useState([]);
+
+  const isAuthed = authReady && Boolean(session?.token);
+  const businessName = String(session?.business?.business_name || session?.business?.email || '').trim();
+  const avatarUrl = String(session?.business?.logo_url || '').trim();
+
+  const initials = useMemo(() => {
+    const value = String(businessName || '').trim();
+    if (!value) return 'DB';
+    const parts = value.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] || '';
+    const b = parts.length > 1 ? parts[1]?.[0] || '' : parts[0]?.[1] || '';
+    const out = `${a}${b}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return out || 'DB';
+  }, [businessName]);
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const raw = localStorage.getItem('dobook_business');
+      let business = null;
+      if (raw) {
+        try {
+          business = JSON.parse(raw);
+        } catch {
+          business = null;
+        }
+      }
+      setSession({ token, business });
+    } finally {
+      setAuthReady(true);
+    }
+  }, []);
 
   const uiPreviewTabs = [
     { id: 'bookings', label: 'Bookings' },
@@ -907,9 +942,18 @@ const LandingPage = ({
       <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/85 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3">
           <a
-            href="#top"
+            href="/"
             className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
             aria-label="DoBook home"
+            onClick={(e) => {
+              if (typeof window !== 'undefined' && window.location.pathname === '/') {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+              }
+              e.preventDefault();
+              router.push('/');
+            }}
           >
             <img
               src={DOBOOK_LOGO_PNG}
@@ -938,23 +982,52 @@ const LandingPage = ({
             >
               Find services
             </Button>
-            <Button
-              data-testid="login-btn"
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/auth")}
-              className="h-11 px-5 rounded-full border-zinc-200"
-            >
-              Login
-            </Button>
-            <Button
-              data-testid="get-started-btn"
-              type="button"
-              onClick={() => router.push(startFreeHref)}
-              className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-            >
-              Start Free (Business)
-            </Button>
+
+            {authReady ? (
+              isAuthed ? (
+                <>
+                  <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5">
+                    <Avatar className="h-9 w-9">
+                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={businessName || 'DoBook profile'} /> : null}
+                      <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="max-w-[14rem]">
+                      <div className="text-xs font-semibold text-zinc-900 truncate" style={{ fontFamily: 'Manrope' }}>
+                        {businessName || 'Your account'}
+                      </div>
+                      <div className="text-[11px] text-zinc-500">Logged in</div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => router.push('/dashboard')}
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                  >
+                    Open dashboard
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    data-testid="login-btn"
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(getStartedHref)}
+                    className="h-11 px-5 rounded-full border-zinc-200"
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    data-testid="get-started-btn"
+                    type="button"
+                    onClick={() => router.push(startFreeHref)}
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                  >
+                    Start Free (Business)
+                  </Button>
+                </>
+              )
+            ) : null}
           </div>
 
           <details className="md:hidden relative">
@@ -989,13 +1062,35 @@ const LandingPage = ({
                 >
                   Find services near me
                 </Button>
-                <Button
-                  type="button"
-                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                  onClick={() => router.push(startFreeHref)}
-                >
-                  Start Free (Business)
-                </Button>
+                {authReady ? (
+                  isAuthed ? (
+                    <Button
+                      type="button"
+                      className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                      onClick={() => router.push('/dashboard')}
+                    >
+                      Open dashboard
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 rounded-full border-zinc-200"
+                        onClick={() => router.push(getStartedHref)}
+                      >
+                        Business login
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                        onClick={() => router.push(startFreeHref)}
+                      >
+                        Start Free (Business)
+                      </Button>
+                    </>
+                  )
+                ) : null}
               </div>
             </div>
           </details>
@@ -1030,10 +1125,10 @@ const LandingPage = ({
               <Button
                 data-testid="hero-get-started-btn"
                 type="button"
-                onClick={() => router.push(startFreeHref)}
+                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
-                Start Free (Business)
+                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
               <Button
                 data-testid="hero-customer-btn"
@@ -1393,10 +1488,10 @@ const LandingPage = ({
               </ul>
               <Button
                 type="button"
-                onClick={() => router.push(startFreeHref)}
+                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
                 className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
               >
-                Start Free (Business)
+                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>No credit card required.</div>
             </CardContent>
@@ -1421,10 +1516,10 @@ const LandingPage = ({
               </ul>
               <Button
                 type="button"
-                onClick={() => router.push("/auth?plan=pro")}
+                onClick={() => router.push(isAuthed ? '/dashboard' : '/auth?plan=pro')}
                 className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
               >
-                Choose Pro
+                {isAuthed ? 'Open dashboard' : 'Choose Pro'}
               </Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime.</div>
             </CardContent>
@@ -1522,10 +1617,10 @@ const LandingPage = ({
             <Button
               data-testid="cta-get-started-btn"
               type="button"
-              onClick={() => router.push(startFreeHref)}
+              onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
               className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
             >
-              Start Free (Business)
+              {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
             </Button>
             <Button
               type="button"
@@ -1544,7 +1639,12 @@ const LandingPage = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+                onClick={() => router.push('/')}
+                aria-label="Go to DoBook home"
+              >
                 <img
                   src={DOBOOK_LOGO_PNG}
                   alt="DoBook"
@@ -1555,7 +1655,7 @@ const LandingPage = ({
                   }}
                 />
                 <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>DoBook</div>
-              </div>
+              </button>
               <p className="mt-3 text-sm text-zinc-600 max-w-md" style={{ fontFamily: 'Inter' }}>
                 DoBook is an all‑in‑one online booking system for service businesses—appointment scheduling software with client management, invoices, reminders, and payments.
               </p>
@@ -1603,10 +1703,10 @@ const LandingPage = ({
                 </div>
                 <Button
                   type="button"
-                  onClick={() => router.push(startFreeHref)}
+                  onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
                   className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                 >
-                  Start Free (Business)
+                  {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
                 </Button>
               </div>
             </div>

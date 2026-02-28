@@ -160,7 +160,14 @@ export default function AuthScreen() {
 
       <div className="w-full max-w-md">
         <div className="mb-6">
-          <LogoMark />
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="w-full rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+            aria-label="Back to DoBook home"
+          >
+            <LogoMark />
+          </button>
         </div>
 
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
