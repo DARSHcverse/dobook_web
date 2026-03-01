@@ -15,7 +15,10 @@ To use Supabase Postgres, create the tables first.
 8. Open `supabase/migrations/20260216130000_business_account_role.sql`, copy its SQL contents, paste into the editor, and run it
 9. Open `supabase/migrations/20260217090000_booking_reminder_scheduled_at.sql`, copy its SQL contents, paste into the editor, and run it
 10. Open `supabase/migrations/20260217110000_password_reset_tokens.sql`, copy its SQL contents, paste into the editor, and run it
-11. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
+11. Open `supabase/migrations/20260226120000_reviews.sql`, copy its SQL contents, paste into the editor, and run it
+12. Open `supabase/migrations/20260226123000_platform_reviews.sql`, copy its SQL contents, paste into the editor, and run it
+13. Open `supabase/migrations/20260302120000_review_invites.sql`, copy its SQL contents, paste into the editor, and run it
+14. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
@@ -25,6 +28,9 @@ To use Supabase Postgres, create the tables first.
 - `public.invoice_templates`
 - `public.extractions`
 - `public.invoices` (optional / future use)
+- `public.reviews` (customer reviews, approved by business/admin)
+- `public.review_invites` (email links for requesting reviews)
+- `public.platform_reviews` (business reviews of DoBook)
 
 ## Next step (wiring the app)
 

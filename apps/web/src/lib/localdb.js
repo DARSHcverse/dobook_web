@@ -21,6 +21,7 @@ function defaultDb() {
     extractions: [],
     invoices: [],
     reviews: [],
+    review_invites: [],
     platform_reviews: [],
     counters: {},
   };

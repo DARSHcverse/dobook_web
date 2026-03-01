@@ -31,6 +31,8 @@ export default function BusinessProfileClient({ businessId }) {
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const websiteUrl = useMemo(() => normalizeWebsiteUrl(business?.public_website), [business?.public_website]);
   const photos = asList(business?.public_photos).filter(Boolean);
@@ -61,6 +63,40 @@ export default function BusinessProfileClient({ businessId }) {
     };
     run();
   }, [businessId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const id = String(businessId || "").trim();
+      if (!id) return;
+      setReviewsLoading(true);
+      try {
+        const res = await fetch(`/api/public/reviews?businessId=${encodeURIComponent(id)}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+        setReviews(Array.isArray(json) ? json : []);
+      } catch {
+        if (cancelled) return;
+        setReviews([]);
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
+
+  const reviewCount = Array.isArray(reviews) ? reviews.length : 0;
+  const avgRating = useMemo(() => {
+    const list = Array.isArray(reviews) ? reviews : [];
+    if (!list.length) return 0;
+    const sum = list.reduce((acc, r) => acc + Math.max(0, Math.min(5, Number(r?.rating || 0))), 0);
+    return Math.round((sum / list.length) * 10) / 10;
+  }, [reviews]);
+  const avgStars = Math.max(0, Math.min(5, Math.round(Number(avgRating || 0))));
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -106,16 +142,22 @@ export default function BusinessProfileClient({ businessId }) {
                         draggable={false}
                       />
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-2xl font-bold text-zinc-900 truncate" style={{ fontFamily: "Manrope" }}>
-                        {business.business_name}
-                      </div>
-                      <div className="mt-1 text-sm text-zinc-500 truncate">{business.industry || ""}</div>
-                      <div className="mt-2 text-sm text-zinc-700">
-                        <span className="font-semibold">★★★★★</span> <span className="text-zinc-500">(0)</span>
-                      </div>
-                    </div>
-                  </div>
+	                    <div className="min-w-0">
+	                      <div className="text-2xl font-bold text-zinc-900 truncate" style={{ fontFamily: "Manrope" }}>
+	                        {business.business_name}
+	                      </div>
+	                      <div className="mt-1 text-sm text-zinc-500 truncate">{business.industry || ""}</div>
+	                      <div className="mt-2 text-sm text-zinc-700">
+	                        <span className="font-semibold">
+	                          {"★".repeat(avgStars)}
+	                          {"☆".repeat(5 - avgStars)}
+	                        </span>{" "}
+	                        <span className="text-zinc-500">
+	                          ({reviewCount ? `${avgRating} • ${reviewCount}` : "0"})
+	                        </span>
+	                      </div>
+	                    </div>
+	                  </div>
 
                   <div className="grid gap-2">
                     <Button className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl" onClick={() => router.push(`/book/${business.id}`)}>
@@ -207,12 +249,35 @@ export default function BusinessProfileClient({ businessId }) {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="reviews" className="mt-6">
-                      <div className="text-sm text-zinc-500">Reviews coming soon.</div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+	                    <TabsContent value="reviews" className="mt-6">
+	                      {reviewsLoading ? (
+	                        <div className="text-sm text-zinc-500">Loading reviews…</div>
+	                      ) : reviewCount ? (
+	                        <div className="space-y-3">
+	                          {reviews.slice(0, 25).map((r) => (
+	                            <Card key={r.id} className="bg-zinc-50 border border-zinc-200 shadow-sm rounded-2xl">
+	                              <CardContent className="p-5 space-y-2">
+	                                <div className="flex items-center justify-between gap-3">
+	                                  <div className="font-semibold text-zinc-900 truncate">{r.customer_name || "Customer"}</div>
+	                                  <div className="text-sm text-zinc-700" aria-label={`Rating ${r.rating || 0} out of 5`}>
+	                                    {"★".repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}
+	                                  </div>
+	                                </div>
+	                                <div className="text-sm text-zinc-700 leading-6 whitespace-pre-line">{r.comment}</div>
+	                                {r.created_at ? (
+	                                  <div className="text-xs text-zinc-500">{new Date(r.created_at).toLocaleDateString()}</div>
+	                                ) : null}
+	                              </CardContent>
+	                            </Card>
+	                          ))}
+	                        </div>
+	                      ) : (
+	                        <div className="text-sm text-zinc-500">No reviews yet.</div>
+	                      )}
+	                    </TabsContent>
+	                  </Tabs>
+	                </CardContent>
+	              </Card>
             </section>
           </div>
         ) : null}

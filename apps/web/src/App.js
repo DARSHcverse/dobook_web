@@ -565,42 +565,57 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     {String(booking.status || 'confirmed').toLowerCase() === 'cancelled' ? 'Restore' : 'Cancel'}
                   </Button>
 
-                  {String(booking?.customer_email || '').trim() && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      disabled={requestingReview}
-                      onClick={async () => {
-                        setRequestingReview(true);
-                        try {
-                          const token = localStorage.getItem('dobook_token');
-                          const res = await axios.post(
-                            `${API}/reviews/request`,
-                            { booking_id: booking.id },
-                            { headers: { Authorization: `Bearer ${token}` } },
-                          );
-                          const url = res?.data?.url;
-                          const skipped = Boolean(res?.data?.email?.skipped);
-                          if (skipped && url) {
-                            try {
-                              await navigator.clipboard.writeText(url);
-                              toast.success('Review link copied (email not sent)');
-                            } catch {
-                              toast.success('Review link created');
-                            }
-                          } else {
-                            toast.success('Review request sent');
-                          }
-                        } catch (e) {
-                          toast.error(e.response?.data?.detail || 'Failed to request review');
-                        } finally {
-                          setRequestingReview(false);
-                        }
-                      }}
-                    >
-                      {requestingReview ? 'Sending…' : 'Request review'}
+	                  {String(booking?.customer_email || '').trim() && (
+	                    <Button
+	                      type="button"
+	                      variant="outline"
+	                      size="sm"
+	                      className="h-9"
+	                      disabled={requestingReview}
+	                      onClick={async () => {
+	                        setRequestingReview(true);
+	                        try {
+	                          const token = localStorage.getItem('dobook_token');
+	                          const res = await axios.post(
+	                            `${API}/reviews/request`,
+	                            { booking_id: booking.id },
+	                            { headers: { Authorization: `Bearer ${token}` } },
+	                          );
+	                          const url = res?.data?.url;
+	                          const skipped = Boolean(res?.data?.email?.skipped);
+	                          if (skipped && url) {
+	                            try {
+	                              await navigator.clipboard.writeText(url);
+	                              toast.success('Review link copied (email not sent)');
+	                            } catch {
+	                              toast.success('Review link created');
+	                            }
+	                          } else {
+	                            toast.success('Review request sent');
+	                          }
+	                        } catch (e) {
+	                          if (e?.response?.status === 409) {
+	                            const url = e?.response?.data?.url;
+	                            const skipped = Boolean(e?.response?.data?.email?.skipped);
+	                            if (skipped && url) {
+	                              try {
+	                                await navigator.clipboard.writeText(url);
+	                                toast.success('Review link copied (email not sent)');
+	                              } catch {
+	                                toast.success('Review link created');
+	                              }
+	                            } else {
+	                              toast.success('Review request already sent');
+	                            }
+	                            return;
+	                          }
+	                          toast.error(e.response?.data?.detail || 'Failed to request review');
+	                        } finally {
+	                          setRequestingReview(false);
+	                        }
+	                      }}
+	                    >
+	                      {requestingReview ? 'Sending…' : 'Request review'}
                     </Button>
                   )}
 
@@ -639,9 +654,6 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               <div className="p-4 bg-zinc-50 rounded-lg">
                 <p className="text-sm text-zinc-600">
                   Invoice: {booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Generated locally (no backend required)
                 </p>
               </div>
             </div>
@@ -2310,6 +2322,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const [platformReviewRating, setPlatformReviewRating] = useState('5');
   const [platformReviewComment, setPlatformReviewComment] = useState('');
   const [platformReviewSubmitting, setPlatformReviewSubmitting] = useState(false);
+  const [platformReviewChecked, setPlatformReviewChecked] = useState(false);
+  const [platformReviewHasReview, setPlatformReviewHasReview] = useState(false);
 
   useEffect(() => {
     if (business) {
@@ -2342,6 +2356,36 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       });
     }
   }, [business]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPlatformReviewChecked(false);
+    setPlatformReviewHasReview(false);
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dobook_token') : null;
+    if (!token || !business?.id) {
+      setPlatformReviewChecked(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    axios.get(`${API}/business/platform-reviews`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (cancelled) return;
+        setPlatformReviewHasReview(Boolean(res.data?.hasReview));
+        setPlatformReviewChecked(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPlatformReviewHasReview(false);
+        setPlatformReviewChecked(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [business?.id]);
 
   const isOwner = String(business?.account_role || '').trim().toLowerCase() === 'owner';
   const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
@@ -3008,78 +3052,88 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
 
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Review DoBook</CardTitle>
-          <CardDescription>Share feedback about DoBook.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>Rating</Label>
-              <Select value={String(platformReviewRating)} onValueChange={(v) => setPlatformReviewRating(String(v))}>
-                <SelectTrigger className="bg-zinc-50 mt-2 h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="4">4</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="1">1</SelectItem>
-                </SelectContent>
-              </Select>
+      {platformReviewChecked && !platformReviewHasReview && (
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardTitle style={{fontFamily: 'Manrope'}}>Review DoBook</CardTitle>
+            <CardDescription>Share feedback about DoBook.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Rating</Label>
+                <Select value={String(platformReviewRating)} onValueChange={(v) => setPlatformReviewRating(String(v))}>
+                  <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="1">1</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="platform_review_comment">Comment</Label>
+                <Textarea
+                  id="platform_review_comment"
+                  value={platformReviewComment}
+                  onChange={(e) => setPlatformReviewComment(e.target.value)}
+                  placeholder="What did you like or want improved?"
+                  className="bg-zinc-50 mt-2 min-h-[120px]"
+                />
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="platform_review_comment">Comment</Label>
-              <Textarea
-                id="platform_review_comment"
-                value={platformReviewComment}
-                onChange={(e) => setPlatformReviewComment(e.target.value)}
-                placeholder="What did you like or want improved?"
-                className="bg-zinc-50 mt-2 min-h-[120px]"
-              />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={async () => {
+                  const rating = Number.parseInt(String(platformReviewRating || '0'), 10);
+                  const comment = String(platformReviewComment || '').trim();
+                  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+                    toast.error('Please choose a rating from 1 to 5.');
+                    return;
+                  }
+                  if (!comment || comment.length < 10) {
+                    toast.error('Please write at least 10 characters.');
+                    return;
+                  }
+                  setPlatformReviewSubmitting(true);
+                  try {
+                    const token = localStorage.getItem('dobook_token');
+                    await axios.post(
+                      `${API}/business/platform-reviews`,
+                      { rating, comment },
+                      { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    toast.success('Thanks! Your review was submitted for approval.');
+                    setPlatformReviewRating('5');
+                    setPlatformReviewComment('');
+                    setPlatformReviewHasReview(true);
+                    setPlatformReviewChecked(true);
+                  } catch (error) {
+                    if (error?.response?.status === 409) {
+                      toast.success('Thanks! We already have your review.');
+                      setPlatformReviewHasReview(true);
+                      setPlatformReviewChecked(true);
+                      return;
+                    }
+                    toast.error(error.response?.data?.detail || 'Failed to submit review');
+                  } finally {
+                    setPlatformReviewSubmitting(false);
+                  }
+                }}
+                disabled={platformReviewSubmitting}
+                className="h-10 px-6 bg-zinc-900 hover:bg-zinc-800 rounded-lg"
+              >
+                {platformReviewSubmitting ? 'Submitting…' : 'Submit review'}
+              </Button>
             </div>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={async () => {
-                const rating = Number.parseInt(String(platformReviewRating || '0'), 10);
-                const comment = String(platformReviewComment || '').trim();
-                if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-                  toast.error('Please choose a rating from 1 to 5.');
-                  return;
-                }
-                if (!comment || comment.length < 10) {
-                  toast.error('Please write at least 10 characters.');
-                  return;
-                }
-                setPlatformReviewSubmitting(true);
-                try {
-                  const token = localStorage.getItem('dobook_token');
-                  await axios.post(
-                    `${API}/business/platform-reviews`,
-                    { rating, comment },
-                    { headers: { Authorization: `Bearer ${token}` } },
-                  );
-                  toast.success('Thanks! Your review was submitted for approval.');
-                  setPlatformReviewRating('5');
-                  setPlatformReviewComment('');
-                } catch (error) {
-                  toast.error(error.response?.data?.detail || 'Failed to submit review');
-                } finally {
-                  setPlatformReviewSubmitting(false);
-                }
-              }}
-              disabled={platformReviewSubmitting}
-              className="h-10 px-6 bg-zinc-900 hover:bg-zinc-800 rounded-lg"
-            >
-              {platformReviewSubmitting ? 'Submitting…' : 'Submit review'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
@@ -4554,6 +4608,8 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
 const PublicProfileTab = ({ business, onUpdate }) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [customerReviewsLoading, setCustomerReviewsLoading] = useState(false);
+  const [customerReviews, setCustomerReviews] = useState([]);
   const [formData, setFormData] = useState({
     public_enabled: Boolean(business?.public_enabled),
     public_description: business?.public_description || '',
@@ -4573,6 +4629,25 @@ const PublicProfileTab = ({ business, onUpdate }) => {
       public_services: Array.isArray(business?.public_services) ? business.public_services : [],
     });
   }, [business]);
+
+  const refreshCustomerReviews = async () => {
+    if (!business?.id) return;
+    setCustomerReviewsLoading(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const res = await axios.get(`${API}/business/reviews`, { headers: { Authorization: `Bearer ${token}` } });
+      setCustomerReviews(Array.isArray(res.data?.reviews) ? res.data.reviews : []);
+    } catch {
+      setCustomerReviews([]);
+    } finally {
+      setCustomerReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCustomerReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -4602,6 +4677,12 @@ const PublicProfileTab = ({ business, onUpdate }) => {
   };
 
   const profileUrl = business?.id ? `${window.location.origin}/discover/${business.id}` : '';
+  const pendingCustomerReviews = (Array.isArray(customerReviews) ? customerReviews : []).filter(
+    (r) => String(r?.status || 'pending').toLowerCase() === 'pending',
+  );
+  const approvedCustomerReviews = (Array.isArray(customerReviews) ? customerReviews : []).filter(
+    (r) => String(r?.status || 'pending').toLowerCase() === 'approved',
+  );
 
   return (
     <div className="space-y-6">
@@ -4853,6 +4934,92 @@ const PublicProfileTab = ({ business, onUpdate }) => {
           >
             {loading ? 'Saving...' : 'Save Public Profile'}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Customer Reviews</CardTitle>
+          <CardDescription>Approve reviews before they show on your public profile.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-zinc-600">
+              Pending: <span className="font-semibold text-zinc-900">{pendingCustomerReviews.length}</span> • Approved:{' '}
+              <span className="font-semibold text-zinc-900">{approvedCustomerReviews.length}</span>
+            </div>
+            <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={refreshCustomerReviews} disabled={customerReviewsLoading}>
+              {customerReviewsLoading ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          </div>
+
+          {customerReviewsLoading ? (
+            <div className="text-sm text-zinc-500">Loading reviews…</div>
+          ) : pendingCustomerReviews.length ? (
+            <div className="space-y-3">
+              {pendingCustomerReviews.slice(0, 20).map((r) => (
+                <div key={r.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-zinc-900 truncate">{r.customer_name || 'Customer'}</div>
+                      <div className="text-sm text-zinc-700">{'★'.repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        className="h-9 bg-emerald-600 hover:bg-emerald-700 rounded-lg"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('dobook_token');
+                            await axios.put(
+                              `${API}/business/reviews/${r.id}`,
+                              { status: 'approved' },
+                              { headers: { Authorization: `Bearer ${token}` } },
+                            );
+                            toast.success('Review approved');
+                            refreshCustomerReviews();
+                          } catch (e) {
+                            toast.error(e.response?.data?.detail || 'Failed to approve review');
+                          }
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('dobook_token');
+                            await axios.put(
+                              `${API}/business/reviews/${r.id}`,
+                              { status: 'rejected' },
+                              { headers: { Authorization: `Bearer ${token}` } },
+                            );
+                            toast.success('Review rejected');
+                            refreshCustomerReviews();
+                          } catch (e) {
+                            toast.error(e.response?.data?.detail || 'Failed to reject review');
+                          }
+                        }}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-zinc-700 whitespace-pre-line">{r.comment}</div>
+                  {r.created_at ? (
+                    <div className="text-xs text-zinc-500">{new Date(r.created_at).toLocaleDateString()}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-zinc-500">
+              No pending reviews yet. Use <span className="font-semibold">Request review</span> on a booking to email the customer.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
