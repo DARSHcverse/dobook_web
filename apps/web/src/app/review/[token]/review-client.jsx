@@ -134,7 +134,7 @@ export default function ReviewInviteClient({ token }) {
           <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
             <CardHeader>
               <CardTitle>Thanks for your review</CardTitle>
-              <CardDescription>Your review will appear once the business approves it.</CardDescription>
+              <CardDescription>Review submitted successfully.</CardDescription>
             </CardHeader>
             <CardContent>
               <Button className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl" onClick={() => router.push("/discover")}>
@@ -200,4 +200,3 @@ export default function ReviewInviteClient({ token }) {
     </div>
   );
 }
-

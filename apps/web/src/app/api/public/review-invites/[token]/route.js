@@ -43,7 +43,11 @@ async function insertReviewSupabase({ sb, review }) {
   if (!error) return { ok: true };
 
   const msg = String(error.message || "").toLowerCase();
-  if (msg.includes("column") && msg.includes("does not exist")) {
+  const missingColumn =
+    (msg.includes("column") && msg.includes("does not exist")) ||
+    (msg.includes("could not find") && msg.includes("column") && msg.includes("schema cache")) ||
+    (msg.includes("schema cache") && msg.includes("booking_id"));
+  if (missingColumn) {
     const minimal = {
       id: review.id,
       business_id: review.business_id,
@@ -173,4 +177,3 @@ export async function POST(request, { params }) {
     return NextResponse.json({ detail: error?.message || "Failed to submit review" }, { status: 500 });
   }
 }
-

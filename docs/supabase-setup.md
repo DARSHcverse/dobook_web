@@ -18,7 +18,8 @@ To use Supabase Postgres, create the tables first.
 11. Open `supabase/migrations/20260226120000_reviews.sql`, copy its SQL contents, paste into the editor, and run it
 12. Open `supabase/migrations/20260226123000_platform_reviews.sql`, copy its SQL contents, paste into the editor, and run it
 13. Open `supabase/migrations/20260302120000_review_invites.sql`, copy its SQL contents, paste into the editor, and run it
-14. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
+14. Open `supabase/migrations/20260302123000_reviews_booking_id_and_customer_email.sql`, copy its SQL contents, paste into the editor, and run it
+15. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
 
 ## What gets created
 
