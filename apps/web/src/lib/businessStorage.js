@@ -18,5 +18,6 @@ export function minimizeBusinessForStorage(business) {
     public_postcode: business.public_postcode,
     public_photos: business.public_photos,
     public_website: business.public_website,
+    onboarding_tour_completed_at: business.onboarding_tour_completed_at,
   };
 }

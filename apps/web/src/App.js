@@ -41,6 +41,7 @@ import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import BusinessTour from '@/components/tour/BusinessTour';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -1745,6 +1746,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasRefreshed, setHasRefreshed] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     const storedBusiness = localStorage.getItem('dobook_business');
@@ -1765,7 +1768,10 @@ const Dashboard = () => {
   const refreshBusiness = async () => {
     try {
       const token = localStorage.getItem('dobook_token');
-      if (!token) return;
+      if (!token) {
+        setHasRefreshed(true);
+        return;
+      }
       const response = await axios.get(`${API}/business/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1773,8 +1779,22 @@ const Dashboard = () => {
       setBusiness(response.data);
     } catch {
       // ignore
+    } finally {
+      setHasRefreshed(true);
     }
   };
+
+  useEffect(() => {
+    if (!hasRefreshed) return;
+    const businessId = business?.id ? String(business.id) : '';
+    if (!businessId) return;
+    const completed = business?.onboarding_tour_completed_at;
+    const seen = localStorage.getItem(`dobook_tour_seen_${businessId}`);
+    const createdAt = business?.created_at ? new Date(business.created_at).getTime() : Number.NaN;
+    const ageMs = Number.isFinite(createdAt) ? Date.now() - createdAt : Number.NaN;
+    const isNewBusiness = Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 14 * 24 * 60 * 60 * 1000;
+    if (isNewBusiness && !completed && !seen) setTourOpen(true);
+  }, [business?.id, business?.created_at, business?.onboarding_tour_completed_at, hasRefreshed]);
 
   const loadBookings = async () => {
     try {
@@ -1862,6 +1882,12 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-zinc-50" data-testid="dashboard">
       <Toaster position="top-center" richColors />
+      <BusinessTour
+        business={business}
+        open={tourOpen}
+        onOpenChange={setTourOpen}
+        onBusinessUpdated={(updated) => setBusiness(updated)}
+      />
 
       {/* Mobile Top Bar */}
       <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur">
@@ -1918,6 +1944,7 @@ const Dashboard = () => {
 
           <button
             data-testid="bookings-tab"
+            data-tour="nav-bookings"
             onClick={() => setActiveTab('bookings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -1927,6 +1954,7 @@ const Dashboard = () => {
 
           <button
             data-testid="calendar-view-tab"
+            data-tour="nav-calendar"
             onClick={() => setActiveTab('calendar')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -1936,6 +1964,7 @@ const Dashboard = () => {
 
           <button
             data-testid="invoice-templates-tab"
+            data-tour="nav-invoices"
             onClick={() => setActiveTab('invoices')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -1954,6 +1983,7 @@ const Dashboard = () => {
 
           <button
             data-testid="widget-tab"
+            data-tour="nav-widget"
             onClick={() => setActiveTab('widget')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -1963,6 +1993,7 @@ const Dashboard = () => {
 
           <button
             data-testid="account-settings-tab"
+            data-tour="nav-settings"
             onClick={() => setActiveTab('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -1972,6 +2003,7 @@ const Dashboard = () => {
 
           <button
             data-testid="public-profile-tab"
+            data-tour="nav-public_profile"
             onClick={() => setActiveTab('public_profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
           >
@@ -2094,6 +2126,7 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab('bookings')}
+            data-tour="nav-bookings"
             aria-current={activeTab === 'bookings' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'bookings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
           >
@@ -2103,6 +2136,7 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab('calendar')}
+            data-tour="nav-calendar"
             aria-current={activeTab === 'calendar' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'calendar' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
           >
@@ -2112,6 +2146,7 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
+            data-tour="nav-settings"
             aria-current={activeTab === 'settings' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'settings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
           >
@@ -2273,7 +2308,14 @@ const Dashboard = () => {
         {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
-        {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
+        {activeTab === 'settings' && business && (
+          <AccountSettingsTab
+            business={business}
+            bookings={bookings}
+            onUpdate={(updated) => setBusiness(updated)}
+            onStartTour={() => setTourOpen(true)}
+          />
+        )}
         {activeTab === 'public_profile' && business && <PublicProfileTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
         {activeTab === 'widget' && business && <WidgetTab businessId={business.id} />}
@@ -2283,7 +2325,7 @@ const Dashboard = () => {
 };
 
 // ============= Account Settings Tab =============
-const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
+const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => {} }) => {
   const router = useRouter();
   const [formData, setFormData] = useState({
     business_name: business?.business_name || '',
@@ -2602,9 +2644,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     <div className="space-y-6">
       {/* Subscription Info Card */}
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
-          <CardDescription>Current plan and usage</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
+            <CardDescription>Current plan and usage</CardDescription>
+          </div>
+          <Button type="button" variant="outline" className="h-9 rounded-full border-zinc-200" onClick={onStartTour}>
+            Tour guide
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">

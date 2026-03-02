@@ -103,6 +103,7 @@ export async function POST(request) {
       invoice_seq: 0,
       password_hash,
       created_at: new Date().toISOString(),
+      onboarding_tour_completed_at: null,
     };
 
     const token = randomUUID();
@@ -176,6 +177,7 @@ export async function POST(request) {
     invoice_seq: 0,
     password_hash,
     created_at: new Date().toISOString(),
+    onboarding_tour_completed_at: null,
   };
 
   const token = randomUUID();

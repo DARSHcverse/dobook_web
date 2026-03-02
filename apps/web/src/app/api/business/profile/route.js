@@ -56,12 +56,23 @@ export async function PUT(request) {
     "public_photos",
     "public_website",
     "public_services",
+    "onboarding_tour_completed_at",
   ];
 
   if (auth.mode === "supabase") {
     const updates = {};
     for (const key of allowed) {
       if (!(key in body)) continue;
+      if (key === "onboarding_tour_completed_at") {
+        const raw = body.onboarding_tour_completed_at;
+        if (raw === null || raw === "") {
+          updates.onboarding_tour_completed_at = null;
+        } else {
+          const value = String(raw || "").trim();
+          updates.onboarding_tour_completed_at = value ? value : null;
+        }
+        continue;
+      }
       if (key === "industry") {
         updates.industry = normalizeIndustry(body.industry);
         continue;
@@ -163,6 +174,16 @@ export async function PUT(request) {
 
   for (const key of allowed) {
     if (!(key in body)) continue;
+    if (key === "onboarding_tour_completed_at") {
+      const raw = body.onboarding_tour_completed_at;
+      if (raw === null || raw === "") {
+        auth.business.onboarding_tour_completed_at = null;
+      } else {
+        const value = String(raw || "").trim();
+        auth.business.onboarding_tour_completed_at = value ? value : null;
+      }
+      continue;
+    }
     if (key === "industry") {
       auth.business.industry = normalizeIndustry(body.industry);
       continue;
