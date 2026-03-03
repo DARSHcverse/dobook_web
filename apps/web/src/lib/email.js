@@ -7,6 +7,12 @@ export async function sendEmailViaResend({
   replyTo,
   scheduledAt,
 }) {
+  const parseEmailList = (raw) =>
+    String(raw || "")
+      .split(/[,\s]+/g)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, skipped: true, error: "RESEND_API_KEY not set" };
 
@@ -16,11 +22,17 @@ export async function sendEmailViaResend({
   const recipients = Array.isArray(to) ? to : [to];
   if (fromDomain === "resend.dev") {
     const allowedExtra = String(process.env.RESEND_ACCOUNT_EMAIL || "").trim().toLowerCase();
+    const allowedFromEnv = new Set([
+      ...parseEmailList(process.env.OWNER_EMAILS),
+      ...parseEmailList(process.env.SUPPORT_EMAIL),
+      ...parseEmailList(process.env.SIGNUP_NOTIFY_EMAILS || process.env.SIGNUP_NOTIFY_EMAIL),
+      ...(allowedExtra ? [allowedExtra] : []),
+    ]);
     const ok = recipients.every((r) => {
       const e = String(r || "").trim().toLowerCase();
       if (!e) return false;
       if (e.endsWith("@resend.dev")) return true;
-      if (allowedExtra && e === allowedExtra) return true;
+      if (allowedFromEnv.has(e)) return true;
       return false;
     });
 
@@ -28,7 +40,8 @@ export async function sendEmailViaResend({
       return {
         ok: false,
         skipped: true,
-        error: "Unverified sender (onboarding@resend.dev) can only send to Resend test inboxes (@resend.dev) or RESEND_ACCOUNT_EMAIL.",
+        error:
+          "Unverified sender (onboarding@resend.dev) can only send to @resend.dev or addresses in RESEND_ACCOUNT_EMAIL / SUPPORT_EMAIL / OWNER_EMAILS / SIGNUP_NOTIFY_EMAIL(S).",
       };
     }
   }

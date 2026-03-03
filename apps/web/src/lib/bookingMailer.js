@@ -153,6 +153,74 @@ function paragraphHtml(text) {
   return `<p style="margin:0 0 12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:14px; line-height:1.6; color:#3f3f46;">${text}</p>`;
 }
 
+function parseEmailList(raw) {
+  return String(raw || "")
+    .split(/[,\s]+/g)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveSignupNotifyRecipients() {
+  const explicit = parseEmailList(process.env.SIGNUP_NOTIFY_EMAILS || process.env.SIGNUP_NOTIFY_EMAIL);
+  if (explicit.length) return explicit;
+
+  const support = parseEmailList(process.env.SUPPORT_EMAIL);
+  if (support.length) return support;
+
+  const owners = parseEmailList(process.env.OWNER_EMAILS);
+  if (owners.length) return owners;
+
+  return parseEmailList(process.env.RESEND_ACCOUNT_EMAIL);
+}
+
+export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
+  const to = resolveSignupNotifyRecipients();
+  if (!to.length) return { ok: false, skipped: true, error: "No signup notification recipients configured" };
+
+  const businessName = safeName(business?.business_name) || "Unknown business";
+  const businessEmail = safeEmail(business?.email) || "-";
+  const businessPhone = safeName(business?.phone) || "-";
+  const industry = safeName(business?.industry) || "-";
+  const plan = safeName(requestedPlan || business?.subscription_plan) || "-";
+  const createdAt = safeName(business?.created_at) || "-";
+  const businessId = safeName(business?.id) || "-";
+
+  const subject = `New DoBook signup: ${businessName}`;
+
+  const html = emailLayout({
+    title: "New signup",
+    preheader: `${businessName} just created an account.`,
+    contentHtml: `
+      ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(businessName)}</strong> just signed up.`)}
+      <div style="padding:12px 14px; border:1px solid #e4e4e7; border-radius:12px; background:#fafafa; margin-top:12px;">
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#18181b; font-weight:600; margin-bottom:8px;">
+          Details
+        </div>
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#52525b; line-height:1.6;">
+          <div><strong style="color:#18181b;">Business ID:</strong> ${escapeHtml(businessId)}</div>
+          <div><strong style="color:#18181b;">Email:</strong> ${escapeHtml(businessEmail)}</div>
+          <div><strong style="color:#18181b;">Phone:</strong> ${escapeHtml(businessPhone)}</div>
+          <div><strong style="color:#18181b;">Industry:</strong> ${escapeHtml(industry)}</div>
+          <div><strong style="color:#18181b;">Requested plan:</strong> ${escapeHtml(plan)}</div>
+          <div><strong style="color:#18181b;">Created at:</strong> ${escapeHtml(createdAt)}</div>
+        </div>
+      </div>
+    `,
+  });
+
+  const text =
+    `New signup\n\n` +
+    `Business: ${businessName}\n` +
+    `Business ID: ${businessId}\n` +
+    `Email: ${businessEmail}\n` +
+    `Phone: ${businessPhone}\n` +
+    `Industry: ${industry}\n` +
+    `Requested plan: ${plan}\n` +
+    `Created at: ${createdAt}\n`;
+
+  return sendEmailViaResend({ to, subject, html, text, replyTo: businessEmail !== "-" ? businessEmail : undefined });
+}
+
 export async function sendBusinessWelcomeEmail({ business }) {
   const businessEmail = safeEmail(business?.email);
   if (!businessEmail) return { ok: false, skipped: true, error: "No business email" };

@@ -2969,12 +2969,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 />
               </div>
             </div>
-            <p className="text-xs text-zinc-500 mt-3">
-              Enable this if you sometimes need extra logistics for city/CBD events.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+	            <p className="text-xs text-zinc-500 mt-3">
+	              If enabled, this charge is applied automatically when the booking address postcode is <strong>3000</strong>.
+	            </p>
+	          </div>
+	        </CardContent>
+	      </Card>
 
       {/* Booking Editor Configuration */}
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
@@ -5558,28 +5558,20 @@ const BookingWidget = () => {
                       </div>
                     )}
 
-                    {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (
-                      <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={Boolean(formData.apply_cbd_fee)}
-                            onCheckedChange={(v) => setFormData({ ...formData, apply_cbd_fee: Boolean(v) })}
-                          />
-                          <div>
-                            <div className="font-medium">
-                              {String(business?.cbd_fee_label || 'CBD logistics')}
-                            </div>
-                            <div className="text-xs text-zinc-500">Extra logistics for city/CBD events</div>
-                          </div>
-                        </div>
-                        <div className="font-semibold text-zinc-800">
-                          +${Number(business?.cbd_fee_amount || 0).toFixed(2)}
-                        </div>
-                      </label>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+	                    {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (
+	                      <div className="p-3 rounded-xl border border-zinc-200 bg-white flex items-start justify-between gap-4">
+	                        <div>
+	                          <div className="font-medium">{String(business?.cbd_fee_label || 'CBD logistics')}</div>
+	                          <div className="text-xs text-zinc-500 mt-1">
+	                            Applied automatically when the booking address postcode is <strong>3000</strong>.
+	                          </div>
+	                        </div>
+	                        <div className="font-semibold text-zinc-800">+${Number(business?.cbd_fee_amount || 0).toFixed(2)}</div>
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
+	              ) : null}
 
               <Button 
                 data-testid="widget-submit-btn"

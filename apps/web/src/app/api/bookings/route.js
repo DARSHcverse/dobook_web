@@ -15,17 +15,44 @@ import {
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
 
-function asBool(value) {
-  if (value === true || value === false) return value;
-  const s = String(value || "").trim().toLowerCase();
-  if (!s) return false;
-  return s === "1" || s === "true" || s === "yes" || s === "on";
-}
-
 function asMoney(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.round(n * 100) / 100;
+}
+
+function normalizePostcode(value) {
+  const s = String(value || "").trim();
+  if (!s) return null;
+  const digits = s.replaceAll(/\D+/g, "");
+  if (digits.length !== 4) return null;
+  return digits;
+}
+
+function extractPostcodeFromAutocompleteItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const raw =
+    item?.postcode ||
+    item?.zip ||
+    item?.properties?.postcode ||
+    item?.properties?.zip ||
+    item?.properties?.postCode ||
+    item?.properties?.postal_code;
+  return normalizePostcode(raw);
+}
+
+function extractPostcodeFromAddressString(address) {
+  const s = String(address || "");
+  const matches = s.match(/\b(\d{4})\b/g);
+  if (!matches?.length) return null;
+  return normalizePostcode(matches[matches.length - 1]);
+}
+
+function resolveEventPostcode(body) {
+  return (
+    extractPostcodeFromAutocompleteItem(body?.event_location_geo || null) ||
+    extractPostcodeFromAddressString(body?.event_location || "")
+  );
 }
 
 function formatHours(value) {
@@ -68,8 +95,9 @@ function buildLineItemsAndTotal({ body, business }) {
   const cbdEnabled = Boolean(business?.cbd_fee_enabled);
   const cbdLabel = String(business?.cbd_fee_label || "CBD logistics").trim() || "CBD logistics";
   const cbdAmount = asMoney(business?.cbd_fee_amount);
-  const applyCbd = asBool(body?.apply_cbd_fee);
-  if (cbdEnabled && cbdAmount > 0 && applyCbd) {
+  const eventPostcode = resolveEventPostcode(body);
+  const applyCbd = cbdEnabled && cbdAmount > 0 && eventPostcode === "3000";
+  if (applyCbd) {
     items.push({
       description: cbdLabel,
       qty: 1,

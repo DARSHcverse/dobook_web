@@ -3,9 +3,11 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendBusinessWelcomeEmail } from "@/lib/bookingMailer";
+import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+
+export const runtime = "nodejs";
 
 export async function POST(request) {
   const body = await request.json();
@@ -139,6 +141,12 @@ export async function POST(request) {
       // ignore email failures
     }
 
+    try {
+      await sendOwnerNewSignupEmail({ business, requestedPlan: requested_plan });
+    } catch {
+      // ignore email failures
+    }
+
     return NextResponse.json({ token, business: sanitizeBusiness(business) });
   }
 
@@ -193,6 +201,12 @@ export async function POST(request) {
 
   try {
     await sendBusinessWelcomeEmail({ business });
+  } catch {
+    // ignore email failures
+  }
+
+  try {
+    await sendOwnerNewSignupEmail({ business, requestedPlan: requested_plan });
   } catch {
     // ignore email failures
   }
