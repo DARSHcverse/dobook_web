@@ -5,6 +5,40 @@ import { hasProAccess } from "@/lib/entitlements";
 
 const FREE_PLAN_MAX_TEMPLATES = 1;
 
+function asBool(value, fallback = false) {
+  if (value === true || value === false) return value;
+  if (value === null || value === undefined) return fallback;
+  const s = String(value || "").trim().toLowerCase();
+  if (!s) return fallback;
+  return s === "1" || s === "true" || s === "yes" || s === "on";
+}
+
+function normalizeHexColor(value, fallback = null) {
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+  const s = raw.startsWith("#") ? raw : `#${raw}`;
+  if (!/^#[0-9a-f]{6}$/i.test(s)) return fallback;
+  return s.toLowerCase();
+}
+
+function normalizeEnum(value, allowed, fallback) {
+  const s = String(value || "").trim().toLowerCase();
+  if (!s) return fallback;
+  return allowed.includes(s) ? s : fallback;
+}
+
+function normalizeFontFamily(value) {
+  const s = String(value || "").trim().toLowerCase();
+  const allowed = ["helvetica", "times", "courier"];
+  return allowed.includes(s) ? s : "helvetica";
+}
+
+function normalizeFooterText(value) {
+  const s = String(value ?? "").trim();
+  if (!s) return null;
+  return s.slice(0, 500);
+}
+
 export async function GET(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
@@ -61,7 +95,15 @@ export async function POST(request) {
     business_id: auth.business.id,
     template_name: String(body?.template_name || "Classic"),
     logo_url: body?.logo_url ? String(body.logo_url) : null,
-    primary_color: String(body?.primary_color || "#e11d48"),
+    primary_color: normalizeHexColor(body?.primary_color, "#e11d48"),
+    secondary_color: normalizeHexColor(body?.secondary_color, null),
+    font_family: normalizeFontFamily(body?.font_family),
+    logo_position: normalizeEnum(body?.logo_position, ["left", "center", "right"], "left"),
+    show_abn: asBool(body?.show_abn, true),
+    show_due_date: asBool(body?.show_due_date, true),
+    show_notes: asBool(body?.show_notes, true),
+    table_style: normalizeEnum(body?.table_style, ["minimal", "bordered", "striped"], "minimal"),
+    footer_text: normalizeFooterText(body?.footer_text),
     created_at: new Date().toISOString(),
   };
 
@@ -83,6 +125,14 @@ export async function POST(request) {
             template_name: templateInput.template_name,
             logo_url: templateInput.logo_url,
             primary_color: templateInput.primary_color,
+            secondary_color: templateInput.secondary_color,
+            font_family: templateInput.font_family,
+            logo_position: templateInput.logo_position,
+            show_abn: templateInput.show_abn,
+            show_due_date: templateInput.show_due_date,
+            show_notes: templateInput.show_notes,
+            table_style: templateInput.table_style,
+            footer_text: templateInput.footer_text,
             created_at: templateInput.created_at,
           })
           .eq("id", keepId)
@@ -118,6 +168,14 @@ export async function POST(request) {
       keep.template_name = templateInput.template_name;
       keep.logo_url = templateInput.logo_url;
       keep.primary_color = templateInput.primary_color;
+      keep.secondary_color = templateInput.secondary_color;
+      keep.font_family = templateInput.font_family;
+      keep.logo_position = templateInput.logo_position;
+      keep.show_abn = templateInput.show_abn;
+      keep.show_due_date = templateInput.show_due_date;
+      keep.show_notes = templateInput.show_notes;
+      keep.table_style = templateInput.table_style;
+      keep.footer_text = templateInput.footer_text;
       keep.created_at = templateInput.created_at;
       auth.db.invoiceTemplates = auth.db.invoiceTemplates.filter(
         (t) => t.business_id !== auth.business.id || t.id === keep.id,

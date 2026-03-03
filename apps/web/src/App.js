@@ -3938,53 +3938,91 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 };
 
 // ============= Invoice Templates Tab =============
-const InvoiceTemplatesTab = ({ businessId }) => {
-  const [templates, setTemplates] = useState([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('Classic');
-  const [customColor, setCustomColor] = useState('#e11d48');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const allowedTemplateNames = ['Classic', 'Clean', 'Gradient', 'Navy', 'Elegant', 'Sidebar'];
+	const InvoiceTemplatesTab = ({ businessId }) => {
+	  const [templates, setTemplates] = useState([]);
+	  const [selectedTemplate, setSelectedTemplate] = useState('Classic');
+	  const [customColor, setCustomColor] = useState('#e11d48');
+	  const [logoUrl, setLogoUrl] = useState('');
+	  const [fontFamily, setFontFamily] = useState('helvetica');
+	  const [logoPosition, setLogoPosition] = useState('left');
+	  const [showAbn, setShowAbn] = useState(true);
+	  const [showDueDate, setShowDueDate] = useState(true);
+	  const [showNotes, setShowNotes] = useState(true);
+	  const [tableStyle, setTableStyle] = useState('minimal');
+	  const [footerText, setFooterText] = useState('');
+	  const [showPreview, setShowPreview] = useState(false);
+	  const allowedTemplateNames = ['Classic', 'Clean', 'Gradient', 'Navy', 'Elegant', 'Sidebar'];
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+	  useEffect(() => {
+	    loadTemplates();
+	  }, []);
 
-  const loadTemplates = async () => {
-    try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.get(`${API}/invoices/templates`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTemplates(response.data);
-      const active = Array.isArray(response.data) ? response.data[0] : null;
-      if (active) {
-        const nextName = allowedTemplateNames.includes(active.template_name) ? active.template_name : 'Classic';
-        setSelectedTemplate(nextName);
-        setCustomColor(active.primary_color || '#e11d48');
-        setLogoUrl(active.logo_url || '');
-      }
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-    }
-  };
+	  const resolveFontFamily = (tpl) => {
+	    const raw = String(tpl?.font_family || '').trim().toLowerCase();
+	    if (raw) return raw;
+	    const name = String(tpl?.template_name || 'Classic').trim();
+	    if (name === 'Elegant') return 'times';
+	    return 'helvetica';
+	  };
 
-  const handleSaveTemplate = async () => {
-    try {
-      const token = localStorage.getItem('dobook_token');
-      await axios.post(`${API}/invoices/templates`, {
-        template_name: selectedTemplate,
-        logo_url: logoUrl || null,
-        primary_color: customColor
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Invoice template saved and set as active!');
-      loadTemplates();
-    } catch (error) {
-      toast.error('Failed to save template');
-    }
-  };
+	  const resolveLogoPosition = (tpl) => {
+	    const raw = String(tpl?.logo_position || '').trim().toLowerCase();
+	    if (raw) return raw;
+	    const name = String(tpl?.template_name || 'Classic').trim();
+	    if (name === 'Elegant') return 'center';
+	    if (name === 'Sidebar') return 'left';
+	    return 'right';
+	  };
+
+	  const loadTemplates = async () => {
+	    try {
+	      const token = localStorage.getItem('dobook_token');
+	      const response = await axios.get(`${API}/invoices/templates`, {
+	        headers: { Authorization: `Bearer ${token}` }
+	      });
+	      setTemplates(response.data);
+	      const active = Array.isArray(response.data) ? response.data[0] : null;
+	      if (active) {
+	        const nextName = allowedTemplateNames.includes(active.template_name) ? active.template_name : 'Classic';
+	        setSelectedTemplate(nextName);
+	        setCustomColor(active.primary_color || '#e11d48');
+	        setLogoUrl(active.logo_url || '');
+	        setFontFamily(resolveFontFamily(active));
+	        setLogoPosition(resolveLogoPosition(active));
+	        setShowAbn(active.show_abn === undefined || active.show_abn === null ? true : Boolean(active.show_abn));
+	        setShowDueDate(active.show_due_date === undefined || active.show_due_date === null ? true : Boolean(active.show_due_date));
+	        setShowNotes(active.show_notes === undefined || active.show_notes === null ? true : Boolean(active.show_notes));
+	        setTableStyle(String(active.table_style || 'minimal').trim().toLowerCase() || 'minimal');
+	        setFooterText(String(active.footer_text || ''));
+	      }
+	    } catch (error) {
+	      console.error('Failed to load templates:', error);
+	    }
+	  };
+
+	  const handleSaveTemplate = async () => {
+	    try {
+	      const token = localStorage.getItem('dobook_token');
+	      await axios.post(`${API}/invoices/templates`, {
+	        template_name: selectedTemplate,
+	        logo_url: logoUrl || null,
+	        primary_color: customColor,
+	        font_family: fontFamily,
+	        logo_position: logoPosition,
+	        show_abn: Boolean(showAbn),
+	        show_due_date: Boolean(showDueDate),
+	        show_notes: Boolean(showNotes),
+	        table_style: tableStyle,
+	        footer_text: footerText || null,
+	      }, {
+	        headers: { Authorization: `Bearer ${token}` }
+	      });
+	      toast.success('Invoice template saved and set as active!');
+	      loadTemplates();
+	    } catch (error) {
+	      toast.error('Failed to save template');
+	    }
+	  };
 
   const templatePreviews = {
     Classic: {
@@ -4385,11 +4423,11 @@ const InvoiceTemplatesTab = ({ businessId }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="primary-color">Primary Color</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
+	          <div className="grid grid-cols-2 gap-4">
+	            <div>
+	              <Label htmlFor="primary-color">Primary Color</Label>
+	              <div className="flex gap-2 mt-2">
+	                <Input
                   id="primary-color"
                   data-testid="template-color-input"
                   type="color"
@@ -4402,27 +4440,100 @@ const InvoiceTemplatesTab = ({ businessId }) => {
                   onChange={(e) => setCustomColor(e.target.value)}
                   placeholder="#e11d48"
                   className="bg-zinc-50"
-                />
-              </div>
-            </div>
+	                />
+	              </div>
+	            </div>
 
-            <div>
-              <Label htmlFor="logo-url">Logo URL (Optional)</Label>
-              <Input
+	            <div>
+	              <Label htmlFor="logo-url">Logo URL (Optional)</Label>
+	              <Input
                 id="logo-url"
                 data-testid="template-logo-input"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 placeholder="https://example.com/logo.png"
-                className="bg-zinc-50 mt-2"
-              />
-            </div>
-          </div>
+	                className="bg-zinc-50 mt-2"
+	              />
+	            </div>
+	          </div>
 
-          <Button 
-            data-testid="save-template-btn"
-            onClick={handleSaveTemplate}
-            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+	          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+	            <div>
+	              <Label htmlFor="template-font-family">Font Family</Label>
+	              <Select value={fontFamily} onValueChange={(v) => setFontFamily(String(v || 'helvetica'))}>
+	                <SelectTrigger id="template-font-family" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select font" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="helvetica">Helvetica</SelectItem>
+	                  <SelectItem value="times">Times</SelectItem>
+	                  <SelectItem value="courier">Courier</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div>
+	              <Label htmlFor="template-logo-position">Logo Position</Label>
+	              <Select value={logoPosition} onValueChange={(v) => setLogoPosition(String(v || 'left'))}>
+	                <SelectTrigger id="template-logo-position" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select position" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="left">Left</SelectItem>
+	                  <SelectItem value="center">Center</SelectItem>
+	                  <SelectItem value="right">Right</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div>
+	              <Label htmlFor="template-table-style">Table Style</Label>
+	              <Select value={tableStyle} onValueChange={(v) => setTableStyle(String(v || 'minimal'))}>
+	                <SelectTrigger id="template-table-style" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select style" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="minimal">Minimal</SelectItem>
+	                  <SelectItem value="bordered">Bordered</SelectItem>
+	                  <SelectItem value="striped">Striped</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div className="space-y-3">
+	              <Label>Show Fields</Label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show ABN</span>
+	                <Checkbox checked={Boolean(showAbn)} onCheckedChange={(v) => setShowAbn(Boolean(v))} />
+	              </label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show Due Date</span>
+	                <Checkbox checked={Boolean(showDueDate)} onCheckedChange={(v) => setShowDueDate(Boolean(v))} />
+	              </label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show Notes</span>
+	                <Checkbox checked={Boolean(showNotes)} onCheckedChange={(v) => setShowNotes(Boolean(v))} />
+	              </label>
+	            </div>
+	          </div>
+
+	          <div>
+	            <Label htmlFor="template-footer-text">Footer Text (Optional)</Label>
+	            <Textarea
+	              id="template-footer-text"
+	              value={footerText}
+	              onChange={(e) => setFooterText(e.target.value)}
+	              placeholder="e.g. Thank you for your business"
+	              className="bg-zinc-50 mt-2"
+	              rows={3}
+	            />
+	            <p className="text-xs text-zinc-500 mt-2">Shown at the bottom of the PDF invoice.</p>
+	          </div>
+
+	          <Button 
+	            data-testid="save-template-btn"
+	            onClick={handleSaveTemplate}
+	            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
           >
             Save & Set Active
           </Button>
