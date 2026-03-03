@@ -5401,14 +5401,21 @@ const BookingWidget = () => {
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
       <Toaster position="top-center" richColors />
       
-      <div className="max-w-2xl mx-auto">
-	        <div className="text-center mb-8">
-	          <div className="inline-flex items-center gap-3 mb-4">
-	            <BrandLogo size="lg" />
-	          </div>
-	          <h1 className="text-3xl font-bold mb-2" style={{fontFamily: 'Manrope'}}>{business.business_name}</h1>
-	          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Book your appointment</p>
-	        </div>
+	      <div className="max-w-2xl mx-auto">
+		        <div className="text-center mb-8">
+		          <div className="inline-flex items-center gap-3 mb-4">
+		            <img
+		              src={business?.logo_src || DOBOOK_LOGO_PNG}
+		              alt={String(business?.business_name || 'Business logo')}
+		              style={{ height: 84, width: 'auto', maxWidth: 240 }}
+		              className="select-none"
+		              draggable={false}
+		              onError={(e) => { e.currentTarget.src = DOBOOK_LOGO_PNG; }}
+		            />
+		          </div>
+		          <h1 className="text-3xl font-bold mb-2" style={{fontFamily: 'Manrope'}}>{business.business_name}</h1>
+		          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Book your appointment</p>
+		        </div>
 
         <Card data-testid="booking-form-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
           <CardHeader>

@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { readDb, sanitizeBusiness } from "@/lib/localdb";
 import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
 
+function resolveLogoSrc({ businessId, logoUrl }) {
+  const s = String(logoUrl || "").trim();
+  if (!s) return "/brand/dobook-logo.png";
+  if (/^data:image\//i.test(s)) return `/api/public/business-logo?business_id=${encodeURIComponent(String(businessId || ""))}`;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return s;
+  return s;
+}
+
 export async function GET(_request, { params }) {
   const businessId = params?.businessId;
   if (hasSupabaseConfig()) {
@@ -17,6 +26,7 @@ export async function GET(_request, { params }) {
     const safe = sanitizeBusiness(business);
     return NextResponse.json({
       business_name: safe.business_name,
+      logo_src: resolveLogoSrc({ businessId, logoUrl: safe.logo_url }),
       email: safe.email,
       phone: safe.phone,
       industry: safe.industry || "photobooth",
@@ -40,6 +50,7 @@ export async function GET(_request, { params }) {
   const safe = sanitizeBusiness(business);
   return NextResponse.json({
     business_name: safe.business_name,
+    logo_src: resolveLogoSrc({ businessId, logoUrl: safe.logo_url }),
     email: safe.email,
     phone: safe.phone,
     industry: safe.industry || "photobooth",
