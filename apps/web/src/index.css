@@ -114,20 +114,89 @@ code {
     }
 }
 
-/* Theme mode (light/dark) using global inversion.
-   This keeps the current Tailwind palette usage (many hard-coded light classes)
-   while still providing a reliable dark mode without rewriting the whole UI. */
-html[data-theme="dark"] {
+/* Dark mode polish (neumorphic-ish) */
+.dark {
     color-scheme: dark;
 }
 
-html[data-theme="dark"] body {
-    filter: invert(1) hue-rotate(180deg);
+.dark body {
+    background-color: hsl(var(--background));
+    background-image:
+        radial-gradient(900px 500px at 20% -10%, rgba(168, 85, 247, 0.18), transparent 60%),
+        radial-gradient(700px 420px at 88% 10%, rgba(59, 130, 246, 0.14), transparent 58%),
+        radial-gradient(700px 420px at 50% 110%, rgba(236, 72, 153, 0.10), transparent 55%);
+    background-attachment: fixed;
 }
 
-/* Un-invert raster media so logos/photos remain natural. */
-html[data-theme="dark"] img,
-html[data-theme="dark"] video,
-html[data-theme="dark"] canvas {
-    filter: invert(1) hue-rotate(180deg);
+/* Override the default shadcn dark palette to be softer (not pure black). */
+@layer base {
+    .dark {
+        --background: 220 18% 12%;
+        --foreground: 0 0% 98%;
+        --card: 220 16% 16%;
+        --card-foreground: 0 0% 98%;
+        --popover: 220 16% 16%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 220 18% 12%;
+        --secondary: 220 14% 18%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 220 14% 18%;
+        --muted-foreground: 220 10% 70%;
+        --accent: 220 14% 18%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 220 12% 26%;
+        --input: 220 12% 26%;
+        --ring: 220 10% 70%;
+    }
+}
+
+/* Many screens use hard-coded light Tailwind classes (bg-white, bg-zinc-50, etc).
+   Map the most common ones to theme tokens in dark mode for a consistent look. */
+.dark .bg-white {
+    background-color: hsl(var(--card)) !important;
+}
+.dark .bg-white\/90 {
+    background-color: hsl(var(--card) / 0.9) !important;
+}
+.dark .bg-white\/85 {
+    background-color: hsl(var(--card) / 0.85) !important;
+}
+.dark .bg-white\/80 {
+    background-color: hsl(var(--card) / 0.8) !important;
+}
+.dark .bg-zinc-50 {
+    background-color: hsl(var(--background)) !important;
+}
+.dark .bg-zinc-100 {
+    background-color: hsl(var(--secondary)) !important;
+}
+.dark .bg-zinc-200 {
+    background-color: hsl(var(--muted)) !important;
+}
+.dark .text-zinc-900,
+.dark .text-zinc-800,
+.dark .text-zinc-700 {
+    color: hsl(var(--foreground)) !important;
+}
+.dark .text-zinc-600,
+.dark .text-zinc-500 {
+    color: hsl(var(--muted-foreground)) !important;
+}
+.dark .border-zinc-200,
+.dark .border-zinc-100 {
+    border-color: hsl(var(--border)) !important;
+}
+
+/* Softer shadows on dark surfaces */
+.dark .shadow,
+.dark .shadow-sm,
+.dark .shadow-lg,
+.dark .shadow-xl {
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.04) inset,
+        0 18px 45px rgba(0, 0, 0, 0.50),
+        0 6px 14px rgba(0, 0, 0, 0.35) !important;
 }

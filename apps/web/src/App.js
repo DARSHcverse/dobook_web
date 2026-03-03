@@ -42,6 +42,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import BusinessTour from '@/components/tour/BusinessTour';
+import ThemeModeToggle from "@/components/app/ThemeModeToggle";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -2012,11 +2013,14 @@ const Dashboard = () => {
           </button>
         </nav>
 
-        <div className="absolute bottom-6 left-6 right-6">
-          <Button
-            data-testid="logout-btn"
-            onClick={handleLogout}
-            variant="outline"
+	        <div className="absolute bottom-6 left-6 right-6">
+	          <ThemeModeToggle
+	            className="w-full mb-3 flex items-center justify-start gap-2 border-zinc-200 rounded-lg"
+	          />
+	          <Button
+	            data-testid="logout-btn"
+	            onClick={handleLogout}
+	            variant="outline"
             className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
           >
             <LogOut className="h-4 w-4" />
