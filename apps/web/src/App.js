@@ -1891,7 +1891,7 @@ const Dashboard = () => {
       />
 
       {/* Mobile Top Bar */}
-      <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur">
+      <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/30">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
@@ -1908,7 +1908,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 rounded-full border-zinc-200"
+              className="h-10 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={() => setMobileMenuOpen(true)}
             >
               <List className="h-4 w-4 mr-2" />
@@ -1917,7 +1917,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 w-10 p-0 rounded-full border-zinc-200"
+              className="h-10 w-10 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={handleLogout}
               aria-label="Logout"
             >
@@ -1927,91 +1927,123 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Sidebar */}
-      <div className="hidden md:block fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 p-6">
-        <div className="flex items-center gap-3 mb-8">
-          <BrandLogo size="md" />
-        </div>
+	      {/* Sidebar */}
+	      <div className="hidden md:block fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 p-6 dark:bg-zinc-950/30 dark:border-zinc-800/60">
+	        <div className="flex items-center gap-3 mb-8">
+	          <BrandLogo size="md" />
+	        </div>
 
-        <nav className="space-y-2">
-          <button
-            data-testid="overview-tab"
-            onClick={() => setActiveTab('overview')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Home className="h-5 w-5" />
-            <span className="font-medium">Overview</span>
-          </button>
+	        <nav className="space-y-2">
+	          <button
+	            data-testid="overview-tab"
+	            onClick={() => setActiveTab('overview')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'overview'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Home className="h-5 w-5" />
+	            <span className="font-medium">Overview</span>
+	          </button>
 
-          <button
-            data-testid="bookings-tab"
-            data-tour="nav-bookings"
-            onClick={() => setActiveTab('bookings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Users className="h-5 w-5" />
-            <span className="font-medium">Bookings</span>
-          </button>
+	          <button
+	            data-testid="bookings-tab"
+	            data-tour="nav-bookings"
+	            onClick={() => setActiveTab('bookings')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'bookings'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Users className="h-5 w-5" />
+	            <span className="font-medium">Bookings</span>
+	          </button>
 
-          <button
-            data-testid="calendar-view-tab"
-            data-tour="nav-calendar"
-            onClick={() => setActiveTab('calendar')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Calendar className="h-5 w-5" />
-            <span className="font-medium">Calendar View</span>
-          </button>
+	          <button
+	            data-testid="calendar-view-tab"
+	            data-tour="nav-calendar"
+	            onClick={() => setActiveTab('calendar')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'calendar'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Calendar className="h-5 w-5" />
+	            <span className="font-medium">Calendar View</span>
+	          </button>
 
-          <button
-            data-testid="invoice-templates-tab"
-            data-tour="nav-invoices"
-            onClick={() => setActiveTab('invoices')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <FileText className="h-5 w-5" />
-            <span className="font-medium">Invoice Templates</span>
-          </button>
+	          <button
+	            data-testid="invoice-templates-tab"
+	            data-tour="nav-invoices"
+	            onClick={() => setActiveTab('invoices')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'invoices'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <FileText className="h-5 w-5" />
+	            <span className="font-medium">Invoice Templates</span>
+	          </button>
 
-          <button
-            data-testid="pdf-upload-tab"
-            onClick={() => setActiveTab('pdf')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Upload className="h-5 w-5" />
-            <span className="font-medium">PDF Upload</span>
-          </button>
+	          <button
+	            data-testid="pdf-upload-tab"
+	            onClick={() => setActiveTab('pdf')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'pdf'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Upload className="h-5 w-5" />
+	            <span className="font-medium">PDF Upload</span>
+	          </button>
 
-          <button
-            data-testid="widget-tab"
-            data-tour="nav-widget"
-            onClick={() => setActiveTab('widget')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Embed Widget</span>
-          </button>
+	          <button
+	            data-testid="widget-tab"
+	            data-tour="nav-widget"
+	            onClick={() => setActiveTab('widget')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'widget'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Settings className="h-5 w-5" />
+	            <span className="font-medium">Embed Widget</span>
+	          </button>
 
-          <button
-            data-testid="account-settings-tab"
-            data-tour="nav-settings"
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Account Settings</span>
-          </button>
+	          <button
+	            data-testid="account-settings-tab"
+	            data-tour="nav-settings"
+	            onClick={() => setActiveTab('settings')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'settings'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <Settings className="h-5 w-5" />
+	            <span className="font-medium">Account Settings</span>
+	          </button>
 
-          <button
-            data-testid="public-profile-tab"
-            data-tour="nav-public_profile"
-            onClick={() => setActiveTab('public_profile')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <MapPin className="h-5 w-5" />
-            <span className="font-medium">Public Profile</span>
-          </button>
-        </nav>
+	          <button
+	            data-testid="public-profile-tab"
+	            data-tour="nav-public_profile"
+	            onClick={() => setActiveTab('public_profile')}
+	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+	              activeTab === 'public_profile'
+	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+	            }`}
+	          >
+	            <MapPin className="h-5 w-5" />
+	            <span className="font-medium">Public Profile</span>
+	          </button>
+	        </nav>
 
 	        <div className="absolute bottom-6 left-6 right-6">
 	          <ThemeModeToggle
@@ -2029,145 +2061,145 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>Menu</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-2">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Home className="h-5 w-5" />
-              <span className="font-medium">Overview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Users className="h-5 w-5" />
-              <span className="font-medium">Bookings</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Calendar className="h-5 w-5" />
-              <span className="font-medium">Calendar View</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('invoices'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <FileText className="h-5 w-5" />
-              <span className="font-medium">Invoice Templates</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('pdf'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Upload className="h-5 w-5" />
-              <span className="font-medium">PDF Upload</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="font-medium">Embed Widget</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="font-medium">Account Settings</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('public_profile'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <MapPin className="h-5 w-5" />
-              <span className="font-medium">Public Profile</span>
-            </button>
-          </div>
-          <div className="pt-2">
-            <Button
-              type="button"
-              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
-              variant="outline"
-              className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+	      {/* Mobile Menu */}
+	      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+	        <DialogContent className="sm:max-w-md">
+	          <DialogHeader>
+	            <DialogTitle style={{ fontFamily: 'Manrope' }}>Menu</DialogTitle>
+	          </DialogHeader>
+	          <div className="grid grid-cols-1 gap-2">
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Home className="h-5 w-5" />
+	              <span className="font-medium">Overview</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Users className="h-5 w-5" />
+	              <span className="font-medium">Bookings</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Calendar className="h-5 w-5" />
+	              <span className="font-medium">Calendar View</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('invoices'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <FileText className="h-5 w-5" />
+	              <span className="font-medium">Invoice Templates</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('pdf'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Upload className="h-5 w-5" />
+	              <span className="font-medium">PDF Upload</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Settings className="h-5 w-5" />
+	              <span className="font-medium">Embed Widget</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <Settings className="h-5 w-5" />
+	              <span className="font-medium">Account Settings</span>
+	            </button>
+	            <button
+	              type="button"
+	              onClick={() => { setActiveTab('public_profile'); setMobileMenuOpen(false); }}
+	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'public_profile' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	            >
+	              <MapPin className="h-5 w-5" />
+	              <span className="font-medium">Public Profile</span>
+	            </button>
+	          </div>
+	          <div className="pt-2">
+	            <Button
+	              type="button"
+	              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+	              variant="outline"
+	              className="w-full flex items-center gap-2 border-zinc-200 rounded-lg dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+	            >
+	              <LogOut className="h-4 w-4" />
+	              Logout
+	            </Button>
+	          </div>
+	        </DialogContent>
+	      </Dialog>
 
-      {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white">
-        <div className="grid grid-cols-5 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            aria-current={activeTab === 'overview' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'overview' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Home className="h-5 w-5" />
-            <span className="text-[11px] font-medium">Home</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('bookings')}
-            data-tour="nav-bookings"
-            aria-current={activeTab === 'bookings' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'bookings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Users className="h-5 w-5" />
-            <span className="text-[11px] font-medium">Bookings</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('calendar')}
-            data-tour="nav-calendar"
-            aria-current={activeTab === 'calendar' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'calendar' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Calendar className="h-5 w-5" />
-            <span className="text-[11px] font-medium">Calendar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            data-tour="nav-settings"
-            aria-current={activeTab === 'settings' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'settings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="text-[11px] font-medium">Settings</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-zinc-600 hover:bg-zinc-50 transition-colors"
-            aria-label="More"
-          >
-            <List className="h-5 w-5" />
-            <span className="text-[11px] font-medium">More</span>
-          </button>
-        </div>
-      </div>
+	      {/* Mobile Bottom Nav */}
+	      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/30">
+	        <div className="grid grid-cols-5 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+	          <button
+	            type="button"
+	            onClick={() => setActiveTab('overview')}
+	            aria-current={activeTab === 'overview' ? 'page' : undefined}
+	            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'overview' ? 'text-rose-600 bg-rose-50 dark:text-rose-300 dark:bg-rose-500/15' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	          >
+	            <Home className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">Home</span>
+	          </button>
+	          <button
+	            type="button"
+	            onClick={() => setActiveTab('bookings')}
+	            data-tour="nav-bookings"
+	            aria-current={activeTab === 'bookings' ? 'page' : undefined}
+	            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'bookings' ? 'text-rose-600 bg-rose-50 dark:text-rose-300 dark:bg-rose-500/15' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	          >
+	            <Users className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">Bookings</span>
+	          </button>
+	          <button
+	            type="button"
+	            onClick={() => setActiveTab('calendar')}
+	            data-tour="nav-calendar"
+	            aria-current={activeTab === 'calendar' ? 'page' : undefined}
+	            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'calendar' ? 'text-rose-600 bg-rose-50 dark:text-rose-300 dark:bg-rose-500/15' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	          >
+	            <Calendar className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">Calendar</span>
+	          </button>
+	          <button
+	            type="button"
+	            onClick={() => setActiveTab('settings')}
+	            data-tour="nav-settings"
+	            aria-current={activeTab === 'settings' ? 'page' : undefined}
+	            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'settings' ? 'text-rose-600 bg-rose-50 dark:text-rose-300 dark:bg-rose-500/15' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+	          >
+	            <Settings className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">Settings</span>
+	          </button>
+	          <button
+	            type="button"
+	            onClick={() => setMobileMenuOpen(true)}
+	            className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+	            aria-label="More"
+	          >
+	            <List className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">More</span>
+	          </button>
+	        </div>
+	      </div>
 
       {/* Main Content */}
       <div className="md:ml-64 p-4 md:p-8 pb-28 md:pb-8">
@@ -3743,7 +3775,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
       className={`h-10 px-5 rounded-full text-sm font-semibold transition-colors border ${
         view === nextView
           ? 'bg-rose-600 text-white border-rose-600'
-          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:text-white dark:hover:border-zinc-700/60'
       }`}
     >
       {label}
@@ -3767,7 +3799,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
             className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
               displayMode === 'calendar'
                 ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
             }`}
           >
             <Calendar className="h-4 w-4" />
@@ -3779,7 +3811,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
             className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
               displayMode === 'list'
                 ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
             }`}
           >
             <List className="h-4 w-4" />
@@ -3790,7 +3822,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
       <CardContent className="space-y-4">
         {!hasRealBookings && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800">
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200">
             Showing demo bookings for February 2026. Create a booking to see your real data here.
           </div>
         )}
@@ -3802,21 +3834,21 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                 <button
                   type="button"
                   onClick={() => navigate('TODAY')}
-                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Today
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('PREV')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('NEXT')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Next
                 </button>
@@ -3850,11 +3882,13 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                   const isCancelled =
                     String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
                   if (!isCancelled) return {};
+                  const isDark =
+                    typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
                   return {
                     style: {
-                      backgroundColor: '#fee2e2',
-                      borderColor: '#fecaca',
-                      color: '#b91c1c',
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
+                      borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+                      color: isDark ? 'rgb(254, 202, 202)' : '#b91c1c',
                       textDecoration: 'line-through',
                     },
                   };

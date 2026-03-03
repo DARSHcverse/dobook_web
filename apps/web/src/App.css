@@ -10,8 +10,6 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #fafafa;
-  color: #18181b;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -53,6 +51,19 @@ input:focus, textarea:focus, select:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* react-big-calendar styling (match DoBook design) */
@@ -121,6 +132,81 @@ input:focus, textarea:focus, select:focus {
 .rbc-agenda-table th,
 .rbc-agenda-table td {
   border-color: #e4e4e7;
+}
+
+/* react-big-calendar dark mode */
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.dark .rbc-agenda-view {
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.dark .rbc-header {
+  border-bottom-color: hsl(var(--border));
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.dark .rbc-time-header,
+.dark .rbc-time-content,
+.dark .rbc-time-view,
+.dark .rbc-agenda-table {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-day-bg,
+.dark .rbc-row-bg,
+.dark .rbc-month-row,
+.dark .rbc-time-content > * + * > * {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-row-bg,
+.dark .rbc-day-bg,
+.dark .rbc-time-content,
+.dark .rbc-timeslot-group {
+  background: hsl(var(--card));
+}
+
+.dark .rbc-off-range-bg {
+  background: hsl(var(--secondary));
+}
+
+.dark .rbc-date-cell,
+.dark .rbc-date-cell a {
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.dark .rbc-off-range,
+.dark .rbc-off-range a,
+.dark .rbc-date-cell {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .rbc-today {
+  background: rgba(225, 29, 72, 0.12);
+}
+
+.dark .rbc-show-more {
+  color: rgb(251 113 133);
+}
+
+.dark .rbc-event {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+.dark .rbc-time-gutter,
+.dark .rbc-time-slot,
+.dark .rbc-label {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .rbc-agenda-table th,
+.dark .rbc-agenda-table td {
+  border-color: hsl(var(--border));
 }
 
 /* DoBook splash animation */
