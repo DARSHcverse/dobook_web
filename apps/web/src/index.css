@@ -113,3 +113,21 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+/* Theme mode (light/dark) using global inversion.
+   This keeps the current Tailwind palette usage (many hard-coded light classes)
+   while still providing a reliable dark mode without rewriting the whole UI. */
+html[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+html[data-theme="dark"] body {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* Un-invert raster media so logos/photos remain natural. */
+html[data-theme="dark"] img,
+html[data-theme="dark"] video,
+html[data-theme="dark"] canvas {
+    filter: invert(1) hue-rotate(180deg);
+}

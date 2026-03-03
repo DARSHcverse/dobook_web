@@ -3,6 +3,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/App.css";
 import ClientShell from "@/app/ClientShell";
 import SpeedInsightsClient from "@/components/app/SpeedInsightsClient";
+import ThemeModeToggle from "@/components/app/ThemeModeToggle";
 
 export const metadata = {
   title: "DoBook",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <ClientShell>{children}</ClientShell>
+        <ThemeModeToggle />
         <SpeedInsightsClient />
       </body>
     </html>
