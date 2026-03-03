@@ -371,6 +371,39 @@ function drawInvoiceFooter({ doc, pageW, pageH, text }) {
   doc.text(s, pageW / 2, y, { align: "center", maxWidth: pageW - 144 });
 }
 
+function drawSignatureLikeText({ doc, text, xRight, y, maxW }) {
+  const raw = String(text || "").trim();
+  if (!raw) return;
+
+  // Prefer a classic serif italic for the signature regardless of the main template font.
+  try {
+    doc.setFont("times", "italic");
+  } catch {
+    doc.setFont("helvetica", "italic");
+  }
+
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const targetW = clamp(Number(maxW || 0) || 260, 160, 360);
+
+  let size = 26;
+  doc.setFontSize(size);
+  let w = 0;
+  try {
+    w = doc.getTextWidth(raw);
+  } catch {
+    w = 0;
+  }
+
+  if (w > targetW) {
+    const next = Math.floor(size * (targetW / w));
+    size = clamp(next, 14, 26);
+    doc.setFontSize(size);
+  }
+
+  doc.setTextColor(70);
+  doc.text(raw, xRight, y, { align: "right" });
+}
+
 function renderClassic(doc, data, templateSettings) {
   const { pageW, pageH, marginX, booking, business, logoAsset } = data;
   const s = normalizeTemplateSettings("Classic", templateSettings);
@@ -581,11 +614,16 @@ function renderClassic(doc, data, templateSettings) {
   }
 
   // Signature (stylized)
-  setTemplateFont(doc, s, "italic");
-  doc.setFontSize(34);
-  doc.setTextColor(60);
   const signature = String(business?.account_name || business?.business_name || "").trim();
-  if (signature) doc.text(signature, lineX2, 780, { align: "right" });
+  if (signature) {
+    drawSignatureLikeText({
+      doc,
+      text: signature,
+      xRight: lineX2,
+      y: 776,
+      maxW: contentW * 0.48,
+    });
+  }
 
   setTemplateFont(doc, s, "normal");
   doc.setFontSize(9);
