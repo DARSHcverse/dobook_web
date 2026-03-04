@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
+
+export function sanitizeBusiness(business) {
+  // Never return password hashes to the client.
+  // eslint-disable-next-line no-unused-vars
+  const { password_hash, ...safe } = business || {};
+  return safe;
+}
 
 async function ensureOwnerAccessSupabase(sb, business) {
   if (!business) return business;
@@ -11,17 +17,6 @@ async function ensureOwnerAccessSupabase(sb, business) {
   const updates = { account_role: "owner", subscription_plan: "pro", subscription_status: "active" };
   const { data } = await sb.from("businesses").update(updates).eq("id", business.id).select("*").maybeSingle();
   return data || { ...business, ...updates };
-}
-
-function ensureOwnerAccessLocal(db, business) {
-  if (!business) return business;
-  if (!isOwnerEmail(business.email)) return business;
-  if (String(business.account_role || "").trim().toLowerCase() === "owner") return business;
-  business.account_role = "owner";
-  business.subscription_plan = "pro";
-  business.subscription_status = "active";
-  writeDb(db);
-  return business;
 }
 
 export function unauthorized(detail = "Not authenticated") {
@@ -38,26 +33,6 @@ export function getBearerToken(request) {
 export async function requireSession(request) {
   const token = getBearerToken(request);
   if (!token) return { error: unauthorized() };
-
-  if (!hasSupabaseConfig()) {
-    const db = readDb();
-    const session = db.sessions.find(
-      (s) => s.token === token && (!s.expiresAt || Date.now() < s.expiresAt),
-    );
-    if (!session) return { error: unauthorized() };
-
-    const business = db.businesses.find((b) => b.id === session.businessId);
-    if (!business) return { error: unauthorized() };
-
-    return {
-      mode: "localdb",
-      db,
-      session,
-      business: ensureOwnerAccessLocal(db, business),
-      saveDb: (nextDb) => writeDb(nextDb),
-      sanitizeBusiness,
-    };
-  }
 
   const sb = supabaseAdmin();
   const nowIso = new Date().toISOString();
@@ -80,10 +55,11 @@ export async function requireSession(request) {
   if (businessError || !business) return { error: unauthorized() };
 
   return {
-    mode: "supabase",
+    mode: "supabase", // Kept just in case other things check for mode
     supabase: sb,
     session,
     business: await ensureOwnerAccessSupabase(sb, business),
+    saveDb: async () => {}, // No-op for backwards compatibility in case it's called
     sanitizeBusiness,
   };
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function parseIntSafe(value, fallback) {
   const n = Number.parseInt(String(value ?? ""), 10);
@@ -31,11 +30,6 @@ async function getInviteByTokenSupabase({ sb, token }) {
     .maybeSingle();
   if (error) throw error;
   return data || null;
-}
-
-function getInviteByTokenLocal({ db, token }) {
-  const list = Array.isArray(db.review_invites) ? db.review_invites : [];
-  return list.find((i) => String(i.token || "") === token) || null;
 }
 
 async function insertReviewSupabase({ sb, review }) {
@@ -71,19 +65,8 @@ export async function GET(_request, { params }) {
   if (!token) return NextResponse.json({ detail: "token is required" }, { status: 400 });
 
   try {
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const invite = await getInviteByTokenSupabase({ sb, token });
-      if (!invite) return NextResponse.json({ detail: "Invite not found" }, { status: 404 });
-      if (invite.used_at) return NextResponse.json({ detail: "Invite already used" }, { status: 410 });
-      if (invite.expires_at && String(invite.expires_at) <= nowIso()) {
-        return NextResponse.json({ detail: "Invite expired" }, { status: 410 });
-      }
-      return NextResponse.json({ invite: sanitizeInvite(invite) }, { status: 200 });
-    }
-
-    const db = readDb();
-    const invite = getInviteByTokenLocal({ db, token });
+    const sb = supabaseAdmin();
+    const invite = await getInviteByTokenSupabase({ sb, token });
     if (!invite) return NextResponse.json({ detail: "Invite not found" }, { status: 404 });
     if (invite.used_at) return NextResponse.json({ detail: "Invite already used" }, { status: 410 });
     if (invite.expires_at && String(invite.expires_at) <= nowIso()) {
@@ -109,40 +92,8 @@ export async function POST(request, { params }) {
     if (rating < 1 || rating > 5) return NextResponse.json({ detail: "rating must be between 1 and 5" }, { status: 400 });
     if (!comment || comment.length < 10) return NextResponse.json({ detail: "comment must be at least 10 characters" }, { status: 400 });
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const invite = await getInviteByTokenSupabase({ sb, token });
-      if (!invite) return NextResponse.json({ detail: "Invite not found" }, { status: 404 });
-      if (invite.used_at) return NextResponse.json({ detail: "Invite already used" }, { status: 410 });
-      if (invite.expires_at && String(invite.expires_at) <= nowIso()) {
-        return NextResponse.json({ detail: "Invite expired" }, { status: 410 });
-      }
-
-      const customerName = customerNameOverride || String(invite.customer_name || "").trim() || "Customer";
-      const review = {
-        id: randomUUID(),
-        business_id: invite.business_id,
-        booking_id: invite.booking_id || null,
-        customer_email: invite.customer_email || null,
-        customer_name: customerName,
-        rating,
-        comment,
-        status: "pending",
-        created_at: nowIso(),
-        updated_at: nowIso(),
-      };
-
-      await insertReviewSupabase({ sb, review });
-      await sb
-        .from("review_invites")
-        .update({ used_at: nowIso(), review_id: review.id, updated_at: nowIso() })
-        .eq("id", invite.id);
-
-      return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
-    }
-
-    const db = readDb();
-    const invite = getInviteByTokenLocal({ db, token });
+    const sb = supabaseAdmin();
+    const invite = await getInviteByTokenSupabase({ sb, token });
     if (!invite) return NextResponse.json({ detail: "Invite not found" }, { status: 404 });
     if (invite.used_at) return NextResponse.json({ detail: "Invite already used" }, { status: 410 });
     if (invite.expires_at && String(invite.expires_at) <= nowIso()) {
@@ -163,13 +114,11 @@ export async function POST(request, { params }) {
       updated_at: nowIso(),
     };
 
-    db.reviews = Array.isArray(db.reviews) ? db.reviews : [];
-    db.reviews.push(review);
-
-    invite.used_at = nowIso();
-    invite.review_id = review.id;
-    invite.updated_at = nowIso();
-    writeDb(db);
+    await insertReviewSupabase({ sb, review });
+    await sb
+      .from("review_invites")
+      .update({ used_at: nowIso(), review_id: review.id, updated_at: nowIso() })
+      .eq("id", invite.id);
 
     return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
   } catch (error) {

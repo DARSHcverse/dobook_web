@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { hasStripeConfig, stripe } from "@/lib/stripeServer";
 import { isOwnerEmail } from "@/lib/entitlements";
 
@@ -31,42 +30,30 @@ function updateFromStripeSubscription(subscription) {
 async function findBusinessByStripeCustomerId(customerId) {
   if (!customerId) return null;
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
-    const { data } = await sb
-      .from("businesses")
-      .select("*")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle();
-    return data || null;
-  }
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from("businesses")
+    .select("*")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
 
-  const db = readDb();
-  const business = db.businesses.find((b) => String(b?.stripe_customer_id || "") === String(customerId));
-  return business ? { mode: "localdb", db, business } : null;
+  return data || null;
 }
 
 async function applyBusinessUpdate(target, updates) {
   if (!target) return;
 
-  const existing = target.mode === "localdb" ? target.business : target;
-  const role = String(existing?.account_role || "").trim().toLowerCase();
-  const owner = role === "owner" || isOwnerEmail(existing?.email);
+  const role = String(target?.account_role || "").trim().toLowerCase();
+  const owner = role === "owner" || isOwnerEmail(target?.email);
   const nextUpdates =
     owner
       ? {
-          ...updates,
-          // Never downgrade owner access based on Stripe events.
-          subscription_plan: "pro",
-          subscription_status: existing?.subscription_status || "active",
-        }
+        ...updates,
+        // Never downgrade owner access based on Stripe events.
+        subscription_plan: "pro",
+        subscription_status: target?.subscription_status || "active",
+      }
       : updates;
-
-  if (target.mode === "localdb") {
-    Object.assign(target.business, nextUpdates);
-    writeDb(target.db);
-    return;
-  }
 
   const sb = supabaseAdmin();
   await sb.from("businesses").update(nextUpdates).eq("id", target.id);

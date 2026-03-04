@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireSession } from "@/app/api/_utils/auth";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildReviewInviteUrl, sendReviewInviteEmail } from "@/lib/reviewInviteMailer";
 
 function isLikelyEmail(value) {
@@ -40,19 +39,6 @@ async function findExistingInviteSupabase({ sb, businessId, bookingId, customerE
   return Array.isArray(data) && data.length ? data[0] : null;
 }
 
-function findExistingInviteLocal({ db, businessId, bookingId, customerEmail }) {
-  const list = Array.isArray(db.review_invites) ? db.review_invites : [];
-  const mine = list
-    .filter((i) => i.business_id === businessId && i.booking_id === bookingId && String(i.customer_email || "").toLowerCase() === String(customerEmail || "").toLowerCase())
-    .slice()
-    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
-  const latest = mine[0] || null;
-  if (!latest) return null;
-  if (latest.used_at) return latest;
-  if (latest.expires_at && String(latest.expires_at) <= nowIso()) return null;
-  return latest;
-}
-
 export async function POST(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
@@ -67,20 +53,16 @@ export async function POST(request) {
     const businessName = String(auth.business?.business_name || auth.business?.email || "").trim() || "Business";
 
     let booking = null;
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const { data, error } = await sb
-        .from("bookings")
-        .select("id,business_id,customer_name,customer_email,booking_date,booking_time,booth_type,service_type")
-        .eq("id", bookingId)
-        .eq("business_id", businessId)
-        .maybeSingle();
-      if (error) throw error;
-      booking = data || null;
-    } else {
-      const db = readDb();
-      booking = (db.bookings || []).find((b) => b.id === bookingId && b.business_id === businessId) || null;
-    }
+    const sb = supabaseAdmin();
+    const { data: bookingData, error: bookingError } = await sb
+      .from("bookings")
+      .select("id,business_id,customer_name,customer_email,booking_date,booking_time,booth_type,service_type")
+      .eq("id", bookingId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (bookingError) throw bookingError;
+    booking = bookingData || null;
 
     if (!booking) return NextResponse.json({ detail: "Booking not found" }, { status: 404 });
     const customerEmail = String(booking?.customer_email || "").trim().toLowerCase();
@@ -103,60 +85,41 @@ export async function POST(request) {
       updated_at: nowIso(),
     };
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const now = nowIso();
+    const now = nowIso();
 
-      try {
-        const existing = await findExistingInviteSupabase({ sb, businessId, bookingId, customerEmail, now });
-        if (existing) {
-          const url = buildReviewInviteUrl({ request, token: existing.token });
-          const email = await sendReviewInviteEmail({
-            request,
-            to: customerEmail,
-            businessName,
-            customerName,
-            inviteUrl: url,
-          });
-          return NextResponse.json({ url, email }, { status: 409 });
-        }
-      } catch (e) {
-        const msg = String(e?.message || "").toLowerCase();
-        if (!(msg.includes("relation") && msg.includes("does not exist"))) throw e;
+    try {
+      const existing = await findExistingInviteSupabase({ sb, businessId, bookingId, customerEmail, now });
+      if (existing) {
+        const url = buildReviewInviteUrl({ request, token: existing.token });
+        const email = await sendReviewInviteEmail({
+          request,
+          to: customerEmail,
+          businessName,
+          customerName,
+          inviteUrl: url,
+        });
+        return NextResponse.json({ url, email }, { status: 409 });
+      }
+    } catch (e) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (!(msg.includes("relation") && msg.includes("does not exist"))) throw e;
+      return NextResponse.json(
+        { detail: "Supabase table \"review_invites\" is missing. Run migrations to create it." },
+        { status: 500 },
+      );
+    }
+
+    const { error } = await sb.from("review_invites").insert(invite);
+    if (error) {
+      const msg = String(error.message || "").toLowerCase();
+      if (msg.includes("relation") && msg.includes("does not exist")) {
         return NextResponse.json(
           { detail: "Supabase table \"review_invites\" is missing. Run migrations to create it." },
           { status: 500 },
         );
       }
-
-      const { error } = await sb.from("review_invites").insert(invite);
-      if (error) {
-        const msg = String(error.message || "").toLowerCase();
-        if (msg.includes("relation") && msg.includes("does not exist")) {
-          return NextResponse.json(
-            { detail: "Supabase table \"review_invites\" is missing. Run migrations to create it." },
-            { status: 500 },
-          );
-        }
-        throw error;
-      }
-
-      const email = await sendReviewInviteEmail({ request, to: customerEmail, businessName, customerName, inviteUrl });
-      return NextResponse.json({ url: inviteUrl, email }, { status: 201 });
+      throw error;
     }
-
-    const db = readDb();
-    db.review_invites = Array.isArray(db.review_invites) ? db.review_invites : [];
-    const existing = findExistingInviteLocal({ db, businessId, bookingId, customerEmail });
-    if (existing) {
-      const url = buildReviewInviteUrl({ request, token: existing.token });
-      const email = await sendReviewInviteEmail({ request, to: customerEmail, businessName, customerName, inviteUrl: url });
-      writeDb(db);
-      return NextResponse.json({ url, email }, { status: 409 });
-    }
-
-    db.review_invites.push(invite);
-    writeDb(db);
 
     const email = await sendReviewInviteEmail({ request, to: customerEmail, businessName, customerName, inviteUrl });
     return NextResponse.json({ url: inviteUrl, email }, { status: 201 });

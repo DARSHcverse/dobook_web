@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
+import { sanitizeBusiness } from "@/app/api/_utils/auth";
 
 async function ensureOwnerAccessSupabase(sb, business) {
   if (!business) return business;
@@ -15,79 +15,49 @@ async function ensureOwnerAccessSupabase(sb, business) {
   return data || { ...business, ...updates };
 }
 
-function ensureOwnerAccessLocal(authBusiness) {
-  if (!authBusiness) return authBusiness;
-  if (!isOwnerEmail(authBusiness.email)) return authBusiness;
-  if (String(authBusiness.account_role || "").trim().toLowerCase() === "owner") return authBusiness;
-  authBusiness.account_role = "owner";
-  authBusiness.subscription_plan = "pro";
-  authBusiness.subscription_status = "active";
-  return authBusiness;
-}
-
 export async function POST(request) {
   const body = await request.json();
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
-    const { data: business, error: businessError } = await sb
-      .from("businesses")
-      .select("*")
-      .eq("email", email)
-      .maybeSingle();
-    if (businessError || !business) {
-      return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
-    }
+  const sb = supabaseAdmin();
+  const { data: business, error: businessError } = await sb
+    .from("businesses")
+    .select("*")
+    .eq("email", email)
+    .maybeSingle();
 
-    const ok = await bcrypt.compare(password, business.password_hash || "");
-    if (!ok) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
-
-    const normalized = await ensureOwnerAccessSupabase(sb, business);
-
-    const token = randomUUID();
-    const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { error: sessionError } = await sb.from("sessions").insert({
-      token,
-      business_id: normalized.id,
-      created_at: new Date().toISOString(),
-      expires_at,
-    });
-    if (sessionError) {
-      if (String(sessionError.message || "").toLowerCase().includes("row-level security")) {
-        return NextResponse.json(
-          {
-            detail:
-              "Supabase RLS blocked creating the session. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
-          },
-          { status: 500 },
-        );
-      }
-      return NextResponse.json({ detail: sessionError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ token, business: sanitizeBusiness(normalized) });
+  if (businessError || !business) {
+    return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
   }
-
-  const db = readDb();
-  const business = db.businesses.find((b) => b.email.toLowerCase() === email);
-  if (!business) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
 
   const ok = await bcrypt.compare(password, business.password_hash || "");
   if (!ok) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
 
-  ensureOwnerAccessLocal(business);
+  const normalized = await ensureOwnerAccessSupabase(sb, business);
 
   const token = randomUUID();
-  db.sessions.push({
-    token,
-    businessId: business.id,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-  });
-  writeDb(db);
+  const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  return NextResponse.json({ token, business: sanitizeBusiness(business) });
+  const { error: sessionError } = await sb.from("sessions").insert({
+    token,
+    business_id: normalized.id,
+    created_at: new Date().toISOString(),
+    expires_at,
+  });
+
+  if (sessionError) {
+    if (String(sessionError.message || "").toLowerCase().includes("row-level security")) {
+      return NextResponse.json(
+        {
+          detail:
+            "Supabase RLS blocked creating the session. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ detail: sessionError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ token, business: sanitizeBusiness(normalized) });
 }

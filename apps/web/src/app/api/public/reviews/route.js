@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function parseIntSafe(value, fallback) {
   const n = Number.parseInt(String(value ?? ""), 10);
@@ -28,25 +27,17 @@ export async function GET(request) {
       return NextResponse.json({ detail: "businessId is required" }, { status: 400 });
     }
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const { data, error } = await sb
-        .from("reviews")
-        .select("id,business_id,customer_name,rating,comment,created_at,status")
-        .eq("business_id", businessId)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const list = (data || []).map((r) => sanitizeReview(r)).filter(Boolean);
-      return NextResponse.json(list);
-    }
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("reviews")
+      .select("id,business_id,customer_name,rating,comment,created_at,status")
+      .eq("business_id", businessId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
 
-    const db = readDb();
-    const list = (db.reviews || [])
-      .filter((r) => r.business_id === businessId && String(r.status || "pending") === "approved")
-      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
-      .map((r) => sanitizeReview(r))
-      .filter(Boolean);
+    if (error) throw error;
+
+    const list = (data || []).map((r) => sanitizeReview(r)).filter(Boolean);
     return NextResponse.json(list);
   } catch (error) {
     console.error("Error fetching public reviews:", error);
@@ -84,25 +75,18 @@ export async function POST(request) {
       updated_at: new Date().toISOString(),
     };
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const { error } = await sb.from("reviews").insert(review);
-      if (error) {
-        if (String(error.message || "").toLowerCase().includes("relation") && String(error.message || "").toLowerCase().includes("does not exist")) {
-          return NextResponse.json(
-            { detail: "Supabase table \"reviews\" is missing. Create it (columns: id, business_id, customer_name, rating, comment, status, created_at, updated_at)." },
-            { status: 500 },
-          );
-        }
-        throw error;
-      }
-      return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
-    }
+    const sb = supabaseAdmin();
+    const { error } = await sb.from("reviews").insert(review);
 
-    const db = readDb();
-    db.reviews = Array.isArray(db.reviews) ? db.reviews : [];
-    db.reviews.push(review);
-    writeDb(db);
+    if (error) {
+      if (String(error.message || "").toLowerCase().includes("relation") && String(error.message || "").toLowerCase().includes("does not exist")) {
+        return NextResponse.json(
+          { detail: "Supabase table \"reviews\" is missing. Create it (columns: id, business_id, customer_name, rating, comment, status, created_at, updated_at)." },
+          { status: 500 },
+        );
+      }
+      throw error;
+    }
 
     return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
   } catch (error) {

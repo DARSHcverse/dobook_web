@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireSession } from "@/app/api/_utils/auth";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function parseIntSafe(value, fallback) {
   const n = Number.parseInt(String(value ?? ""), 10);
@@ -13,37 +12,20 @@ async function getLatestPlatformReview({ businessId }) {
   const safeBusinessId = String(businessId || "").trim();
   if (!safeBusinessId) return null;
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("platform_reviews")
-      .select("id,status,created_at,updated_at")
-      .eq("business_id", safeBusinessId)
-      .order("created_at", { ascending: false })
-      .limit(1);
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("platform_reviews")
+    .select("id,status,created_at,updated_at")
+    .eq("business_id", safeBusinessId)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-    if (error) {
-      const msg = String(error.message || "").toLowerCase();
-      if (msg.includes("relation") && msg.includes("does not exist")) return null;
-      throw error;
-    }
-    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  if (error) {
+    const msg = String(error.message || "").toLowerCase();
+    if (msg.includes("relation") && msg.includes("does not exist")) return null;
+    throw error;
   }
-
-  const db = readDb();
-  const list = Array.isArray(db.platform_reviews) ? db.platform_reviews : [];
-  const matches = list.filter((r) => String(r?.business_id || "").trim() === safeBusinessId);
-  if (matches.length === 0) return null;
-  matches.sort((a, b) => String(b?.created_at || "").localeCompare(String(a?.created_at || "")));
-  const latest = matches[0];
-  return latest
-    ? {
-        id: latest.id,
-        status: latest.status,
-        created_at: latest.created_at,
-        updated_at: latest.updated_at,
-      }
-    : null;
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
 export async function GET(request) {
@@ -95,25 +77,19 @@ export async function POST(request) {
       updated_at: new Date().toISOString(),
     };
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const { error } = await sb.from("platform_reviews").insert(review);
-      if (error) {
-        if (String(error.message || "").toLowerCase().includes("relation") && String(error.message || "").toLowerCase().includes("does not exist")) {
-          return NextResponse.json(
-            { detail: "Supabase table \"platform_reviews\" is missing. Run migrations to create it." },
-            { status: 500 },
-          );
-        }
-        throw error;
+    const sb = supabaseAdmin();
+    const { error } = await sb.from("platform_reviews").insert(review);
+
+    if (error) {
+      if (String(error.message || "").toLowerCase().includes("relation") && String(error.message || "").toLowerCase().includes("does not exist")) {
+        return NextResponse.json(
+          { detail: "Supabase table \"platform_reviews\" is missing. Run migrations to create it." },
+          { status: 500 },
+        );
       }
-      return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
+      throw error;
     }
 
-    const db = readDb();
-    db.platform_reviews = Array.isArray(db.platform_reviews) ? db.platform_reviews : [];
-    db.platform_reviews.push(review);
-    writeDb(db);
     return NextResponse.json({ detail: "Review submitted for approval" }, { status: 201 });
   } catch (error) {
     console.error("Error creating platform review:", error);

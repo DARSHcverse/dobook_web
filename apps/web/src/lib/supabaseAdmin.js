@@ -39,9 +39,6 @@ function getSupabaseKey() {
   );
 }
 
-export function hasSupabaseConfig() {
-  return Boolean(getSupabaseUrl() && getSupabaseKey());
-}
 
 let _client;
 export function supabaseAdmin() {
