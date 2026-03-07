@@ -1516,7 +1516,7 @@ const LandingPage = ({
             <CardHeader className="space-y-2">
               <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
               <CardDescription style={{ fontFamily: 'Inter' }}>
-                <span className="text-3xl font-bold text-zinc-900">$30</span>{' '}
+                <span className="text-3xl font-bold text-zinc-900">$20</span>{' '}
                 <span className="text-sm font-medium text-zinc-600">AUD/month</span>
               </CardDescription>
             </CardHeader>
@@ -2710,7 +2710,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
-                {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $30 AUD/month'}
+                {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $20 AUD/month'}
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (

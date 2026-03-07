@@ -311,7 +311,7 @@ export default function AuthScreen() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="font-semibold">Pro</div>
-                        <div className="text-sm text-zinc-600">$30 AUD / month</div>
+                        <div className="text-sm text-zinc-600">$20 AUD / month</div>
                       </div>
                       <div className="text-xs text-zinc-600 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
                     </button>

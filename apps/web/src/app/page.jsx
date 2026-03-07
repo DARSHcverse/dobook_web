@@ -90,13 +90,13 @@ export default function Page() {
         name: "DoBook",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        offers: [
-          { "@type": "Offer", name: "Free Plan", price: "0", priceCurrency: "AUD" },
-          { "@type": "Offer", name: "Pro Plan", price: "30", priceCurrency: "AUD" },
-        ],
-      },
-    ],
-  };
+	        offers: [
+	          { "@type": "Offer", name: "Free Plan", price: "0", priceCurrency: "AUD" },
+	          { "@type": "Offer", name: "Pro Plan", price: "20", priceCurrency: "AUD" },
+	        ],
+	      },
+	    ],
+	  };
 
   return (
     <>
