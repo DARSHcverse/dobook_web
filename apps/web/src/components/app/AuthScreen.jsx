@@ -280,44 +280,44 @@ export default function AuthScreen() {
                 </div>
                   )}
 
-                  {!isLogin && (
-                <div className="space-y-2">
-                  <Label>Plan</Label>
-                  <div className="grid grid-cols-1 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, subscription_plan: "free" })}
-                      className={`w-full text-left p-4 rounded-xl border transition-colors ${
-                        formData.subscription_plan === "free"
-                          ? "border-rose-200 bg-rose-50"
-                          : "border-zinc-200 bg-white hover:bg-zinc-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="font-semibold">Free</div>
-                        <div className="text-sm text-zinc-600">$0</div>
-                      </div>
-                      <div className="text-xs text-zinc-600 mt-1">10 bookings/month • Confirmation emails only</div>
-                    </button>
+	                  {!isLogin && (
+	                <div className="space-y-2">
+	                  <Label>Plan</Label>
+	                  <div className="grid grid-cols-1 gap-3">
+	                    <button
+	                      type="button"
+	                      onClick={() => setFormData({ ...formData, subscription_plan: "free" })}
+	                      className={`w-full text-left p-4 rounded-xl border transition-colors ${
+	                        formData.subscription_plan === "free"
+	                          ? "border-rose-200 bg-rose-50 hover:bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/15 dark:hover:bg-rose-500/20"
+	                          : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800/60 dark:bg-zinc-950/20 dark:hover:bg-zinc-800/50"
+	                      }`}
+	                    >
+	                      <div className="flex items-center justify-between">
+	                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Free</div>
+	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">$0</div>
+	                      </div>
+	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">10 bookings/month • Confirmation emails only</div>
+	                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, subscription_plan: "pro" })}
-                      className={`w-full text-left p-4 rounded-xl border transition-colors ${
-                        formData.subscription_plan === "pro"
-                          ? "border-rose-200 bg-rose-50"
-                          : "border-zinc-200 bg-white hover:bg-zinc-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="font-semibold">Pro</div>
-                        <div className="text-sm text-zinc-600">$20 AUD / month</div>
-                      </div>
-                      <div className="text-xs text-zinc-600 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
-                    </button>
-                  </div>
-                </div>
-                  )}
+	                    <button
+	                      type="button"
+	                      onClick={() => setFormData({ ...formData, subscription_plan: "pro" })}
+	                      className={`w-full text-left p-4 rounded-xl border transition-colors ${
+	                        formData.subscription_plan === "pro"
+	                          ? "border-rose-200 bg-rose-50 hover:bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/15 dark:hover:bg-rose-500/20"
+	                          : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800/60 dark:bg-zinc-950/20 dark:hover:bg-zinc-800/50"
+	                      }`}
+	                    >
+	                      <div className="flex items-center justify-between">
+	                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Pro</div>
+	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">$20 AUD / month</div>
+	                      </div>
+	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
+	                    </button>
+	                  </div>
+	                </div>
+	                  )}
 
                   {!isLogin && (
                 <div className="space-y-2">

@@ -3416,11 +3416,11 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
 
   return (
     <>
-      <Card data-testid="bookings-list-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
+	      <Card data-testid="bookings-list-card" className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl">
+	        <CardHeader>
+	          <div className="flex items-start justify-between gap-4">
+	            <div>
+	              <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
               <CardDescription>Manage your appointments</CardDescription>
             </div>
             <Button
@@ -3437,43 +3437,43 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
           {bookings.length === 0 ? (
             <p className="text-zinc-500 text-center py-8">No bookings found</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200">
-                    <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                    <th className="text-left py-3 px-4 font-semibold">Service</th>
-                    <th className="text-left py-3 px-4 font-semibold">Date</th>
-                    <th className="text-left py-3 px-4 font-semibold">Time</th>
-                    <th className="text-left py-3 px-4 font-semibold">Price</th>
-                    <th className="text-left py-3 px-4 font-semibold">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-medium">{booking.customer_name}</p>
-                          <p className="text-sm text-zinc-600">{booking.customer_email}</p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
-                      <td className="py-3 px-4">{booking.booking_date}</td>
-                      <td className="py-3 px-4">{booking.booking_time}</td>
-                      <td className="py-3 px-4">${bookingTotalAmount(booking).toFixed(2)}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                            String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}
-                        >
-                          {booking.status || 'confirmed'}
-                        </span>
-                      </td>
+	            <div className="overflow-x-auto">
+	              <table className="w-full">
+	                <thead>
+	                  <tr className="border-b border-zinc-200 dark:border-zinc-800/60">
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Customer</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Service</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Date</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Time</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Price</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Status</th>
+	                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Actions</th>
+	                  </tr>
+	                </thead>
+	                <tbody>
+	                  {bookings.map((booking) => (
+	                    <tr key={booking.id} className="border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+	                      <td className="py-3 px-4">
+	                        <div>
+	                          <p className="font-medium">{booking.customer_name}</p>
+	                          <p className="text-sm text-zinc-600 dark:text-zinc-400">{booking.customer_email}</p>
+	                        </div>
+	                      </td>
+	                      <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
+	                      <td className="py-3 px-4">{booking.booking_date}</td>
+	                      <td className="py-3 px-4">{booking.booking_time}</td>
+	                      <td className="py-3 px-4">${bookingTotalAmount(booking).toFixed(2)}</td>
+	                      <td className="py-3 px-4">
+	                        <span
+	                          className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
+	                            String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+	                              ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200'
+	                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200'
+	                          }`}
+	                        >
+	                          {booking.status || 'confirmed'}
+	                        </span>
+	                      </td>
                       <td className="py-3 px-4">
                         <Button
                           data-testid={`view-booking-${booking.id}`}
