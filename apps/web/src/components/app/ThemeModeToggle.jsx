@@ -4,16 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { applyTheme, getCurrentTheme, toggleTheme } from "@/lib/themeMode";
+import { applyTheme, getPreferredTheme, toggleTheme } from "@/lib/themeMode";
 
 export default function ThemeModeToggle({ className = "", showLabel = true }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
-    const current = getCurrentTheme();
-    setTheme(current);
-    applyTheme(current);
+    const preferred = getPreferredTheme();
+    setTheme(preferred);
+    applyTheme(preferred);
     setMounted(true);
   }, []);
 
@@ -30,9 +30,12 @@ export default function ThemeModeToggle({ className = "", showLabel = true }) {
       onClick={() => setTheme(toggleTheme())}
       aria-label={label}
     >
-      {isDark ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+      {isDark ? (
+        <Sun className={`h-4 w-4 ${showLabel ? "mr-2" : ""}`} />
+      ) : (
+        <Moon className={`h-4 w-4 ${showLabel ? "mr-2" : ""}`} />
+      )}
       {showLabel ? label : null}
     </Button>
   );
 }
-

@@ -10,8 +10,8 @@ export function getPreferredTheme() {
   if (typeof window === "undefined") return "light";
   const saved = normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY));
   if (saved) return saved;
-  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
-  return prefersDark ? "dark" : "light";
+  // Default to light unless the user explicitly chose otherwise.
+  return "light";
 }
 
 export function getCurrentTheme() {
