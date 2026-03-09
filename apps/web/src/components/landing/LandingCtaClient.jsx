@@ -9,7 +9,7 @@ function cn(...parts) {
 
 export default function LandingCtaClient({
   getStartedHref = "/auth",
-  startFreeHref = "/auth?plan=free",
+  startFreeHref = "/auth?mode=signup&plan=free",
   customerHref = "/discover",
 }) {
   const router = useRouter();
@@ -73,4 +73,3 @@ export default function LandingCtaClient({
     </div>
   );
 }
-

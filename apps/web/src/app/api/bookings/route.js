@@ -61,7 +61,7 @@ function formatHours(value) {
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
-function buildLineItemsAndTotal({ body, business }) {
+function buildLineItemsAndTotal({ body, business, addons = [] }) {
   const qty = Math.max(1, Number(body?.quantity || 1));
   const unit = asMoney(body?.price);
   const booth = String(body?.booth_type || body?.service_type || "Service").trim() || "Service";
@@ -91,6 +91,18 @@ function buildLineItemsAndTotal({ body, business }) {
     });
   }
 
+  for (const addon of Array.isArray(addons) ? addons : []) {
+    const name = String(addon?.name || "").trim();
+    if (!name) continue;
+    const addonPrice = asMoney(addon?.price);
+    items.push({
+      description: name,
+      qty: 1,
+      unit_price: addonPrice,
+      total: addonPrice,
+    });
+  }
+
   const cbdEnabled = Boolean(business?.cbd_fee_enabled);
   const cbdLabel = String(business?.cbd_fee_label || "CBD logistics").trim() || "CBD logistics";
   const cbdAmount = asMoney(business?.cbd_fee_amount);
@@ -107,6 +119,18 @@ function buildLineItemsAndTotal({ body, business }) {
 
   const totalAmount = asMoney(items.reduce((sum, it) => sum + asMoney(it?.total), 0));
   return { line_items: items, total_amount: totalAmount };
+}
+
+function normalizeAddonIds(value) {
+  const list = Array.isArray(value) ? value : [];
+  const out = [];
+  for (const raw of list) {
+    const s = String(raw || "").trim();
+    if (!s) continue;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) continue;
+    out.push(s);
+  }
+  return Array.from(new Set(out)).slice(0, 20);
 }
 
 async function computeTravelFee({ business, body }) {
@@ -293,7 +317,19 @@ export async function POST(request) {
     ...body,
     _computed_travel_fee: travel?.lineItem || null,
   };
-  const { line_items, total_amount } = buildLineItemsAndTotal({ body: bodyWithComputed, business });
+  const addon_ids = normalizeAddonIds(body?.addon_ids);
+  let addons = [];
+  if (addon_ids.length) {
+    const { data } = await sb
+      .from("service_addons")
+      .select("id,name,price")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .in("id", addon_ids);
+    addons = Array.isArray(data) ? data : [];
+  }
+
+  const { line_items, total_amount } = buildLineItemsAndTotal({ body: bodyWithComputed, business, addons });
 
   const booking = {
     id: randomUUID(),

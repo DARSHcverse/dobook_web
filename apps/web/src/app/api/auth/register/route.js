@@ -6,6 +6,8 @@ import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/booking
 import { isOwnerEmail } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sanitizeBusiness } from "@/app/api/_utils/auth";
+import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
+import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 
 export const runtime = "nodejs";
 
@@ -33,6 +35,7 @@ export async function POST(request) {
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
     return allowed.has(raw) ? raw : "photobooth";
   };
+  const business_type = normalizeBusinessType(body?.business_type);
   const industry = normalizeIndustry(body?.industry);
 
   const defaultBoothTypesForIndustry = (ind) => {
@@ -79,6 +82,10 @@ export async function POST(request) {
   const id = randomUUID();
   const password_hash = await bcrypt.hash(password, 10);
 
+  const seed = business_type ? deriveBusinessSeedFromType({ businessType: business_type }) : null;
+  const seededBoothTypes =
+    Array.isArray(seed?.booth_types) && seed.booth_types.length ? seed.booth_types : defaultBoothTypesForIndustry(industry);
+
   const business = {
     id,
     business_name: businessName,
@@ -93,8 +100,14 @@ export async function POST(request) {
     account_number: "",
     payment_link: "",
     industry,
-    booth_types: defaultBoothTypesForIndustry(industry),
-    booking_custom_fields: [],
+    business_type: seed?.business_type || null,
+    booth_types: seededBoothTypes,
+    booking_custom_fields: Array.isArray(seed?.booking_custom_fields) ? seed.booking_custom_fields : [],
+    buffer_mins: Number(seed?.buffer_mins || 0),
+    advance_booking_hrs: Number(seed?.advance_booking_hrs || 0),
+    reminder_timing_hrs: Array.isArray(seed?.reminder_timing_hrs) ? seed.reminder_timing_hrs : [],
+    allow_recurring: Boolean(seed?.allow_recurring),
+    require_deposit: Boolean(seed?.require_deposit),
     account_role,
     subscription_plan,
     subscription_status,
@@ -134,6 +147,14 @@ export async function POST(request) {
   });
   if (sessionInsertError) {
     return NextResponse.json({ detail: sessionInsertError.message }, { status: 500 });
+  }
+
+  try {
+    if (business_type) {
+      await seedBusinessTypeDefaultsOnSignup({ sb, businessId: id, businessType: business_type });
+    }
+  } catch {
+    // ignore seeding failures (business can apply from Settings later)
   }
 
   try {

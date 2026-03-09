@@ -7,7 +7,7 @@ export default function LandingPage({
   heroAccent = "for Businesses",
   heroDescription = "DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.",
   getStartedHref = "/auth",
-  startFreeHref = "/auth?plan=free",
+  startFreeHref = "/auth?mode=signup&plan=free",
   customerHref = "/discover",
 } = {}) {
   return (
@@ -138,4 +138,3 @@ export default function LandingPage({
     </div>
   );
 }
-

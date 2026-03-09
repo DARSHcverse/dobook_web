@@ -43,6 +43,8 @@ import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import BusinessTour from '@/components/tour/BusinessTour';
 import ThemeModeToggle from "@/components/app/ThemeModeToggle";
+import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard';
+import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -672,7 +674,7 @@ const LandingPage = ({
   heroAccent = 'for Businesses',
   heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
   getStartedHref = '/auth',
-  startFreeHref = '/auth?plan=free',
+  startFreeHref = '/auth?mode=signup&plan=free',
   customerHref = '/discover',
 } = {}) => {
   const router = useRouter();
@@ -2736,6 +2738,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
         </CardContent>
       </Card>
+
+      <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
+      <BusinessBookingSettingsCard />
 
       {/* Business Information */}
       <Card data-testid="business-info-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
@@ -5317,9 +5322,11 @@ const BookingWidget = () => {
     price: '',
     quantity: 1,
     apply_cbd_fee: false,
-    custom_fields: {}
+    custom_fields: {},
+    addon_ids: [],
   });
   const [loading, setLoading] = useState(false);
+  const [uploadingFields, setUploadingFields] = useState({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -5442,6 +5449,8 @@ const BookingWidget = () => {
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
     ? business.booth_types
     : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+  const bookingFormFields = Array.isArray(business?.booking_form_fields) ? business.booking_form_fields : [];
+  const serviceAddons = Array.isArray(business?.service_addons) ? business.service_addons : [];
   const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
 
@@ -5665,7 +5674,137 @@ const BookingWidget = () => {
                 </div>
               </div>
 
-              {extraFields.length > 0 && (
+              {bookingFormFields.length > 0 ? (
+                <div className="pt-2">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {bookingFormFields.map((f) => {
+                      const key = String(f?.field_key || '').trim();
+                      if (!key) return null;
+                      const type = String(f?.field_type || 'text').trim();
+                      const label = String(f?.field_name || key).trim();
+                      const required = Boolean(f?.required);
+                      const value = formData.custom_fields?.[key];
+
+                      const setValue = (nextValue) =>
+                        setFormData({
+                          ...formData,
+                          custom_fields: { ...(formData.custom_fields || {}), [key]: nextValue },
+                        });
+
+                      if (type === 'textarea') {
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            <Textarea
+                              value={String(value ?? '')}
+                              onChange={(e) => setValue(e.target.value)}
+                              className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg mt-2"
+                              rows={3}
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (type === 'select') {
+                        const options = Array.isArray(f?.field_options) ? f.field_options : [];
+                        return (
+                          <div key={key}>
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            <Select value={String(value ?? '')} onValueChange={(v) => setValue(v)}>
+                              <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {options.map((opt) => (
+                                  <SelectItem key={`${key}-${String(opt)}`} value={String(opt)}>
+                                    {String(opt)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      }
+
+                      if (type === 'boolean') {
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                              <Checkbox checked={Boolean(value)} onCheckedChange={(v) => setValue(Boolean(v))} />
+                              <div className="font-medium text-zinc-800">
+                                {label}
+                                {required ? ' *' : ''}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (type === 'file') {
+                        const isUploading = Boolean(uploadingFields?.[key]);
+                        const filesValue = Array.isArray(value) ? value : [];
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            <Input
+                              type="file"
+                              multiple
+                              className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (!files.length) return;
+                                try {
+                                  setUploadingFields((prev) => ({ ...(prev || {}), [key]: true }));
+                                  const fd = new FormData();
+                                  fd.append('business_id', String(resolvedBusinessId || ''));
+                                  for (const file of files) fd.append('files', file);
+                                  const res = await axios.post(`${API}/public/booking-uploads`, fd);
+                                  const urls = (res?.data?.files || []).map((x) => x?.url).filter(Boolean);
+                                  if (urls.length) setValue(urls);
+                                  toast.success('Upload complete');
+                                } catch (err) {
+                                  toast.error(err?.response?.data?.detail || 'Upload failed');
+                                } finally {
+                                  setUploadingFields((prev) => ({ ...(prev || {}), [key]: false }));
+                                }
+                              }}
+                            />
+                            <div className="mt-2 text-xs text-zinc-500">
+                              {isUploading ? 'Uploading…' : filesValue.length ? `${filesValue.length} file(s) uploaded` : 'Optional'}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const inputType = (type === 'number' || type === 'date' || type === 'time') ? type : 'text';
+                      return (
+                        <div key={key}>
+                          <Label>
+                            {label}
+                            {required ? ' *' : ''}
+                          </Label>
+                          <Input
+                            type={inputType}
+                            value={String(value ?? '')}
+                            onChange={(e) => setValue(e.target.value)}
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : extraFields.length > 0 ? (
                 <div className="pt-2">
                   <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5700,6 +5839,41 @@ const BookingWidget = () => {
                             onChange={(e) => setFormData({ ...formData, custom_fields: { ...(formData.custom_fields || {}), [key]: e.target.value } })}
                             className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
                           />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {serviceAddons.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Extras</div>
+                  <div className="space-y-2">
+                    {serviceAddons.map((a) => {
+                      const id = String(a?.id || '').trim();
+                      if (!id) return null;
+                      const checked = Array.isArray(formData.addon_ids) ? formData.addon_ids.includes(id) : false;
+                      const price = Number(a?.price || 0);
+                      const desc = String(a?.description || '').trim();
+                      return (
+                        <div key={id} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(v) => {
+                              const next = new Set(Array.isArray(formData.addon_ids) ? formData.addon_ids : []);
+                              if (Boolean(v)) next.add(id);
+                              else next.delete(id);
+                              setFormData({ ...formData, addon_ids: Array.from(next) });
+                            }}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="font-medium text-zinc-800">{String(a?.name || 'Extra')}</div>
+                              <div className="text-sm font-semibold text-zinc-900">{price ? `$${price.toFixed(2)}` : '—'}</div>
+                            </div>
+                            {desc ? <div className="text-xs text-zinc-500 mt-1">{desc}</div> : null}
+                          </div>
                         </div>
                       );
                     })}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Toaster, toast } from "sonner";
+import { Briefcase, GraduationCap, Hammer, Scissors, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +13,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isValidPhone, phoneValidationHint } from "@/lib/phone";
 import { minimizeBusinessForStorage } from "@/lib/businessStorage";
+import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplates";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
+
+const BUSINESS_TYPE_TO_INDUSTRY = {
+  salon_barbershop: "salon",
+  medical_wellness: "doctor",
+  consultant: "consultant",
+  tutoring_education: "tutor",
+  home_services_trades: "tradie",
+};
+
+const BUSINESS_TYPE_ICON = {
+  scissors: Scissors,
+  stethoscope: Stethoscope,
+  briefcase: Briefcase,
+  "graduation-cap": GraduationCap,
+  hammer: Hammer,
+};
 
 function LogoMark() {
   return (
@@ -36,6 +54,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
+  const [signupStep, setSignupStep] = useState(1);
   const [forgotMode, setForgotMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const resetToken = useMemo(() => String(searchParams?.get("token") || "").trim(), [searchParams]);
@@ -52,6 +71,14 @@ export default function AuthScreen() {
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
     return allowed.has(raw) ? raw : "photobooth";
   }, [searchParams]);
+  const forceSignup = useMemo(() => {
+    const mode = String(searchParams?.get("mode") || "").trim().toLowerCase();
+    return mode === "signup" || mode === "register";
+  }, [searchParams]);
+  const initialBusinessType = useMemo(() => {
+    const raw = String(searchParams?.get("business_type") || "").trim();
+    return normalizeBusinessType(raw);
+  }, [searchParams]);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -59,7 +86,15 @@ export default function AuthScreen() {
     phone: "",
     subscription_plan: initialPlan,
     industry: initialIndustry,
+    business_type: initialBusinessType,
   });
+
+  useEffect(() => {
+    if (!forceSignup) return;
+    setIsLogin(false);
+    setForgotMode(false);
+    setSignupStep(1);
+  }, [forceSignup]);
 
   const title = useMemo(() => (isLogin ? "Login" : "Create account"), [isLogin]);
   const subtitle = useMemo(
@@ -104,6 +139,31 @@ export default function AuthScreen() {
       if (!isLogin && formData.phone && !isValidPhone(formData.phone)) {
         toast.error(phoneValidationHint());
         return;
+      }
+
+      if (!isLogin && signupStep === 1) {
+        if (!formData.business_name || String(formData.business_name || "").trim().length < 2) {
+          toast.error("Business name is required");
+          return;
+        }
+        if (!formData.email) {
+          toast.error("Email is required");
+          return;
+        }
+        if (!formData.password || String(formData.password || "").length < 6) {
+          toast.error("Password must be at least 6 characters");
+          return;
+        }
+        setSignupStep(2);
+        return;
+      }
+
+      if (!isLogin && signupStep === 2) {
+        const bt = normalizeBusinessType(formData.business_type);
+        if (!bt) {
+          toast.error("Please choose a business type");
+          return;
+        }
       }
 
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
@@ -266,21 +326,21 @@ export default function AuthScreen() {
 
               {!isReset && !forgotMode && (
                 <>
-                  {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="business_name">Business name</Label>
-                  <Input
-                    id="business_name"
-                    value={formData.business_name}
-                    onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
-                    required={!isLogin}
-                    autoComplete="organization"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                  />
-                </div>
+                  {!isLogin && signupStep === 1 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="business_name">Business name</Label>
+                      <Input
+                        id="business_name"
+                        value={formData.business_name}
+                        onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
+                        required={!isLogin}
+                        autoComplete="organization"
+                        className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                      />
+                    </div>
                   )}
 
-	                  {!isLogin && (
+	                  {!isLogin && signupStep === 1 && (
 	                <div className="space-y-2">
 	                  <Label>Plan</Label>
 	                  <div className="grid grid-cols-1 gap-3">
@@ -319,55 +379,116 @@ export default function AuthScreen() {
 	                </div>
 	                  )}
 
-                  {!isLogin && (
-                <div className="space-y-2">
-                  <Label>Industry</Label>
-                  <Select
-                    value={formData.industry}
-                    onValueChange={(val) => setFormData({ ...formData, industry: val })}
-                  >
-                    <SelectTrigger className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12">
-                      <SelectValue placeholder="Select your industry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="photobooth">Photo booth</SelectItem>
-                      <SelectItem value="salon">Salon</SelectItem>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                      <SelectItem value="consultant">Consultant</SelectItem>
-                      <SelectItem value="tutor">Tutor</SelectItem>
-                      <SelectItem value="fitness">Fitness trainer</SelectItem>
-                      <SelectItem value="tradie">Tradie</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  {!isLogin && signupStep === 1 && (
+                    <div className="space-y-2">
+                      <Label>Industry</Label>
+                      <Select
+                        value={formData.industry}
+                        onValueChange={(val) => setFormData({ ...formData, industry: val })}
+                      >
+                        <SelectTrigger className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12">
+                          <SelectValue placeholder="Select your industry" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="photobooth">Photo booth</SelectItem>
+                          <SelectItem value="salon">Salon</SelectItem>
+                          <SelectItem value="doctor">Doctor</SelectItem>
+                          <SelectItem value="consultant">Consultant</SelectItem>
+                          <SelectItem value="tutor">Tutor</SelectItem>
+                          <SelectItem value="fitness">Fitness trainer</SelectItem>
+                          <SelectItem value="tradie">Tradie</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                      autoComplete="email"
-                      inputMode="email"
-                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                    />
-                  </div>
+                  {!isLogin && signupStep === 2 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label>What type of business are you?</Label>
+                        <button
+                          type="button"
+                          className="text-xs text-rose-600 hover:underline"
+                          onClick={() => setSignupStep(1)}
+                        >
+                          Back
+                        </button>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required
-                      autoComplete={isLogin ? "current-password" : "new-password"}
-                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                    />
-                  </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {BUSINESS_TYPES.map((t) => {
+                          const Icon = BUSINESS_TYPE_ICON[t.icon] || Briefcase;
+                          const active = formData.business_type === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                const mapped = BUSINESS_TYPE_TO_INDUSTRY[t.id];
+                                const shouldApply = formData.industry === "photobooth" && mapped;
+                                setFormData({ ...formData, business_type: t.id, industry: shouldApply ? mapped : formData.industry });
+                              }}
+                              className={`p-4 rounded-2xl border text-left transition-colors ${
+                                active
+                                  ? "border-rose-200 bg-rose-50 hover:bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/15 dark:hover:bg-rose-500/20"
+                                  : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800/60 dark:bg-zinc-950/20 dark:hover:bg-zinc-800/50"
+                              }`}
+                              aria-pressed={active}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                                    active ? "bg-rose-600 text-white" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  <Icon className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">{t.label}</div>
+                                  <div className="text-xs text-zinc-600 dark:text-zinc-300 mt-1">{t.description}</div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        Don’t worry — you can change this later in Settings. We’ll just pre-fill sensible defaults to get you started.
+                      </p>
+                    </div>
+                  )}
+
+                  {(!isLogin && signupStep === 2) ? null : (
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                        className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                      />
+                    </div>
+                  )}
+
+                  {(!isLogin && signupStep === 2) ? null : (
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        required
+                        autoComplete={isLogin ? "current-password" : "new-password"}
+                        className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                      />
+                    </div>
+                  )}
 
                   {isLogin && (
                     <div className="flex items-center justify-end">
@@ -381,28 +502,34 @@ export default function AuthScreen() {
                     </div>
                   )}
 
-              {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone (optional)</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    autoComplete="tel"
-                    inputMode="tel"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
-                  />
-                  <p className="text-xs text-zinc-500">{phoneValidationHint()}</p>
-                </div>
-              )}
+                  {!isLogin && signupStep === 1 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone (optional)</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        autoComplete="tel"
+                        inputMode="tel"
+                        className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
+                      />
+                      <p className="text-xs text-zinc-500">{phoneValidationHint()}</p>
+                    </div>
+                  )}
 
                   <Button
                     type="submit"
                     disabled={loading}
                     className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold"
                   >
-                    {loading ? "Please wait..." : isLogin ? "Login" : "Create account"}
+                    {loading
+                      ? "Please wait..."
+                      : isLogin
+                        ? "Login"
+                        : signupStep === 1
+                          ? "Continue"
+                          : "Create account"}
                   </Button>
                 </>
               )}
@@ -410,14 +537,20 @@ export default function AuthScreen() {
 
             {!isReset && !forgotMode && (
               <div className="mt-5 text-center text-sm">
-                <button
-                  type="button"
-                  onClick={() => setIsLogin((v) => !v)}
-                  className="text-rose-600 hover:underline"
-                >
-                  {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin((v) => {
+                        const next = !v;
+                        if (!next) setSignupStep(1);
+                        return next;
+                      });
+                    }}
+                    className="text-rose-600 hover:underline"
+                  >
+                    {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
+                  </button>
+                </div>
             )}
 
             <div className="mt-5 flex items-center justify-center gap-4">

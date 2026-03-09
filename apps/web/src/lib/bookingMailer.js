@@ -9,10 +9,18 @@ import {
   paragraphHtml,
   parseBookingDateUtc,
   reminderAtUtc,
+  resolveSiteUrl,
   resolveSignupNotifyRecipients,
   safeEmail,
   safeName,
 } from "./email/templates";
+import { BUSINESS_TYPES, getBusinessTypeTemplate, normalizeBusinessType } from "./businessTypeTemplates";
+
+function resolveBusinessTypeLabel(value) {
+  const id = normalizeBusinessType(value);
+  if (!id) return "";
+  return BUSINESS_TYPES.find((t) => t.id === id)?.label || "";
+}
 
 export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
   const to = resolveSignupNotifyRecipients();
@@ -22,6 +30,7 @@ export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
   const businessEmail = safeEmail(business?.email) || "-";
   const businessPhone = safeName(business?.phone) || "-";
   const industry = safeName(business?.industry) || "-";
+  const businessType = resolveBusinessTypeLabel(business?.business_type) || "-";
   const plan = safeName(requestedPlan || business?.subscription_plan) || "-";
   const createdAt = safeName(business?.created_at) || "-";
   const businessId = safeName(business?.id) || "-";
@@ -42,6 +51,7 @@ export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
           <div><strong style="color:#18181b;">Email:</strong> ${escapeHtml(businessEmail)}</div>
           <div><strong style="color:#18181b;">Phone:</strong> ${escapeHtml(businessPhone)}</div>
           <div><strong style="color:#18181b;">Industry:</strong> ${escapeHtml(industry)}</div>
+          <div><strong style="color:#18181b;">Business type:</strong> ${escapeHtml(businessType)}</div>
           <div><strong style="color:#18181b;">Requested plan:</strong> ${escapeHtml(plan)}</div>
           <div><strong style="color:#18181b;">Created at:</strong> ${escapeHtml(createdAt)}</div>
         </div>
@@ -56,6 +66,7 @@ export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
     `Email: ${businessEmail}\n` +
     `Phone: ${businessPhone}\n` +
     `Industry: ${industry}\n` +
+    `Business type: ${businessType}\n` +
     `Requested plan: ${plan}\n` +
     `Created at: ${createdAt}\n`;
 
@@ -67,7 +78,29 @@ export async function sendBusinessWelcomeEmail({ business }) {
   if (!businessEmail) return { ok: false, skipped: true, error: "No business email" };
 
   const businessName = safeName(business?.business_name) || "your business";
+  const businessTypeLabel = resolveBusinessTypeLabel(business?.business_type);
+  const template = getBusinessTypeTemplate(business?.business_type);
+  const site = resolveSiteUrl();
   const subject = "Thanks for choosing DoBook";
+
+  const servicesCount = Array.isArray(template?.services) ? template.services.length : 0;
+  const fieldsCount = Array.isArray(template?.booking_fields) ? template.booking_fields.length : 0;
+  const addonsCount = Array.isArray(template?.addons) ? template.addons.length : 0;
+
+  const summaryHtml = template
+    ? `
+      <div style="padding:12px 14px; border:1px solid #e4e4e7; border-radius:12px; background:#fafafa; margin-top:12px;">
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#18181b; font-weight:600; margin-bottom:8px;">
+          Pre-filled for you${businessTypeLabel ? ` (${escapeHtml(businessTypeLabel)})` : ""}
+        </div>
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#52525b; line-height:1.6;">
+          <div><strong style="color:#18181b;">Service categories:</strong> ${servicesCount}</div>
+          <div><strong style="color:#18181b;">Booking fields:</strong> ${fieldsCount}</div>
+          <div><strong style="color:#18181b;">Add-ons:</strong> ${addonsCount}</div>
+        </div>
+      </div>
+    `
+    : "";
 
   const html = emailLayout({
     title: "Welcome to DoBook",
@@ -75,6 +108,12 @@ export async function sendBusinessWelcomeEmail({ business }) {
     contentHtml: `
       ${paragraphHtml(`Welcome, <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>.`)}
       ${paragraphHtml("You’re all set up. When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.")}
+      ${summaryHtml}
+      <div style="margin-top:14px;">
+        <a href="${escapeHtml(`${site}/dashboard`)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          Go to dashboard
+        </a>
+      </div>
       <div style="padding:12px 14px; border:1px solid #e4e4e7; border-radius:12px; background:#fafafa; margin-top:12px;">
         <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#52525b;">
           Tip: Pro includes invoice PDFs and automated reminders.
@@ -86,7 +125,11 @@ export async function sendBusinessWelcomeEmail({ business }) {
   const text =
     `Thanks for choosing DoBook\n\n` +
     `Welcome, ${businessName}.\n\n` +
-    `When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.\n`;
+    `When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.\n` +
+    (template
+      ? `\nPre-filled for you${businessTypeLabel ? ` (${businessTypeLabel})` : ""}:\n- Service categories: ${servicesCount}\n- Booking fields: ${fieldsCount}\n- Add-ons: ${addonsCount}\n`
+      : "") +
+    `\nDashboard: ${site}/dashboard\n`;
 
   return sendEmailViaResend({ to: businessEmail, subject, html, text });
 }
@@ -123,6 +166,22 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     ? "Invoice PDF attached."
     : "Booking confirmation only (no invoice PDF on the Free plan).";
 
+  const businessTypeId = normalizeBusinessType(business?.business_type);
+  const includeMeetingLinkPlaceholder = businessTypeId === "consultant";
+  const meetingLinkHtml = includeMeetingLinkPlaceholder
+    ? `
+      <div style="padding:12px 14px; border:1px dashed #e4e4e7; border-radius:12px; background:#fafafa; margin-top:12px;">
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#18181b; font-weight:700; margin-bottom:6px;">
+          Meeting link
+        </div>
+        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#52525b; line-height:1.6;">
+          A Zoom/Google Meet link will be provided before the session.
+        </div>
+      </div>
+    `
+    : "";
+  const meetingLinkText = includeMeetingLinkPlaceholder ? "\nMeeting link: Zoom/Meet link will be provided before the session.\n" : "";
+
   const customerHtml = emailLayout({
     title: `Booking confirmed`,
     preheader: `Your booking with ${businessName} is confirmed.`,
@@ -131,13 +190,14 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
       ${bookingSummaryTableHtml({ booking })}
+      ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         ${includeInvoicePdf ? "Invoice PDF attached." : "Booking confirmation only (no invoice PDF on the Free plan)."}
       </div>
     `,
   });
 
-  const customerText = `Thanks for booking ${businessName}\n\n${summaryText}\n\n${invoiceNoteText}`;
+  const customerText = `Thanks for booking ${businessName}\n\n${summaryText}\n${meetingLinkText}\n${invoiceNoteText}`;
 
   const businessHtml = emailLayout({
     title: "New booking",
@@ -147,12 +207,13 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     contentHtml: `
       ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> booked you.`)}
       ${bookingSummaryTableHtml({ booking })}
+      ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         ${includeInvoicePdf ? "Invoice PDF attached." : "No invoice PDF for Free plan bookings."}
       </div>
     `,
   });
-  const businessText = `New booking\n\n${customerName} booked you.\n\n${summaryText}\n\n${invoiceNoteText}`;
+  const businessText = `New booking\n\n${customerName} booked you.\n\n${summaryText}\n${meetingLinkText}\n${invoiceNoteText}`;
 
   const results = { customer: null, business: null };
 
