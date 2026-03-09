@@ -27,7 +27,7 @@ export default function ThemeModeToggle({ className = "", showLabel = true }) {
       type="button"
       variant="outline"
       className={className}
-      onClick={() => setTheme(toggleTheme())}
+      onClick={() => setTheme(toggleTheme({ persist: true }))}
       aria-label={label}
     >
       {isDark ? (
