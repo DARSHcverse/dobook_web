@@ -164,9 +164,8 @@ export const BUSINESS_TYPE_TEMPLATES = {
     services: ["Quote/Inspection", "Job Booking", "Follow-up Visit", "Emergency Call-out"],
     booking_fields: [
       field({ name: "Address (job location)", key: "job_address", type: "textarea", required: true, sort_order: 10 }),
-      field({ name: "Type of work", key: "work_type", type: "text", required: true, sort_order: 20 }),
-      field({ name: "Access instructions", key: "access_instructions", type: "textarea", sort_order: 30 }),
-      field({ name: "Photo upload", key: "job_photos", type: "file", sort_order: 40 }),
+      field({ name: "Access instructions", key: "access_instructions", type: "textarea", sort_order: 20 }),
+      field({ name: "Upload photos", key: "job_photos", type: "file", sort_order: 30 }),
     ],
     addons: [
       addon({ name: "Materials supply", price: 0, duration_extra_mins: 0, sort_order: 10 }),
@@ -194,4 +193,3 @@ export function getBusinessTypeTemplate(value) {
   if (!id) return null;
   return BUSINESS_TYPE_TEMPLATES[id] || null;
 }
-

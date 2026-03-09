@@ -45,6 +45,7 @@ import BusinessTour from '@/components/tour/BusinessTour';
 import ThemeModeToggle from "@/components/app/ThemeModeToggle";
 import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard';
 import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
+import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
@@ -469,6 +470,29 @@ async function downloadInvoicePdf({ booking, business, template }) {
 const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [requestingReview, setRequestingReview] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [bookingFieldDefs, setBookingFieldDefs] = useState([]);
+
+  useEffect(() => {
+    if (!booking) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const token = localStorage.getItem("dobook_token");
+        if (!token) return;
+        const res = await axios.get(`${API}/business/booking-form-fields`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        setBookingFieldDefs(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setBookingFieldDefs([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
@@ -529,6 +553,42 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 <p className="mt-1 text-sm">{booking.notes}</p>
               </div>
             )}
+
+            {booking?.custom_fields && typeof booking.custom_fields === "object" && Object.keys(booking.custom_fields).length ? (
+              <div>
+                <Label className="text-zinc-600">Custom fields</Label>
+                <div className="mt-2 rounded-xl border border-zinc-200 overflow-hidden">
+                  <div className="divide-y divide-zinc-200">
+                    {Object.entries(booking.custom_fields || {}).map(([k, v]) => {
+                      const key = String(k || "").trim();
+                      if (!key) return null;
+                      const def = (bookingFieldDefs || []).find((d) => String(d?.field_key || "").trim() === key);
+                      const label = String(def?.field_name || "")
+                        ? String(def.field_name)
+                        : key.replaceAll(/[_-]+/g, " ").replaceAll(/\s+/g, " ").trim();
+                      const isPrivate = Boolean(def?.is_private);
+                      const value =
+                        Array.isArray(v) ? `${v.filter(Boolean).length} file(s)` : (v === true ? "Yes" : v === false ? "No" : String(v ?? ""));
+                      return (
+                        <div key={key} className="p-3 bg-white">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-semibold text-zinc-900">
+                              {label}
+                            </div>
+                            {isPrivate ? (
+                              <span className="text-[11px] px-2 py-1 rounded-full bg-zinc-100 text-zinc-700">
+                                Private
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-sm text-zinc-700 break-words">{value}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
@@ -5385,10 +5445,19 @@ const BookingWidget = () => {
       const isPhotoBooth = String(response.data?.industry || 'photobooth') === 'photobooth';
       setFormData((prev) => ({
         ...prev,
-        booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'),
-        service_type: isPhotoBooth ? 'Photo Booth' : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
+        booth_type: isPhotoBooth
+          ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'))
+          : '',
+        service_type: isPhotoBooth
+          ? 'Photo Booth'
+          : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
         package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
-        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : (prev.duration_minutes || 60),
+        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : 60,
+        quantity: isPhotoBooth ? (prev.quantity || 1) : 1,
+        price: isPhotoBooth ? prev.price : 0,
+        event_location: isPhotoBooth ? prev.event_location : '',
+        event_location_geo: isPhotoBooth ? prev.event_location_geo : null,
+        parking_info: isPhotoBooth ? prev.parking_info : '',
       }));
     } catch (error) {
       console.error('Failed to load business:', error);
@@ -5453,6 +5522,16 @@ const BookingWidget = () => {
   const serviceAddons = Array.isArray(business?.service_addons) ? business.service_addons : [];
   const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const bookingTypeKey = inferBookingTypeKey({ businessType: business?.business_type, industry: business?.industry });
+  const bookingFields = BOOKING_FIELDS_BY_TYPE[bookingTypeKey] || BOOKING_FIELDS_BY_TYPE.photobooth;
+  const bookingFieldKeys = new Set(bookingFields.map((f) => String(f?.key || '').trim()).filter(Boolean));
+  const extraFormFields = (bookingFormFields || []).filter((f) => {
+    const key = String(f?.field_key || '').trim();
+    if (!key) return false;
+    if (RESERVED_CUSTOM_FIELD_KEYS.has(key)) return false;
+    if (bookingFieldKeys.has(key)) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
@@ -5481,209 +5560,209 @@ const BookingWidget = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="customer_name">Full Name *</Label>
-                  <Input
-                    id="customer_name"
-                    data-testid="widget-name-input"
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                {bookingFields.map((field) => {
+                  const key = String(field?.key || '').trim();
+                  if (!key) return null;
+                  const type = String(field?.type || 'text').trim();
+                  const label = String(field?.label || key).trim();
+                  const required = Boolean(field?.required);
+                  const placeholder = String(field?.placeholder || '').trim();
 
-                <div>
-                  <Label htmlFor="customer_email">Email *</Label>
-                  <Input
-                    id="customer_email"
-                    data-testid="widget-email-input"
-                    type="email"
-                    value={formData.customer_email}
-                    onChange={(e) => setFormData({...formData, customer_email: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  const column = field?.column;
+                  const value = column
+                    ? formData?.[column]
+                    : (formData.custom_fields?.[key] ?? "");
 
-                <div>
-                  <Label htmlFor="customer_phone">Phone Number</Label>
-                  <Input
-                    id="customer_phone"
-                    data-testid="widget-phone-input"
-                    type="tel"
-                    value={formData.customer_phone}
-                    onChange={(e) => setFormData({...formData, customer_phone: e.target.value})}
-                    inputMode="tel"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="booking_date">Event Date *</Label>
-                  <Input
-                    id="booking_date"
-                    data-testid="widget-date-input"
-                    type="date"
-                    value={formData.booking_date}
-                    onChange={(e) => setFormData({...formData, booking_date: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <Label htmlFor="event_location">Event Location *</Label>
-                  <AddressAutocomplete
-                    value={formData.event_location}
-                    onChange={(val, item) =>
-                      setFormData({ ...formData, event_location: val, event_location_geo: item || null })
+                  const setValue = (nextValue) => {
+                    if (column) {
+                      setFormData({ ...formData, [column]: nextValue });
+                      return;
                     }
-                    placeholder="Enter venue or address"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                    inputProps={{ id: "event_location", "data-testid": "widget-location-input", required: true }}
-                  />
-                </div>
+                    setFormData({
+                      ...formData,
+                      custom_fields: { ...(formData.custom_fields || {}), [key]: nextValue },
+                    });
+                  };
 
-                <div>
-                  <Label htmlFor="booth_type">
-                    {isPhotoBooth ? 'Select Booth Type *' : 'Select Service Type *'}
-                  </Label>
-                  <Select 
-                    value={isPhotoBooth ? formData.booth_type : formData.service_type}
-                    onValueChange={(val) => {
-                      if (isPhotoBooth) setFormData({ ...formData, booth_type: val });
-                      else setFormData({ ...formData, service_type: val, booth_type: '' });
-                    }}
-                  >
-                    <SelectTrigger data-testid="widget-booth-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boothTypes.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  if (type === "address") {
+                    return (
+                      <div key={key} className="md:col-span-2">
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <AddressAutocomplete
+                          value={String(formData.event_location || "")}
+                          onChange={(val, item) =>
+                            setFormData({ ...formData, event_location: val, event_location_geo: item || null })
+                          }
+                          placeholder={placeholder || "Enter venue or address"}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          inputProps={{ id: key, required, "data-testid": "widget-location-input" }}
+                        />
+                      </div>
+                    );
+                  }
 
-                {isPhotoBooth ? (
-                  <div>
-                    <Label htmlFor="package_duration">Select Package Duration *</Label>
-                    <Select 
-                      value={formData.package_duration} 
-                      onValueChange={(val) => {
-                        const hours = parseInt(val);
-                        setFormData({...formData, package_duration: val, duration_minutes: hours * 60});
-                      }}
-                    >
-                      <SelectTrigger data-testid="widget-package-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1 Hour">1 Hour</SelectItem>
-                        <SelectItem value="2 Hours">2 Hours</SelectItem>
-                        <SelectItem value="3 Hours">3 Hours</SelectItem>
-                        <SelectItem value="4 Hours">4 Hours</SelectItem>
-                        <SelectItem value="5 Hours">5 Hours</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <div>
-                    <Label htmlFor="duration_minutes">Duration (minutes) *</Label>
-                    <Input
-                      id="duration_minutes"
-                      type="number"
-                      min="15"
-                      step="15"
-                      value={formData.duration_minutes}
-                      onChange={(e) => setFormData({...formData, duration_minutes: parseInt(e.target.value) || 60})}
-                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                    />
-                  </div>
-                )}
+                  if (type === "select_services") {
+                    const selected = column ? String(formData?.[column] || "") : String(value || "");
+                    const options = boothTypes;
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={selected}
+                          onValueChange={(val) => setValue(val)}
+                        >
+                          <SelectTrigger
+                            data-testid="widget-booth-select"
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {options.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
 
-                <div>
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    data-testid="widget-quantity-input"
-                    type="number"
-                    min="1"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value) || 1})}
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  if (type === "package_duration") {
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={String(formData.package_duration || "")}
+                          onValueChange={(val) => {
+                            const hours = parseInt(String(val || "").replaceAll(/\D+/g, ""), 10);
+                            setFormData({
+                              ...formData,
+                              package_duration: val,
+                              duration_minutes: Number.isFinite(hours) ? hours * 60 : formData.duration_minutes,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            data-testid="widget-package-select"
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1 Hour">1 Hour</SelectItem>
+                            <SelectItem value="2 Hours">2 Hours</SelectItem>
+                            <SelectItem value="3 Hours">3 Hours</SelectItem>
+                            <SelectItem value="4 Hours">4 Hours</SelectItem>
+                            <SelectItem value="5 Hours">5 Hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
 
-                <div>
-                  <Label htmlFor="price">Agreed Price ($) *</Label>
-                  <Input
-                    id="price"
-                    data-testid="widget-price-input"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || ''})}
-                    placeholder="0.00"
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  if (type === "time_window") {
+                    const options = Array.isArray(field?.options) ? field.options : [];
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={String(value || "")}
+                          onValueChange={(val) => {
+                            const selected = options.find((o) => String(o?.value) === String(val));
+                            setFormData({
+                              ...formData,
+                              booking_time: String(selected?.booking_time || "09:00"),
+                              custom_fields: { ...(formData.custom_fields || {}), [key]: val },
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {options.map((opt) => (
+                              <SelectItem key={`${key}-${String(opt?.value)}`} value={String(opt?.value)}>
+                                {String(opt?.label || opt?.value)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
+
+                  const inputType =
+                    type === "email" || type === "tel" || type === "date" || type === "time"
+                      ? type
+                      : (type === "number" || type === "money")
+                        ? "number"
+                        : "text";
+
+                  return (
+                    <div key={key} className={type === "textarea" ? "md:col-span-2" : ""}>
+                      <Label htmlFor={key}>
+                        {label}
+                        {required ? " *" : ""}
+                      </Label>
+                      {type === "textarea" ? (
+                        <Textarea
+                          id={key}
+                          value={String(value ?? "")}
+                          onChange={(e) => setValue(e.target.value)}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg mt-2"
+                          rows={3}
+                        />
+                      ) : (
+                        <Input
+                          id={key}
+                          data-testid={key === "customer_phone" ? "widget-phone-input" : undefined}
+                          type={inputType}
+                          step={type === "money" ? "0.01" : undefined}
+                          min={type === "money" || type === "number" ? "0" : undefined}
+                          value={String(value ?? "")}
+                          onChange={(e) => {
+                            if (type === "money" || type === "number") setValue(e.target.value);
+                            else setValue(e.target.value);
+                          }}
+                          placeholder={placeholder || undefined}
+                          required={required}
+                          inputMode={type === "tel" ? "tel" : undefined}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                        />
+                      )}
+                      {key === "customer_phone" ? (
+                        <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="booking_time">Start Time *</Label>
-                  <Input
-                    id="booking_time"
-                    data-testid="widget-start-time-input"
-                    type="time"
-                    value={formData.booking_time}
-                    onChange={(e) => setFormData({...formData, booking_time: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="parking_info">Parking Information</Label>
-                  <Input
-                    id="parking_info"
-                    data-testid="widget-parking-input"
-                    value={formData.parking_info}
-                    onChange={(e) => setFormData({...formData, parking_info: e.target.value})}
-                    placeholder="Street parking, garage, etc."
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Input
-                    id="notes"
-                    data-testid="widget-notes-input"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    placeholder="Any special requests"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-              </div>
-
-              {bookingFormFields.length > 0 ? (
+              {extraFormFields.length > 0 ? (
                 <div className="pt-2">
                   <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bookingFormFields.map((f) => {
+                    {extraFormFields.map((f) => {
                       const key = String(f?.field_key || '').trim();
                       if (!key) return null;
                       const type = String(f?.field_type || 'text').trim();
                       const label = String(f?.field_name || key).trim();
                       const required = Boolean(f?.required);
+                      const isPrivate = Boolean(f?.is_private);
                       const value = formData.custom_fields?.[key];
 
                       const setValue = (nextValue) =>
@@ -5699,6 +5778,13 @@ const BookingWidget = () => {
                               {label}
                               {required ? ' *' : ''}
                             </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">
+                                {key === "health_notes"
+                                  ? "Private notes — only visible to your practitioner. Not included in emails."
+                                  : "Private — not included in emails."}
+                              </div>
+                            ) : null}
                             <Textarea
                               value={String(value ?? '')}
                               onChange={(e) => setValue(e.target.value)}
@@ -5717,6 +5803,9 @@ const BookingWidget = () => {
                               {label}
                               {required ? ' *' : ''}
                             </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                            ) : null}
                             <Select value={String(value ?? '')} onValueChange={(v) => setValue(v)}>
                               <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
                                 <SelectValue placeholder="Select..." />
@@ -5743,6 +5832,9 @@ const BookingWidget = () => {
                                 {required ? ' *' : ''}
                               </div>
                             </div>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-2">Private — not included in emails.</div>
+                            ) : null}
                           </div>
                         );
                       }
@@ -5756,6 +5848,9 @@ const BookingWidget = () => {
                               {label}
                               {required ? ' *' : ''}
                             </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                            ) : null}
                             <Input
                               type="file"
                               multiple
@@ -5793,6 +5888,9 @@ const BookingWidget = () => {
                             {label}
                             {required ? ' *' : ''}
                           </Label>
+                          {isPrivate ? (
+                            <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                          ) : null}
                           <Input
                             type={inputType}
                             value={String(value ?? '')}

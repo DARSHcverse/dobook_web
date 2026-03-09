@@ -44,7 +44,7 @@ export async function GET(_request, { params }) {
     industry: business.industry || "photobooth",
     booth_types: business.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: business.booking_custom_fields || [],
-    booking_form_fields: (bookingFormFields || []).filter((f) => !f?.is_private),
+    booking_form_fields: bookingFormFields || [],
     service_addons: serviceAddons || [],
     travel_fee_enabled: Boolean(business.travel_fee_enabled),
     travel_fee_label: String(business.travel_fee_label || "Travel fee"),

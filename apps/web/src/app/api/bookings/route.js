@@ -384,7 +384,11 @@ export async function POST(request) {
   // Best-effort: send confirmation + invoice to customer and business.
   try {
     const template = await getActiveInvoiceTemplateSupabase(sb, businessId);
-    const emailResults = await sendBookingCreatedEmails({ booking: inserted, business, template });
+    const { data: fieldDefs } = await sb
+      .from("booking_form_fields")
+      .select("field_key,field_name,is_private")
+      .eq("business_id", businessId);
+    const emailResults = await sendBookingCreatedEmails({ booking: inserted, business, template, fieldDefs: fieldDefs || [] });
     const updates = {};
     if (emailResults?.customer?.ok) updates.confirmation_sent_at = new Date().toISOString();
     if (emailResults?.business?.ok) updates.business_notice_sent_at = new Date().toISOString();

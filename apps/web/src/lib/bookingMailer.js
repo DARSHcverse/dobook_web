@@ -134,7 +134,92 @@ export async function sendBusinessWelcomeEmail({ business }) {
   return sendEmailViaResend({ to: businessEmail, subject, html, text });
 }
 
-export async function sendBookingCreatedEmails({ booking, business, template }) {
+function formatCustomFieldValue(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) {
+    const urls = value.map((x) => String(x || "").trim()).filter(Boolean);
+    if (!urls.length) return "";
+    return `${urls.length} file(s) uploaded`;
+  }
+  if (typeof value === "number") return String(value);
+  return String(value).trim();
+}
+
+function titleCaseKey(key) {
+  return String(key || "")
+    .replaceAll(/[_-]+/g, " ")
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function customFieldsTableHtml({ booking, fieldDefs }) {
+  const defs = Array.isArray(fieldDefs) ? fieldDefs : [];
+  const byKey = new Map(defs.map((d) => [String(d?.field_key || "").trim(), d]));
+  const custom = booking?.custom_fields && typeof booking.custom_fields === "object" ? booking.custom_fields : {};
+
+  const rows = [];
+  for (const [key, raw] of Object.entries(custom || {})) {
+    const k = String(key || "").trim();
+    if (!k) continue;
+    const def = byKey.get(k);
+    if (def?.is_private) continue;
+    const value = formatCustomFieldValue(raw);
+    if (!value) continue;
+    rows.push([def?.field_name ? String(def.field_name) : titleCaseKey(k), value]);
+  }
+
+  if (!rows.length) return "";
+
+  const tr = rows
+    .map(
+      ([k, v]) => `
+        <tr>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px; width:200px;">
+            ${escapeHtml(k)}
+          </td>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">
+            ${escapeHtml(v)}
+          </td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `
+    <div style="margin-top:12px;">
+      <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; color:#18181b; font-weight:700; margin-bottom:8px;">
+        Booking details
+      </div>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; background:#fff;">
+        <tbody>
+          ${tr}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function customFieldsText({ booking, fieldDefs }) {
+  const defs = Array.isArray(fieldDefs) ? fieldDefs : [];
+  const byKey = new Map(defs.map((d) => [String(d?.field_key || "").trim(), d]));
+  const custom = booking?.custom_fields && typeof booking.custom_fields === "object" ? booking.custom_fields : {};
+  const lines = [];
+  for (const [key, raw] of Object.entries(custom || {})) {
+    const k = String(key || "").trim();
+    if (!k) continue;
+    const def = byKey.get(k);
+    if (def?.is_private) continue;
+    const value = formatCustomFieldValue(raw);
+    if (!value) continue;
+    lines.push(`${def?.field_name ? String(def.field_name) : titleCaseKey(k)}: ${value}`);
+  }
+  if (!lines.length) return "";
+  return `\nBooking details:\n${lines.map((l) => `- ${l}`).join("\n")}\n`;
+}
+
+export async function sendBookingCreatedEmails({ booking, business, template, fieldDefs }) {
   const customerEmail = safeEmail(booking?.customer_email);
   const businessEmail = safeEmail(business?.email);
   const businessName = safeName(business?.business_name) || "this business";
@@ -190,6 +275,7 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
       ${bookingSummaryTableHtml({ booking })}
+      ${customFieldsTableHtml({ booking, fieldDefs })}
       ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         ${includeInvoicePdf ? "Invoice PDF attached." : "Booking confirmation only (no invoice PDF on the Free plan)."}
@@ -197,7 +283,10 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     `,
   });
 
-  const customerText = `Thanks for booking ${businessName}\n\n${summaryText}\n${meetingLinkText}\n${invoiceNoteText}`;
+  const customerText =
+    `Thanks for booking ${businessName}\n\n${summaryText}\n` +
+    customFieldsText({ booking, fieldDefs }) +
+    `${meetingLinkText}\n${invoiceNoteText}`;
 
   const businessHtml = emailLayout({
     title: "New booking",
@@ -207,13 +296,17 @@ export async function sendBookingCreatedEmails({ booking, business, template }) 
     contentHtml: `
       ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> booked you.`)}
       ${bookingSummaryTableHtml({ booking })}
+      ${customFieldsTableHtml({ booking, fieldDefs })}
       ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         ${includeInvoicePdf ? "Invoice PDF attached." : "No invoice PDF for Free plan bookings."}
       </div>
     `,
   });
-  const businessText = `New booking\n\n${customerName} booked you.\n\n${summaryText}\n${meetingLinkText}\n${invoiceNoteText}`;
+  const businessText =
+    `New booking\n\n${customerName} booked you.\n\n${summaryText}\n` +
+    customFieldsText({ booking, fieldDefs }) +
+    `${meetingLinkText}\n${invoiceNoteText}`;
 
   const results = { customer: null, business: null };
 
