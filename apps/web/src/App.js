@@ -2466,6 +2466,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [billingLoading, setBillingLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSending, setSupportSending] = useState(false);
@@ -2708,6 +2709,25 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     }
   };
 
+  const handleCancelSubscription = async () => {
+    setBillingLoading(true);
+    try {
+      const token = localStorage.getItem('dobook_token');
+      const response = await axios.post(
+        `${API}/stripe/portal`,
+        { flow: 'cancel' },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const url = response?.data?.url;
+      if (!url) throw new Error('Missing portal URL');
+      window.location.href = url;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to open subscription cancellation');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
@@ -2786,18 +2806,57 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (
-              <Button
-                variant="outline"
-                className="h-10 px-6 rounded-lg border-zinc-200"
-                onClick={handleManageBilling}
-                disabled={billingLoading}
-              >
-                {billingLoading ? 'Opening…' : 'Manage billing'}
-              </Button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="h-10 px-6 rounded-lg border-zinc-200"
+                  onClick={handleManageBilling}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Opening…' : 'Manage billing'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 px-6 rounded-lg border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  onClick={() => setCancelDialogOpen(true)}
+                  disabled={billingLoading}
+                >
+                  Cancel subscription
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel subscription</DialogTitle>
+            <DialogDescription>
+              You’ll be taken to Stripe to cancel your plan. Your access typically stays active until the end of the current
+              billing period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={billingLoading}>
+              Keep subscription
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setCancelDialogOpen(false);
+                handleCancelSubscription();
+              }}
+              disabled={billingLoading}
+            >
+              Continue to Stripe
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
       <BusinessBookingSettingsCard />
