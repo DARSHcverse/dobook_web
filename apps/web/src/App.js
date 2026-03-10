@@ -2782,7 +2782,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-zinc-50 rounded-lg">
             <div>
               <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
               <p className="text-sm text-zinc-600 mt-1">
@@ -2798,7 +2798,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             </div>
             {effectivePlan === 'free' && (
               <Button 
-                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg"
+                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg w-full sm:w-auto"
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
@@ -2806,10 +2806,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
-                  className="h-10 px-6 rounded-lg border-zinc-200"
+                  className="h-10 px-6 rounded-lg border-zinc-200 w-full sm:w-auto"
                   onClick={handleManageBilling}
                   disabled={billingLoading}
                 >
@@ -2818,7 +2818,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 px-6 rounded-lg border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  className="h-10 px-6 rounded-lg border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto"
                   onClick={() => setCancelDialogOpen(true)}
                   disabled={billingLoading}
                 >
@@ -2857,9 +2857,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
         </DialogContent>
       </Dialog>
-
-      <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
-      <BusinessBookingSettingsCard />
 
       {/* Business Information */}
       <Card data-testid="business-info-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
@@ -3145,6 +3142,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 	          </div>
 	        </CardContent>
 	      </Card>
+
+      <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
+      <BusinessBookingSettingsCard />
 
       {/* Booking Editor Configuration */}
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
