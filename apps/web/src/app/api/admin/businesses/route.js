@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminAuth } from "@/lib/adminAuth";
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const auth = requireAdminAuth(request);
+    if (auth.error) return auth.error;
+
     const sb = supabaseAdmin();
     const { data: businesses, error } = await sb.from("businesses").select("*");
 

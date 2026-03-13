@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminAuth } from "@/lib/adminAuth";
 
 export async function PUT(request, { params }) {
   try {
+    const auth = requireAdminAuth(request);
+    if (auth.error) return auth.error;
+
     const { reviewId } = params;
     const body = await request.json();
     const status = String(body?.status || "").trim().toLowerCase();
@@ -28,4 +32,3 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ detail: error?.message || "Failed to update review" }, { status: 500 });
   }
 }
-

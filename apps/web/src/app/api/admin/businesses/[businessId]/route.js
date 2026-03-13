@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminAuth } from "@/lib/adminAuth";
 
 export async function PUT(request, { params }) {
   try {
+    const auth = requireAdminAuth(request);
+    if (auth.error) return auth.error;
+
     const { businessId } = params;
     const updateData = await request.json();
 
@@ -77,6 +81,9 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const auth = requireAdminAuth(request);
+    if (auth.error) return auth.error;
+
     const { businessId } = params;
 
     const { error } = await supabaseAdmin()
