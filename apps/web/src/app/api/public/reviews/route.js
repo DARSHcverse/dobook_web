@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getClientIp, rateLimit } from "@/lib/rateLimit";
 
 function parseIntSafe(value, fallback) {
   const n = Number.parseInt(String(value ?? ""), 10);
@@ -17,6 +18,13 @@ function sanitizeReview(review) {
     comment: review.comment,
     created_at: review.created_at,
   };
+}
+
+function reject(request, status, detail, reason) {
+  const ip = getClientIp(request);
+  const message = reason || detail;
+  console.error(`[reject] POST /api/public/reviews ip=${ip} reason=${message}`);
+  return NextResponse.json({ detail }, { status });
 }
 
 export async function GET(request) {
@@ -47,21 +55,34 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const limited = rateLimit({
+      request,
+      keyPrefix: "public_reviews",
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limited.ok) {
+      console.error(`[reject] POST /api/public/reviews ip=${limited.ip} reason=rate_limited`);
+      const res = NextResponse.json({ detail: "Too many requests" }, { status: 429 });
+      res.headers.set("Retry-After", String(limited.retryAfter || 3600));
+      return res;
+    }
+
     const body = await request.json();
     const businessId = String(body?.business_id || "").trim();
     const customerName = String(body?.customer_name || "").trim();
     const comment = String(body?.comment || "").trim();
     const rating = parseIntSafe(body?.rating, 0);
 
-    if (!businessId) return NextResponse.json({ detail: "business_id is required" }, { status: 400 });
+    if (!businessId) return reject(request, 400, "business_id is required", "missing_business_id");
     if (!customerName || customerName.length < 2) {
-      return NextResponse.json({ detail: "customer_name is required" }, { status: 400 });
+      return reject(request, 400, "customer_name is required", "invalid_customer_name");
     }
     if (!comment || comment.length < 10) {
-      return NextResponse.json({ detail: "comment must be at least 10 characters" }, { status: 400 });
+      return reject(request, 400, "comment must be at least 10 characters", "comment_too_short");
     }
     if (rating < 1 || rating > 5) {
-      return NextResponse.json({ detail: "rating must be between 1 and 5" }, { status: 400 });
+      return reject(request, 400, "rating must be between 1 and 5", "invalid_rating");
     }
 
     const review = {
@@ -80,9 +101,11 @@ export async function POST(request) {
 
     if (error) {
       if (String(error.message || "").toLowerCase().includes("relation") && String(error.message || "").toLowerCase().includes("does not exist")) {
-        return NextResponse.json(
-          { detail: "Supabase table \"reviews\" is missing. Create it (columns: id, business_id, customer_name, rating, comment, status, created_at, updated_at)." },
-          { status: 500 },
+        return reject(
+          request,
+          500,
+          "Supabase table \"reviews\" is missing. Create it (columns: id, business_id, customer_name, rating, comment, status, created_at, updated_at).",
+          "missing_reviews_table",
         );
       }
       throw error;
@@ -94,4 +117,3 @@ export async function POST(request) {
     return NextResponse.json({ detail: error?.message || "Failed to submit review" }, { status: 500 });
   }
 }
-

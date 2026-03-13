@@ -5440,6 +5440,7 @@ const BookingWidget = () => {
     duration_minutes: 120,
     parking_info: '',
     notes: '',
+    company_website: '',
     price: '',
     quantity: 1,
     apply_cbd_fee: false,
@@ -5620,6 +5621,18 @@ const BookingWidget = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="hidden" aria-hidden="true">
+                <label htmlFor="company_website">Company website</label>
+                <input
+                  id="company_website"
+                  name="company_website"
+                  type="text"
+                  value={formData.company_website}
+                  onChange={(e) => setFormData({ ...formData, company_website: e.target.value })}
+                  autoComplete="off"
+                  tabIndex="-1"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {bookingFields.map((field) => {
                   const key = String(field?.key || '').trim();

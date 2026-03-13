@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import {
   drivingDistanceKmGeoapify,
   extractLatLonFromAutocompleteItem,
@@ -197,9 +198,9 @@ function isHm(value) {
   return /^\d{2}:\d{2}$/.test(String(value || "").trim());
 }
 
-function isLikelyEmail(value) {
+function isValidEmail(value) {
   const s = String(value || "").trim();
-  if (!s) return true;
+  if (!s) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
@@ -226,6 +227,13 @@ async function getActiveInvoiceTemplateSupabase(sb, businessId) {
   return (data && data[0]) || null;
 }
 
+function reject(request, status, detail, reason) {
+  const ip = getClientIp(request);
+  const message = reason || detail;
+  console.error(`[reject] POST /api/bookings ip=${ip} reason=${message}`);
+  return NextResponse.json({ detail }, { status });
+}
+
 export async function GET(request) {
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
@@ -241,37 +249,107 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const body = await request.json();
+  const limited = rateLimit({
+    request,
+    keyPrefix: "bookings",
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limited.ok) {
+    console.error(`[reject] POST /api/bookings ip=${limited.ip} reason=rate_limited`);
+    const res = NextResponse.json({ detail: "Too many requests" }, { status: 429 });
+    res.headers.set("Retry-After", String(limited.retryAfter || 3600));
+    return res;
+  }
+
+  const raw = await request.text();
+  const maxBytes = 50 * 1024;
+  if (Buffer.byteLength(raw || "", "utf8") > maxBytes) {
+    return reject(request, 413, "Payload too large", "payload_too_large");
+  }
+
+  let body;
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    return reject(request, 400, "Invalid JSON body", "invalid_json");
+  }
+
+  const honeypotValue = String(body?.company_website || "").trim();
+  if (honeypotValue) {
+    console.error(`[reject] POST /api/bookings ip=${getClientIp(request)} reason=honeypot`);
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+
+  const allowedKeys = new Set([
+    "business_id",
+    "customer_name",
+    "customer_email",
+    "customer_phone",
+    "service_type",
+    "booth_type",
+    "package_duration",
+    "event_location",
+    "event_location_geo",
+    "booking_date",
+    "booking_time",
+    "duration_minutes",
+    "parking_info",
+    "notes",
+    "price",
+    "quantity",
+    "custom_fields",
+    "addon_ids",
+    "apply_cbd_fee",
+    "company_website",
+  ]);
+
+  for (const key of Object.keys(body || {})) {
+    if (!allowedKeys.has(key)) {
+      return reject(request, 400, `Unexpected field: ${key}`, "unexpected_field");
+    }
+  }
+
   const businessId = body?.business_id ? String(body.business_id) : null;
 
   if (!businessId) {
-    return NextResponse.json({ detail: "business_id is required" }, { status: 400 });
+    return reject(request, 400, "business_id is required", "missing_business_id");
   }
 
   const customerName = String(body?.customer_name || "").trim();
   if (!customerName) {
-    return NextResponse.json({ detail: "customer_name is required" }, { status: 400 });
+    return reject(request, 400, "customer_name is required", "missing_customer_name");
   }
 
   const bookingDateStr = String(body?.booking_date || "").trim();
   const bookingTimeStr = String(body?.booking_time || "").trim();
   if (!bookingDateStr || !isYmd(bookingDateStr)) {
-    return NextResponse.json({ detail: "booking_date is required (YYYY-MM-DD)" }, { status: 400 });
+    return reject(request, 400, "booking_date is required (YYYY-MM-DD)", "invalid_booking_date");
   }
   if (!bookingTimeStr || !isHm(bookingTimeStr)) {
-    return NextResponse.json({ detail: "booking_time is required (HH:MM)" }, { status: 400 });
+    return reject(request, 400, "booking_time is required (HH:MM)", "invalid_booking_time");
   }
 
   const customerEmail = String(body?.customer_email || "").trim();
-  if (!isLikelyEmail(customerEmail)) {
-    return NextResponse.json({ detail: "Invalid customer_email" }, { status: 400 });
+  if (!isValidEmail(customerEmail)) {
+    return reject(request, 400, "Invalid customer_email", "invalid_customer_email");
   }
 
   if (body?.customer_phone && !isValidPhone(body.customer_phone)) {
-    return NextResponse.json(
-      { detail: "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678)." },
-      { status: 400 },
+    return reject(
+      request,
+      400,
+      "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678).",
+      "invalid_phone",
     );
+  }
+
+  const eventDate = new Date(`${bookingDateStr}T${bookingTimeStr}:00`);
+  if (Number.isNaN(eventDate.getTime())) {
+    return reject(request, 400, "Invalid booking date/time", "invalid_datetime");
+  }
+  if (eventDate.getTime() <= Date.now()) {
+    return reject(request, 400, "booking_date must be in the future", "past_booking_date");
   }
 
   const sb = supabaseAdmin();
@@ -281,8 +359,11 @@ export async function POST(request) {
     .eq("id", businessId)
     .maybeSingle();
 
-  if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
-  if (!business) return NextResponse.json({ detail: "Business not found" }, { status: 404 });
+  if (businessError) {
+    console.error(`[reject] POST /api/bookings ip=${getClientIp(request)} reason=business_lookup_failed`);
+    return NextResponse.json({ detail: businessError.message }, { status: 500 });
+  }
+  if (!business) return reject(request, 404, "Business not found", "business_not_found");
 
   if (!hasProAccess(business)) {
     const { startIso, endIso } = monthRangeUtc(new Date());
@@ -294,11 +375,11 @@ export async function POST(request) {
       .lt("created_at", endIso);
     if (countError) return NextResponse.json({ detail: countError.message }, { status: 500 });
     if ((count || 0) >= FREE_PLAN_MAX_BOOKINGS_PER_MONTH) {
-      return NextResponse.json(
-        {
-          detail: `Free plan limit reached (${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings this month). Upgrade to Pro to add more bookings.`,
-        },
-        { status: 403 },
+      return reject(
+        request,
+        403,
+        `Free plan limit reached (${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings this month). Upgrade to Pro to add more bookings.`,
+        "free_plan_limit",
       );
     }
   }
