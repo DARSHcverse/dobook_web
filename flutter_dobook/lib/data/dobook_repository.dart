@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
+import 'package:dobook/app/config.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/business.dart';
+import 'package:http/http.dart' as http;
 
-const String apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://localhost:3000/api',
-);
+const String apiBaseUrl = kBaseUrl;
 
 class AuthResult {
   AuthResult({required this.token, required this.business});
