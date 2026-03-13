@@ -1116,12 +1116,12 @@ const LandingPage = ({
               className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
             />
             <details className="relative">
-              <summary className="list-none">
+              <summary className="list-none cursor-pointer">
                 <span className="sr-only">Open menu</span>
-                <Button type="button" variant="outline" className="h-11 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50">
-                  <List className="h-4 w-4 mr-2" />
+                <div className="inline-flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 dark:border-zinc-800/60 dark:bg-zinc-950/30 dark:text-zinc-200 dark:hover:bg-zinc-800/50">
+                  <List className="h-4 w-4" />
                   Menu
-                </Button>
+                </div>
               </summary>
               <div className="absolute right-0 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-zinc-200 bg-white shadow-lg p-3 dark:border-zinc-800/60 dark:bg-zinc-950">
                 <div className="grid gap-1">
@@ -3906,7 +3906,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
     <button
       type="button"
       onClick={() => setView(nextView)}
-      className={`h-10 px-5 rounded-full text-sm font-semibold transition-colors border ${
+      className={`h-9 px-3 rounded-full text-xs font-semibold transition-colors border flex-shrink-0 sm:h-10 sm:px-5 sm:text-sm ${
         view === nextView
           ? 'bg-rose-600 text-white border-rose-600'
           : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:text-white dark:hover:border-zinc-700/60'
@@ -3918,7 +3918,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
   return (
     <Card data-testid="calendar-view-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-      <CardHeader className="flex flex-row items-start justify-between gap-6">
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle style={{fontFamily: 'Manrope'}}>Calendar View</CardTitle>
           <CardDescription style={{fontFamily: 'Inter'}}>
@@ -3926,11 +3926,11 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
           </CardDescription>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setDisplayMode('calendar')}
-            className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
+            className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-xs font-semibold transition-colors sm:h-11 sm:px-6 sm:text-sm ${
               displayMode === 'calendar'
                 ? 'bg-rose-600 text-white border-rose-600'
                 : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
@@ -3942,7 +3942,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
           <button
             type="button"
             onClick={() => setDisplayMode('list')}
-            className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
+            className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-xs font-semibold transition-colors sm:h-11 sm:px-6 sm:text-sm ${
               displayMode === 'list'
                 ? 'bg-rose-600 text-white border-rose-600'
                 : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
@@ -3963,36 +3963,36 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
         {displayMode === 'calendar' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => navigate('TODAY')}
-                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-4 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Today
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('PREV')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-5 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('NEXT')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-5 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Next
                 </button>
               </div>
 
-              <div className="text-base font-semibold text-zinc-800" style={{fontFamily: 'Manrope'}}>
+              <div className="text-sm font-semibold text-zinc-800 sm:text-base" style={{fontFamily: 'Manrope'}}>
                 {title}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 sm:overflow-visible sm:pb-0 sm:mx-0 sm:px-0">
                 {viewButton('Month', Views.MONTH)}
                 {viewButton('Week', Views.WEEK)}
                 {viewButton('Day', Views.DAY)}
@@ -4000,37 +4000,39 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
               </div>
             </div>
 
-            <div className="h-[700px]">
-              <BigCalendar
-                localizer={calendarLocalizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                toolbar={false}
-                date={date}
-                view={view}
-                onNavigate={(nextDate) => setDate(nextDate)}
-                onView={(nextView) => setView(nextView)}
-                onSelectEvent={(event) => setSelectedBooking(event.resource)}
-                eventPropGetter={(event) => {
-                  const isCancelled =
-                    String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
-                  if (!isCancelled) return {};
-                  const isDark =
-                    typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-                  return {
-                    style: {
-                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
-                      borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
-                      color: isDark ? 'rgb(254, 202, 202)' : '#b91c1c',
-                      textDecoration: 'line-through',
-                    },
-                  };
-                }}
-                popup
-                selectable
-                dayLayoutAlgorithm="no-overlap"
-              />
+            <div className="h-[520px] sm:h-[700px] overflow-x-auto">
+              <div className="min-w-[640px] sm:min-w-0 h-full">
+                <BigCalendar
+                  localizer={calendarLocalizer}
+                  events={events}
+                  startAccessor="start"
+                  endAccessor="end"
+                  toolbar={false}
+                  date={date}
+                  view={view}
+                  onNavigate={(nextDate) => setDate(nextDate)}
+                  onView={(nextView) => setView(nextView)}
+                  onSelectEvent={(event) => setSelectedBooking(event.resource)}
+                  eventPropGetter={(event) => {
+                    const isCancelled =
+                      String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
+                    if (!isCancelled) return {};
+                    const isDark =
+                      typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+                    return {
+                      style: {
+                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
+                        borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+                        color: isDark ? 'rgb(254, 202, 202)' : '#b91c1c',
+                        textDecoration: 'line-through',
+                      },
+                    };
+                  }}
+                  popup
+                  selectable
+                  dayLayoutAlgorithm="no-overlap"
+                />
+              </div>
             </div>
           </div>
         ) : (
