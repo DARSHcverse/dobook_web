@@ -436,6 +436,8 @@ export async function POST(request) {
     travel_km_billable: travel?.travel_km_billable ?? null,
     travel_fee_amount: travel?.travel_fee_amount ?? null,
     status: "confirmed",
+    payment_status: "unpaid",
+    payment_method: "",
     invoice_id,
     invoice_date: invoiceDate.toISOString(),
     due_date: dueDateIsoFromBookingDate(bookingDateStr) || invoiceDate.toISOString(),

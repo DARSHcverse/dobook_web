@@ -476,6 +476,32 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [requestingReview, setRequestingReview] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [bookingFieldDefs, setBookingFieldDefs] = useState([]);
+  const [currentBooking, setCurrentBooking] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    booking_date: '',
+    booking_time: '',
+    booth_type: '',
+    service_type: '',
+    price: '',
+    notes: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [sendingInvoice, setSendingInvoice] = useState(false);
+
+  useEffect(() => {
+    setCurrentBooking(booking || null);
+    setIsEditing(false);
+    setEditData({
+      booking_date: booking?.booking_date || '',
+      booking_time: booking?.booking_time || '',
+      booth_type: booking?.booth_type || '',
+      service_type: booking?.service_type || '',
+      price: booking?.price ?? '',
+      notes: booking?.notes || '',
+    });
+  }, [booking]);
 
   useEffect(() => {
     if (!booking) return;
@@ -495,6 +521,110 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     };
   }, [booking]);
 
+  const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
+    ? business.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+
+  const paymentStatusOptions = [
+    { value: 'unpaid', label: 'Unpaid' },
+    { value: 'deposit_paid', label: 'Deposit Paid' },
+    { value: 'paid_in_full', label: 'Paid in Full' },
+  ];
+
+  const paymentMethodOptions = [
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cash', label: 'Cash' },
+    { value: 'online', label: 'Online' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const updateBooking = async (updates, { successMessage } = {}) => {
+    if (!currentBooking?.id) return null;
+    try {
+      const res = await axios.put(`${API}/bookings/${currentBooking.id}`, updates);
+      const next = res?.data || null;
+      if (next) setCurrentBooking(next);
+      if (successMessage) toast.success(successMessage);
+      return next;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update booking');
+      return null;
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!currentBooking?.id) return;
+    const updates = {
+      booking_date: editData.booking_date || '',
+      booking_time: editData.booking_time || '',
+      price: editData.price === '' ? '' : Number(editData.price || 0),
+      notes: editData.notes || '',
+      ...(isPhotoBooth
+        ? { booth_type: editData.booth_type || '' }
+        : { service_type: editData.service_type || '' }),
+    };
+
+    setSavingEdit(true);
+    const next = await updateBooking(updates, { successMessage: 'Booking updated' });
+    if (next) {
+      setIsEditing(false);
+      setEditData({
+        booking_date: next?.booking_date || '',
+        booking_time: next?.booking_time || '',
+        booth_type: next?.booth_type || '',
+        service_type: next?.service_type || '',
+        price: next?.price ?? '',
+        notes: next?.notes || '',
+      });
+    }
+    setSavingEdit(false);
+  };
+
+  const handlePaymentUpdate = async (updates) => {
+    setSavingPayment(true);
+    await updateBooking(updates);
+    setSavingPayment(false);
+  };
+
+  const handleSendInvoice = async () => {
+    if (!currentBooking?.id) return;
+    setSendingInvoice(true);
+    try {
+      await axios.post(`${API}/bookings/${currentBooking.id}/send-invoice`);
+      toast.success(`Invoice sent to ${currentBooking.customer_email}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to send invoice');
+    } finally {
+      setSendingInvoice(false);
+    }
+  };
+
+  const lineItems = Array.isArray(currentBooking?.line_items) ? currentBooking.line_items : [];
+  const baseItem = lineItems.length ? lineItems[0] : null;
+  const travelLabel = String(business?.travel_fee_label || 'Travel charge').trim().toLowerCase();
+  const cbdLabel = String(business?.cbd_fee_label || 'CBD logistics').trim().toLowerCase();
+  const travelItem = lineItems.find((item, idx) =>
+    idx !== 0 && String(item?.description || '').toLowerCase().includes(travelLabel),
+  );
+  const cbdItem = lineItems.find((item, idx) =>
+    idx !== 0 && String(item?.description || '').toLowerCase().includes(cbdLabel),
+  );
+  const addonItems = lineItems.filter((item, idx) =>
+    item && idx !== 0 && item !== travelItem && item !== cbdItem,
+  );
+
+  const lineItemTotal = (item) => {
+    if (!item) return 0;
+    const raw =
+      item?.total !== undefined && item?.total !== null
+        ? Number(item.total)
+        : item?.amount !== undefined && item?.amount !== null
+          ? Number(item.amount)
+          : Number(item?.unit_price || 0) * Math.max(1, Number(item?.qty || 1));
+    return Number.isFinite(raw) ? raw : 0;
+  };
+
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent data-testid="booking-detail-dialog" className="sm:max-w-2xl">
@@ -503,64 +633,260 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
           <DialogDescription>Complete booking information</DialogDescription>
         </DialogHeader>
 
-        {booking && (
+        {currentBooking && (
           <div className="space-y-6">
+            <div className="flex items-center justify-end gap-2">
+              {!isEditing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditData({
+                        booking_date: currentBooking?.booking_date || '',
+                        booking_time: currentBooking?.booking_time || '',
+                        booth_type: currentBooking?.booth_type || '',
+                        service_type: currentBooking?.service_type || '',
+                        price: currentBooking?.price ?? '',
+                        notes: currentBooking?.notes || '',
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 bg-rose-600 hover:bg-rose-700"
+                    disabled={savingEdit}
+                    onClick={handleEditSave}
+                  >
+                    {savingEdit ? 'Saving…' : 'Save'}
+                  </Button>
+                </>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-zinc-600">Customer Name</Label>
-                <p className="font-semibold">{booking.customer_name}</p>
+                <p className="font-semibold">{currentBooking.customer_name}</p>
               </div>
               <div>
                 <Label className="text-zinc-600">Email</Label>
-                <p className="font-semibold">{booking.customer_email}</p>
+                <p className="font-semibold">{currentBooking.customer_email}</p>
               </div>
               <div>
                 <Label className="text-zinc-600">Booth Type</Label>
-                <p className="font-semibold">{booking.booth_type || booking.service_type}</p>
+                {isEditing ? (
+                  isPhotoBooth ? (
+                    <Select
+                      value={editData.booth_type || ''}
+                      onValueChange={(val) => setEditData((prev) => ({ ...prev, booth_type: val }))}
+                    >
+                      <SelectTrigger className="mt-1 h-10 bg-zinc-50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boothTypes.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      value={editData.service_type}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, service_type: e.target.value }))}
+                      className="mt-1 bg-zinc-50"
+                    />
+                  )
+                ) : (
+                  <p className="font-semibold">{currentBooking.booth_type || currentBooking.service_type}</p>
+                )}
               </div>
               <div>
                 <Label className="text-zinc-600">Price</Label>
-                <p className="font-semibold text-emerald-600">${bookingTotalAmount(booking).toFixed(2)}</p>
+                {isEditing ? (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editData.price}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, price: e.target.value }))}
+                    className="mt-1 bg-zinc-50"
+                  />
+                ) : (
+                  <p className="font-semibold text-emerald-600">${bookingTotalAmount(currentBooking).toFixed(2)}</p>
+                )}
               </div>
               <div>
                 <Label className="text-zinc-600">Date</Label>
-                <p className="font-semibold">{booking.booking_date}</p>
+                {isEditing ? (
+                  <Input
+                    type="date"
+                    value={editData.booking_date}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, booking_date: e.target.value }))}
+                    className="mt-1 bg-zinc-50"
+                  />
+                ) : (
+                  <p className="font-semibold">{currentBooking.booking_date}</p>
+                )}
               </div>
               <div>
                 <Label className="text-zinc-600">Time</Label>
-                <p className="font-semibold">{booking.booking_time}</p>
+                {isEditing ? (
+                  <Input
+                    type="time"
+                    value={editData.booking_time}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, booking_time: e.target.value }))}
+                    className="mt-1 bg-zinc-50"
+                  />
+                ) : (
+                  <p className="font-semibold">{currentBooking.booking_time}</p>
+                )}
               </div>
               <div>
                 <Label className="text-zinc-600">Duration</Label>
-                <p className="font-semibold">{Math.round((Number(booking.duration_minutes) || 60) / 60 * 10) / 10} hours</p>
+                <p className="font-semibold">{Math.round((Number(currentBooking.duration_minutes) || 60) / 60 * 10) / 10} hours</p>
               </div>
               <div>
                 <Label className="text-zinc-600">Status</Label>
                 <span
                   className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                    String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
+                    String(currentBooking.status || 'confirmed').toLowerCase() === 'cancelled'
                       ? 'bg-red-100 text-red-700'
                       : 'bg-emerald-100 text-emerald-700'
                   }`}
                 >
-                  {booking.status || 'confirmed'}
+                  {currentBooking.status || 'confirmed'}
                 </span>
               </div>
             </div>
 
-            {booking.notes && (
+            {(currentBooking.notes || isEditing) && (
               <div>
                 <Label className="text-zinc-600">Notes</Label>
-                <p className="mt-1 text-sm">{booking.notes}</p>
+                {isEditing ? (
+                  <Textarea
+                    value={editData.notes}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, notes: e.target.value }))}
+                    className="mt-2 bg-zinc-50 min-h-[96px]"
+                  />
+                ) : (
+                  <p className="mt-1 text-sm">{currentBooking.notes}</p>
+                )}
               </div>
             )}
 
-            {booking?.custom_fields && typeof booking.custom_fields === "object" && Object.keys(booking.custom_fields).length ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {currentBooking.customer_phone ? (
+                <div>
+                  <Label className="text-zinc-600">Phone number</Label>
+                  <p className="font-semibold">{currentBooking.customer_phone}</p>
+                </div>
+              ) : null}
+              <div>
+                <Label className="text-zinc-600">Payment Status</Label>
+                <Select
+                  value={String(currentBooking?.payment_status || 'unpaid').toLowerCase()}
+                  onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
+                  disabled={savingPayment}
+                >
+                  <SelectTrigger className="mt-1 h-10 bg-zinc-50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentStatusOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-zinc-600">Payment Method</Label>
+                <Select
+                  value={currentBooking?.payment_method ? String(currentBooking.payment_method).toLowerCase() : undefined}
+                  onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
+                  disabled={savingPayment}
+                >
+                  <SelectTrigger className="mt-1 h-10 bg-zinc-50">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethodOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-zinc-600">Charges</Label>
+              <div className="mt-2 rounded-xl border border-zinc-200 overflow-hidden bg-white">
+                <div className="divide-y divide-zinc-200">
+                  <div className="flex items-center justify-between p-3 text-sm">
+                    <span className="text-zinc-700">
+                      {baseItem?.description || currentBooking.booth_type || currentBooking.service_type || 'Service'}
+                    </span>
+                    <span className="font-medium text-zinc-900">
+                      ${lineItemTotal(baseItem || {
+                        unit_price: currentBooking?.price || 0,
+                        qty: currentBooking?.quantity || 1,
+                        total: (Number(currentBooking?.price || 0) * Math.max(1, Number(currentBooking?.quantity || 1))),
+                      }).toFixed(2)}
+                    </span>
+                  </div>
+                  {travelItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-zinc-700">{travelItem.description || 'Travel fee'}</span>
+                      <span className="font-medium text-zinc-900">${lineItemTotal(travelItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {cbdItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-zinc-700">{cbdItem.description || 'CBD logistics fee'}</span>
+                      <span className="font-medium text-zinc-900">${lineItemTotal(cbdItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {addonItems.map((item, idx) => (
+                    <div key={`${item?.description || 'addon'}-${idx}`} className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-zinc-700">{item?.description || 'Add-on'}</span>
+                      <span className="font-medium text-zinc-900">${lineItemTotal(item).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between p-3 text-sm font-semibold">
+                    <span className="text-zinc-900">Total amount</span>
+                    <span className="text-zinc-900">
+                      ${Number(currentBooking?.total_amount ?? bookingTotalAmount(currentBooking)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {currentBooking?.custom_fields && typeof currentBooking.custom_fields === "object" && Object.keys(currentBooking.custom_fields).length ? (
               <div>
                 <Label className="text-zinc-600">Custom fields</Label>
                 <div className="mt-2 rounded-xl border border-zinc-200 overflow-hidden">
                   <div className="divide-y divide-zinc-200">
-                    {Object.entries(booking.custom_fields || {}).map(([k, v]) => {
+                    {Object.entries(currentBooking.custom_fields || {}).map(([k, v]) => {
                       const key = String(k || "").trim();
                       if (!key) return null;
                       const def = (bookingFieldDefs || []).find((d) => String(d?.field_key || "").trim() === key);
@@ -600,9 +926,9 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     variant="outline"
                     size="sm"
                     disabled={updatingStatus}
-                    className={`h-9 ${String(booking.status || '').toLowerCase() === 'cancelled' ? '' : 'border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800'}`}
+                    className={`h-9 ${String(currentBooking.status || '').toLowerCase() === 'cancelled' ? '' : 'border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800'}`}
                     onClick={async () => {
-                      const isCancelled = String(booking.status || 'confirmed').toLowerCase() === 'cancelled';
+                      const isCancelled = String(currentBooking.status || 'confirmed').toLowerCase() === 'cancelled';
                       const next = isCancelled ? 'confirmed' : 'cancelled';
                       const ok = window.confirm(
                         isCancelled
@@ -613,7 +939,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                       setUpdatingStatus(true);
                       try {
                         await axios.put(
-                          `${API}/bookings/${booking.id}`,
+                          `${API}/bookings/${currentBooking.id}`,
                           { status: next },
                         );
                         toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
@@ -625,10 +951,10 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                       }
                     }}
                   >
-                    {String(booking.status || 'confirmed').toLowerCase() === 'cancelled' ? 'Restore' : 'Cancel'}
+                    {String(currentBooking.status || 'confirmed').toLowerCase() === 'cancelled' ? 'Restore' : 'Cancel'}
                   </Button>
 
-	                  {String(booking?.customer_email || '').trim() && (
+	                  {String(currentBooking?.customer_email || '').trim() && (
 	                    <Button
 	                      type="button"
 	                      variant="outline"
@@ -640,7 +966,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 	                        try {
 	                          const res = await axios.post(
 	                            `${API}/reviews/request`,
-	                            { booking_id: booking.id },
+	                            { booking_id: currentBooking.id },
 	                          );
 	                          const url = res?.data?.url;
 	                          const skipped = Boolean(res?.data?.email?.skipped);
@@ -681,17 +1007,28 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                   )}
 
                   <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    disabled={sendingInvoice}
+                    onClick={handleSendInvoice}
+                  >
+                    {sendingInvoice ? 'Sending…' : 'Send Invoice'}
+                  </Button>
+
+                  <Button
                     data-testid="download-invoice-btn"
                     onClick={async () => {
                       try {
-                        const res = await axios.get(`${API}/invoices/pdf/${booking.id}`, {
+                        const res = await axios.get(`${API}/invoices/pdf/${currentBooking.id}`, {
                           responseType: 'blob',
                         });
                         const blob = res?.data;
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `${booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}.pdf`;
+                        a.download = `${currentBooking.invoice_id || `INV-${String(currentBooking?.id || '').slice(0, 8).toUpperCase()}`}.pdf`;
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
@@ -711,7 +1048,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </div>
               <div className="p-4 bg-zinc-50 rounded-lg">
                 <p className="text-sm text-zinc-600">
-                  Invoice: {booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}
+                  Invoice: {currentBooking.invoice_id || `INV-${String(currentBooking?.id || '').slice(0, 8).toUpperCase()}`}
                 </p>
               </div>
             </div>
@@ -3508,6 +3845,8 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
 
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
@@ -3552,6 +3891,29 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
     setCreateOpen(true);
   };
 
+  const filteredBookings = useMemo(() => {
+    const q = String(search || '').trim().toLowerCase();
+    const nowTs = Date.now();
+    return bookings.filter((booking) => {
+      const name = String(booking?.customer_name || '').toLowerCase();
+      const email = String(booking?.customer_email || '').toLowerCase();
+      if (q && !name.includes(q) && !email.includes(q)) return false;
+      const status = String(booking?.status || 'confirmed').toLowerCase();
+      if (statusFilter === 'cancelled') return status === 'cancelled';
+      if (statusFilter === 'upcoming') {
+        if (status === 'cancelled') return false;
+        const ts = bookingDateTime(booking, 'start')?.getTime?.() ?? 0;
+        return ts >= nowTs;
+      }
+      if (statusFilter === 'past') {
+        if (status === 'cancelled') return false;
+        const ts = bookingDateTime(booking, 'start')?.getTime?.() ?? 0;
+        return ts < nowTs;
+      }
+      return true;
+    });
+  }, [bookings, search, statusFilter]);
+
   useEffect(() => {
     if (!prefillBooking) return;
     openCreate(prefillBooking);
@@ -3578,7 +3940,30 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           </div>
         </CardHeader>
         <CardContent>
-          {bookings.length === 0 ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name or email"
+                className="pl-9 bg-zinc-50"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 bg-white border-zinc-200 w-full sm:w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="past">Past</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {filteredBookings.length === 0 ? (
             <p className="text-zinc-500 text-center py-8">No bookings found</p>
           ) : (
 	            <div className="overflow-x-auto">
@@ -3595,7 +3980,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
 	                  </tr>
 	                </thead>
 	                <tbody>
-	                  {bookings.map((booking) => (
+	                  {filteredBookings.map((booking) => (
 	                    <tr key={booking.id} className="border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
 	                      <td className="py-3 px-4">
 	                        <div>

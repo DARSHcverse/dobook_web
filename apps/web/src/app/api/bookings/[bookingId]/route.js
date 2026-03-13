@@ -46,6 +46,8 @@ function buildUpdates(body) {
     "notes",
     "price",
     "quantity",
+    "payment_status",
+    "payment_method",
     "status",
   ];
 
@@ -135,6 +137,24 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ detail: "Invalid status" }, { status: 400 });
     }
     updates.status = status;
+  }
+
+  if ("payment_status" in updates) {
+    const paymentStatus = String(updates.payment_status || "").trim().toLowerCase();
+    const allowed = new Set(["unpaid", "deposit_paid", "paid_in_full"]);
+    if (!allowed.has(paymentStatus)) {
+      return NextResponse.json({ detail: "Invalid payment_status" }, { status: 400 });
+    }
+    updates.payment_status = paymentStatus;
+  }
+
+  if ("payment_method" in updates) {
+    const paymentMethod = String(updates.payment_method || "").trim().toLowerCase();
+    const allowed = new Set(["", "bank_transfer", "cash", "online", "other"]);
+    if (!allowed.has(paymentMethod)) {
+      return NextResponse.json({ detail: "Invalid payment_method" }, { status: 400 });
+    }
+    updates.payment_method = paymentMethod;
   }
 
   if (auth.mode === "supabase") {
