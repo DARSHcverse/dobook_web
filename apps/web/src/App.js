@@ -38,6 +38,7 @@ import jsPDF from 'jspdf';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
+import { PRO_PRICE_AUD } from '@/lib/pricing';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -1585,7 +1586,7 @@ const LandingPage = ({
             <CardHeader className="space-y-2">
               <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
               <CardDescription style={{ fontFamily: 'Inter' }}>
-                <span className="text-3xl font-bold text-zinc-900">$20</span>{' '}
+                <span className="text-3xl font-bold text-zinc-900">${PRO_PRICE_AUD}</span>{' '}
                 <span className="text-sm font-medium text-zinc-600">AUD/month</span>
               </CardDescription>
             </CardHeader>
@@ -2760,7 +2761,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
-                {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $20 AUD/month'}
+                {billingLoading ? 'Redirecting…' : `Upgrade to Pro - $${PRO_PRICE_AUD} AUD/month`}
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (

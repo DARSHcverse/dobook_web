@@ -1,4 +1,5 @@
 import { LandingPage } from "@/App";
+import { PRO_PRICE_AUD } from "@/lib/pricing";
 
 function resolveSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -92,7 +93,7 @@ export default function Page() {
         operatingSystem: "Web",
 	        offers: [
 	          { "@type": "Offer", name: "Free Plan", price: "0", priceCurrency: "AUD" },
-	          { "@type": "Offer", name: "Pro Plan", price: "20", priceCurrency: "AUD" },
+	          { "@type": "Offer", name: "Pro Plan", price: String(PRO_PRICE_AUD), priceCurrency: "AUD" },
 	        ],
 	      },
 	    ],

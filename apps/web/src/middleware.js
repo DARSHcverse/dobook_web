@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 
 const isProd = process.env.NODE_ENV === "production";
 
-function buildContentSecurityPolicy(nonce) {
-  const connectSrc = ["'self'", "https:"];
-  const scriptSrc = ["'self'", `'nonce-${nonce}'`, "https:"];
+function buildContentSecurityPolicy() {
+  const connectSrc = [
+    "'self'",
+    "https:",
+    "https://*.supabase.co",
+    "wss://*.supabase.co",
+    "https://api.stripe.com",
+    "https://api.resend.com",
+  ];
+  const scriptSrc = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
 
   if (!isProd) {
     connectSrc.push("http:", "ws:", "wss:");
@@ -58,8 +65,7 @@ export function middleware(request) {
     return NextResponse.redirect(dest, 308);
   }
 
-  const nonce = crypto.randomUUID();
-  const csp = buildContentSecurityPolicy(nonce);
+  const csp = buildContentSecurityPolicy();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("content-security-policy", csp);
 

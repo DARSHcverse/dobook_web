@@ -42,6 +42,7 @@ export async function POST(request) {
   const plan = String(body?.plan || "pro").trim().toLowerCase();
   if (plan !== "pro") return badRequest("Only the pro plan is supported");
 
+  // STRIPE_PRICE_PRO_AUD should be the Stripe Price ID for the Pro plan ($20 AUD/month).
   const priceId = process.env.STRIPE_PRICE_PRO_AUD?.trim();
   if (!priceId) {
     return NextResponse.json(

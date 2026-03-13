@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isValidPhone, phoneValidationHint } from "@/lib/phone";
 import { minimizeBusinessForStorage } from "@/lib/businessStorage";
 import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplates";
+import { PRO_PRICE_AUD } from "@/lib/pricing";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -369,7 +370,7 @@ export default function AuthScreen() {
 	                    >
 	                      <div className="flex items-center justify-between">
 	                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Pro</div>
-	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">$20 AUD / month</div>
+	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">${PRO_PRICE_AUD} AUD / month</div>
 	                      </div>
 	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
 	                    </button>
