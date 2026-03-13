@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendPasswordResetEmail } from "@/lib/passwordResetMailer";
+import { rateLimit } from "@/app/api/_utils/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,18 @@ function tooSoon(lastCreatedAtIso) {
 }
 
 export async function POST(request) {
+  const limited = await rateLimit({
+    request,
+    keyPrefix: "auth:password-reset",
+    limit: 3,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limited.ok) {
+    const res = NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    res.headers.set("Retry-After", String(limited.retryAfter || 3600));
+    return res;
+  }
+
   const body = await request.json().catch(() => ({}));
   const email = String(body?.email || "").trim().toLowerCase();
   if (!email) return NextResponse.json({ detail: "Email is required" }, { status: 400 });
@@ -68,4 +81,3 @@ export async function POST(request) {
 
   return okResponse;
 }
-

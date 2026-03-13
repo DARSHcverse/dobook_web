@@ -8,11 +8,28 @@ import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
+import { rateLimit } from "@/app/api/_utils/rateLimit";
 
 export const runtime = "nodejs";
 
 export async function POST(request) {
-  const body = await request.json();
+  const limited = await rateLimit({
+    request,
+    keyPrefix: "auth:register",
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limited.ok) {
+    const res = NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    res.headers.set("Retry-After", String(limited.retryAfter || 3600));
+    return res;
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const honeypot = String(body?.signup_hp || "").trim();
+  if (honeypot) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
   const businessName = String(body?.business_name || "").trim();

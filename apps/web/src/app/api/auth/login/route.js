@@ -4,6 +4,13 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
 import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
+import {
+  rateLimit,
+  getClientIp,
+  getRateLimitState,
+  setRateLimitKey,
+  clearRateLimitKey,
+} from "@/app/api/_utils/rateLimit";
 
 async function ensureOwnerAccessSupabase(sb, business) {
   if (!business) return business;
@@ -16,9 +23,40 @@ async function ensureOwnerAccessSupabase(sb, business) {
 }
 
 export async function POST(request) {
-  const body = await request.json();
+  const baseLimit = await rateLimit({
+    request,
+    keyPrefix: "auth:login",
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!baseLimit.ok) {
+    const res = NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    res.headers.set("Retry-After", String(baseLimit.retryAfter || 900));
+    return res;
+  }
+
+  const body = await request.json().catch(() => ({}));
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
+  const ip = baseLimit.ip || getClientIp(request);
+  const emailKey = email || "unknown";
+  const penaltyKey = `auth:login:penalty:${ip}:${emailKey}`;
+  const extendedKey = `auth:login:extended:${ip}:${emailKey}`;
+
+  const penalty = await getRateLimitState({ key: penaltyKey });
+  if (penalty) {
+    const extended = await rateLimit({
+      request,
+      key: extendedKey,
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!extended.ok) {
+      const res = NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+      res.headers.set("Retry-After", String(extended.retryAfter || 3600));
+      return res;
+    }
+  }
 
   const sb = supabaseAdmin();
   const { data: business, error: businessError } = await sb
@@ -28,11 +66,37 @@ export async function POST(request) {
     .maybeSingle();
 
   if (businessError || !business) {
+    const fail = await rateLimit({
+      request,
+      key: `auth:login:fail:${ip}:${emailKey}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (fail.count >= 5) {
+      console.warn(
+        `[auth] repeated failed login ${new Date().toISOString()} ip=${ip} email=${emailKey}`,
+      );
+      await setRateLimitKey({ key: penaltyKey, windowMs: 60 * 60 * 1000 });
+    }
     return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
   }
 
   const ok = await bcrypt.compare(password, business.password_hash || "");
-  if (!ok) return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
+  if (!ok) {
+    const fail = await rateLimit({
+      request,
+      key: `auth:login:fail:${ip}:${emailKey}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (fail.count >= 5) {
+      console.warn(
+        `[auth] repeated failed login ${new Date().toISOString()} ip=${ip} email=${emailKey}`,
+      );
+      await setRateLimitKey({ key: penaltyKey, windowMs: 60 * 60 * 1000 });
+    }
+    return NextResponse.json({ detail: "Invalid email or password" }, { status: 401 });
+  }
 
   const normalized = await ensureOwnerAccessSupabase(sb, business);
 
@@ -68,5 +132,10 @@ export async function POST(request) {
     expires: expiresAt,
     path: "/",
   });
+  await Promise.all([
+    clearRateLimitKey({ key: `auth:login:fail:${ip}:${emailKey}` }),
+    clearRateLimitKey({ key: penaltyKey }),
+    clearRateLimitKey({ key: extendedKey }),
+  ]);
   return response;
 }

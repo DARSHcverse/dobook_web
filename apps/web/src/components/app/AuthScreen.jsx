@@ -89,6 +89,7 @@ export default function AuthScreen() {
     subscription_plan: initialPlan,
     industry: initialIndustry,
     business_type: initialBusinessType,
+    signup_hp: "",
   });
 
   useEffect(() => {
@@ -239,6 +240,19 @@ export default function AuthScreen() {
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && !forgotMode && !isReset ? (
+                <div className="hidden" aria-hidden="true">
+                  <Label htmlFor="signup_hp">Company website</Label>
+                  <Input
+                    id="signup_hp"
+                    type="text"
+                    value={formData.signup_hp}
+                    onChange={(e) => setFormData({ ...formData, signup_hp: e.target.value })}
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
               {isReset && (
                 <>
                   <div className="space-y-2">
