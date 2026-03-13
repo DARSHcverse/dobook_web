@@ -240,7 +240,7 @@ export async function GET(request) {
 
   const { data, error } = await auth.supabase
     .from("bookings")
-    .select("*")
+    .select("*, staff:staff_id (id,name,email,phone,is_active)")
     .eq("business_id", auth.business.id)
     .order("created_at", { ascending: false });
 

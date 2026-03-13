@@ -26,6 +26,7 @@ import {
   Upload,
   User,
   Users,
+  Users2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -194,10 +195,16 @@ function bookingToEvent(booking) {
 
   const booth = booking?.booth_type || booking?.service_type || 'Booking';
   const customer = booking?.customer_name || 'Customer';
+  const staffName =
+    booking?.staff?.name
+    || booking?.staff_name
+    || booking?.assigned_staff_name
+    || '';
+  const staffSuffix = staffName ? ` (${staffName})` : '';
   const isCancelled = String(booking?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
   return {
     id: booking.id,
-    title: `${customer} - ${booth}${isCancelled ? ' (Cancelled)' : ''}`,
+    title: `${customer} - ${booth}${staffSuffix}${isCancelled ? ' (Cancelled)' : ''}`,
     start,
     end,
     resource: booking,
@@ -489,6 +496,11 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [assigningStaff, setAssigningStaff] = useState(false);
+  const [staffSelection, setStaffSelection] = useState('');
+  const [backdropNotes, setBackdropNotes] = useState('');
 
   useEffect(() => {
     setCurrentBooking(booking || null);
@@ -501,6 +513,8 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
       price: booking?.price ?? '',
       notes: booking?.notes || '',
     });
+    setStaffSelection(booking?.staff_id || '');
+    setBackdropNotes(booking?.backdrop_notes || '');
   }, [booking]);
 
   useEffect(() => {
@@ -513,6 +527,28 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
         setBookingFieldDefs(Array.isArray(res?.data) ? res.data : []);
       } catch {
         if (!cancelled) setBookingFieldDefs([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
+
+  useEffect(() => {
+    if (!booking) return;
+    let cancelled = false;
+    const run = async () => {
+      setStaffLoading(true);
+      try {
+        const res = await axios.get(`${API}/staff`);
+        if (cancelled) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.staff) ? res.data.staff : [];
+        setStaffList(list);
+      } catch {
+        if (!cancelled) setStaffList([]);
+      } finally {
+        if (!cancelled) setStaffLoading(false);
       }
     };
     run();
@@ -538,6 +574,12 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     { value: 'online', label: 'Online' },
     { value: 'other', label: 'Other' },
   ];
+
+  const activeStaff = staffList.filter((member) => member?.is_active !== false);
+  const assignedStaff = staffList.find((member) => String(member?.id || '') === String(currentBooking?.staff_id || ''));
+  const staffOptions = assignedStaff && assignedStaff.is_active === false
+    ? [...activeStaff, assignedStaff]
+    : activeStaff;
 
   const updateBooking = async (updates, { successMessage } = {}) => {
     if (!currentBooking?.id) return null;
@@ -598,6 +640,32 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     } finally {
       setSendingInvoice(false);
     }
+  };
+
+  const handleAssignStaff = async () => {
+    if (!currentBooking?.id) return;
+    setAssigningStaff(true);
+    const updates = {
+      staff_id: staffSelection || null,
+      backdrop_notes: backdropNotes || '',
+    };
+    const successMessage = staffSelection ? 'Staff assigned' : 'Staff updated';
+    const next = await updateBooking(updates, { successMessage });
+    if (next) {
+      setStaffSelection(next?.staff_id || '');
+      setBackdropNotes(next?.backdrop_notes || '');
+    }
+    setAssigningStaff(false);
+  };
+
+  const handleRemoveStaff = async () => {
+    if (!currentBooking?.id) return;
+    setAssigningStaff(true);
+    const next = await updateBooking({ staff_id: null }, { successMessage: 'Staff removed' });
+    if (next) {
+      setStaffSelection('');
+    }
+    setAssigningStaff(false);
   };
 
   const lineItems = Array.isArray(currentBooking?.line_items) ? currentBooking.line_items : [];
@@ -772,6 +840,73 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 >
                   {currentBooking.status || 'confirmed'}
                 </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-200 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <Label className="text-zinc-600">Assigned Staff</Label>
+                  <div className="text-xs text-zinc-500">Select a team member for this booking.</div>
+                </div>
+                {assignedStaff ? (
+                  <div className="text-xs text-zinc-600">
+                    Currently assigned: <span className="font-semibold">{assignedStaff.name}</span>
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+                <Select
+                  value={staffSelection || ''}
+                  onValueChange={(val) => setStaffSelection(val)}
+                  disabled={staffLoading}
+                >
+                  <SelectTrigger className="h-10 bg-zinc-50">
+                    <SelectValue placeholder="Select staff member (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffOptions.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name} {member.email ? `(${member.email})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10"
+                    disabled={assigningStaff || staffLoading}
+                    onClick={handleAssignStaff}
+                  >
+                    {assigningStaff ? 'Saving...' : 'Assign'}
+                  </Button>
+                  {currentBooking?.staff_id ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveStaff}
+                      className="text-sm text-rose-600 hover:text-rose-700 hover:underline"
+                      disabled={assigningStaff}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              {staffLoading ? (
+                <div className="text-xs text-zinc-500 mt-2">Loading staff members...</div>
+              ) : staffOptions.length === 0 ? (
+                <div className="text-xs text-zinc-500 mt-2">No active staff members yet.</div>
+              ) : null}
+              <div className="mt-4">
+                <Label className="text-zinc-600">Backdrop / Setup Details (optional)</Label>
+                <Textarea
+                  value={backdropNotes}
+                  onChange={(e) => setBackdropNotes(e.target.value)}
+                  className="mt-2 bg-zinc-50 min-h-[96px]"
+                  placeholder="e.g. White floral backdrop, gold frame, fairy lights"
+                />
               </div>
             </div>
 
@@ -2358,6 +2493,19 @@ const Dashboard = () => {
           </button>
 
           <button
+            data-testid="staff-tab"
+            onClick={() => setActiveTab('staff')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              activeTab === 'staff'
+                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+            }`}
+          >
+            <Users2 className="h-5 w-5" />
+            <span className="font-medium">Staff</span>
+          </button>
+
+          <button
             data-testid="clients-tab"
             onClick={() => setActiveTab('clients')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -2492,6 +2640,14 @@ const Dashboard = () => {
             >
               <Users className="h-5 w-5" />
               <span className="font-medium">Bookings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('staff'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'staff' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+            >
+              <Users2 className="h-5 w-5" />
+              <span className="font-medium">Staff</span>
             </button>
             <button
               type="button"
@@ -2766,6 +2922,9 @@ const Dashboard = () => {
             prefillBooking={bookingPrefill}
             onPrefillApplied={() => setBookingPrefill(null)}
           />
+        )}
+        {activeTab === 'staff' && (
+          <StaffTab />
         )}
         {activeTab === 'clients' && (
           <ClientsTab
@@ -3188,7 +3347,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   return (
     <div className="space-y-6">
       {/* Subscription Info Card */}
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
@@ -4522,6 +4681,297 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           onRefresh?.();
         }}
       />
+    </>
+  );
+};
+
+// ============= Staff Tab =============
+const StaffTab = () => {
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    is_active: true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [mutatingId, setMutatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+  const loadStaff = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/staff`);
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.staff) ? res.data.staff : [];
+      setStaff(list);
+    } catch {
+      toast.error('Failed to load staff');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
+
+  const openCreate = () => {
+    setEditingStaff(null);
+    setFormData({ name: '', email: '', phone: '', is_active: true });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (member) => {
+    setEditingStaff(member);
+    setFormData({
+      name: member?.name || '',
+      email: member?.email || '',
+      phone: member?.phone || '',
+      is_active: member?.is_active !== false,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    const name = String(formData.name || '').trim();
+    const email = String(formData.email || '').trim();
+    if (!name) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      toast.error('Valid email is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingStaff?.id) {
+        await axios.put(`${API}/staff/${editingStaff.id}`, {
+          name,
+          email,
+          phone: formData.phone || '',
+          is_active: Boolean(formData.is_active),
+        });
+        toast.success('Staff member updated');
+      } else {
+        await axios.post(`${API}/staff`, {
+          name,
+          email,
+          phone: formData.phone || '',
+          is_active: Boolean(formData.is_active),
+        });
+        toast.success('Staff member added');
+      }
+      setDialogOpen(false);
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save staff member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (member) => {
+    if (!member?.id) return;
+    const nextActive = !(member?.is_active !== false);
+    setMutatingId(member.id);
+    try {
+      await axios.put(`${API}/staff/${member.id}`, { is_active: nextActive });
+      toast.success(nextActive ? 'Staff member activated' : 'Staff member deactivated');
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update staff status');
+    } finally {
+      setMutatingId(null);
+    }
+  };
+
+  const handleDelete = async (member) => {
+    if (!member?.id) return;
+    const ok = window.confirm(`Delete ${member?.name || 'this staff member'}? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(member.id);
+    try {
+      await axios.delete(`${API}/staff/${member.id}`);
+      toast.success('Staff member deleted');
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete staff member');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <>
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle style={{fontFamily: 'Manrope'}}>Staff</CardTitle>
+              <CardDescription>Manage your team members</CardDescription>
+            </div>
+            <Button
+              type="button"
+              onClick={openCreate}
+              className="h-10 px-4 bg-rose-600 hover:bg-rose-700 rounded-lg"
+            >
+              <Plus className="h-4 w-4" />
+              Add staff member
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">Loading staff...</p>
+          ) : staff.length === 0 ? (
+            <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">No staff yet. Add your first team member.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-800/60">
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Phone</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.map((member) => {
+                    const active = member?.is_active !== false;
+                    return (
+                      <tr key={member.id} className="border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                        <td className="py-3 px-4 font-medium">{member?.name || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">{member?.email || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">{member?.phone || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
+                              active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                          >
+                            {active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs"
+                              onClick={() => openEdit(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs"
+                              onClick={() => toggleActive(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              {active ? 'Deactivate' : 'Activate'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="h-8 px-3 text-xs"
+                              onClick={() => handleDelete(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              {editingStaff ? 'Edit staff member' : 'Add staff member'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingStaff ? 'Update staff details.' : 'Add a new team member.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="staff_name">Full Name *</Label>
+              <Input
+                id="staff_name"
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="staff_email">Email *</Label>
+              <Input
+                id="staff_email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="staff_phone">Phone (optional)</Label>
+              <Input
+                id="staff_phone"
+                type="tel"
+                inputMode="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+              <p className="text-xs text-zinc-500 mt-1">For future SMS notifications</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.is_active)}
+                onCheckedChange={(v) => setFormData((prev) => ({ ...prev, is_active: Boolean(v) }))}
+              />
+              <span className="text-sm text-zinc-700">Active</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
