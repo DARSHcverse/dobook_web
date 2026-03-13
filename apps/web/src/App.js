@@ -6,6 +6,7 @@ import axios from 'axios';
 import '@/App.css';
 import { Toaster, toast } from 'sonner';
 import {
+  ArrowUpDown,
   BarChart3,
   Bell,
   Calendar,
@@ -19,9 +20,11 @@ import {
   MapPin,
   MessageSquare,
   Plus,
+  Search,
   Settings,
   Smartphone,
   Upload,
+  User,
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -1814,6 +1817,7 @@ const Dashboard = () => {
   const searchParams = useSearchParams();
   const [business, setBusiness] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [bookingPrefill, setBookingPrefill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2002,26 +2006,39 @@ const Dashboard = () => {
 	            <span className="font-medium">Overview</span>
 	          </button>
 
-	          <button
-	            data-testid="bookings-tab"
-	            data-tour="nav-bookings"
-	            onClick={() => setActiveTab('bookings')}
-	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-	              activeTab === 'bookings'
-	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
-	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-	            }`}
-	          >
-	            <Users className="h-5 w-5" />
-	            <span className="font-medium">Bookings</span>
-	          </button>
+          <button
+            data-testid="bookings-tab"
+            data-tour="nav-bookings"
+            onClick={() => setActiveTab('bookings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              activeTab === 'bookings'
+                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+            }`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="font-medium">Bookings</span>
+          </button>
 
-	          <button
-	            data-testid="calendar-view-tab"
-	            data-tour="nav-calendar"
-	            onClick={() => setActiveTab('calendar')}
-	            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-	              activeTab === 'calendar'
+          <button
+            data-testid="clients-tab"
+            onClick={() => setActiveTab('clients')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              activeTab === 'clients'
+                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
+                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+            }`}
+          >
+            <User className="h-5 w-5" />
+            <span className="font-medium">Clients</span>
+          </button>
+
+          <button
+            data-testid="calendar-view-tab"
+            data-tour="nav-calendar"
+            onClick={() => setActiveTab('calendar')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              activeTab === 'calendar'
 	                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
 	                : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
 	            }`}
@@ -2131,20 +2148,28 @@ const Dashboard = () => {
 	              <Home className="h-5 w-5" />
 	              <span className="font-medium">Overview</span>
 	            </button>
-	            <button
-	              type="button"
-	              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
-	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-	            >
-	              <Users className="h-5 w-5" />
-	              <span className="font-medium">Bookings</span>
-	            </button>
-	            <button
-	              type="button"
-	              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
-	              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-	            >
-	              <Calendar className="h-5 w-5" />
+            <button
+              type="button"
+              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+            >
+              <Users className="h-5 w-5" />
+              <span className="font-medium">Bookings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('clients'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'clients' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+            >
+              <User className="h-5 w-5" />
+              <span className="font-medium">Clients</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+            >
+              <Calendar className="h-5 w-5" />
 	              <span className="font-medium">Calendar View</span>
 	            </button>
 	            <button
@@ -2396,7 +2421,28 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
+        {activeTab === 'bookings' && (
+          <BookingsTab
+            business={business}
+            bookings={bookings}
+            onRefresh={loadBookings}
+            prefillBooking={bookingPrefill}
+            onPrefillApplied={() => setBookingPrefill(null)}
+          />
+        )}
+        {activeTab === 'clients' && (
+          <ClientsTab
+            bookings={bookings}
+            onNewBooking={(client) => {
+              setBookingPrefill({
+                customer_name: client?.customer_name || '',
+                customer_email: client?.customer_email || '',
+                customer_phone: client?.customer_phone || '',
+              });
+              setActiveTab('bookings');
+            }}
+          />
+        )}
         {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
         {activeTab === 'settings' && business && (
@@ -3458,7 +3504,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 };
 
 // ============= Bookings Tab =============
-const BookingsTab = ({ business, bookings, onRefresh }) => {
+const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillApplied }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -3490,18 +3536,27 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
     setSelectedBooking(booking);
   };
 
-  const openCreate = () => {
-    setCreateData((prev) => ({
-      ...prev,
-      service_type: isPhotoBooth
-        ? 'Photo Booth'
-        : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
-      booth_type: isPhotoBooth ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || '')) : '',
-      package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
-      duration_minutes: isPhotoBooth ? (Number(prev.duration_minutes) || 120) : (Number(prev.duration_minutes) || 60),
-    }));
+  const openCreate = (overrides = {}) => {
+    setCreateData((prev) => {
+      const next = { ...prev, ...overrides };
+      return {
+        ...next,
+        service_type: isPhotoBooth
+          ? 'Photo Booth'
+          : (boothTypes.includes(next.service_type) ? next.service_type : (boothTypes[0] || 'Service')),
+        booth_type: isPhotoBooth ? (boothTypes.includes(next.booth_type) ? next.booth_type : (boothTypes[0] || '')) : '',
+        package_duration: isPhotoBooth ? (next.package_duration || '2 Hours') : '',
+        duration_minutes: isPhotoBooth ? (Number(next.duration_minutes) || 120) : (Number(next.duration_minutes) || 60),
+      };
+    });
     setCreateOpen(true);
   };
+
+  useEffect(() => {
+    if (!prefillBooking) return;
+    openCreate(prefillBooking);
+    onPrefillApplied?.();
+  }, [prefillBooking]);
 
   return (
     <>
@@ -3818,6 +3873,542 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
         }}
       />
     </>
+  );
+};
+
+// ============= Clients Tab =============
+const ClientsTab = ({ bookings, onNewBooking }) => {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('last_booking_date');
+  const [sortDir, setSortDir] = useState('desc');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [requestingReview, setRequestingReview] = useState(false);
+
+  const sortDefaults = useMemo(
+    () => ({
+      name: 'asc',
+      total_bookings: 'desc',
+      total_spent: 'desc',
+      last_booking_date: 'desc',
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    setSortDir(sortDefaults[sortKey] || 'desc');
+  }, [sortKey, sortDefaults]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadClients = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`${API}/clients`);
+        const list = Array.isArray(res.data?.clients)
+          ? res.data.clients
+          : (Array.isArray(res.data) ? res.data : []);
+        if (!cancelled) setClients(list);
+      } catch (error) {
+        if (!cancelled) toast.error(error.response?.data?.detail || 'Failed to load clients');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadClients();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookings]);
+
+  const stats = useMemo(() => {
+    const totalClients = clients.length;
+    const repeatClients = clients.filter((c) => Number(c?.total_bookings || 0) > 1).length;
+    const revenue = clients.reduce((sum, c) => sum + Number(c?.total_spent || 0), 0);
+    return {
+      totalClients,
+      repeatClients,
+      revenue,
+    };
+  }, [clients]);
+
+  const parseDateValue = (value) => {
+    const s = String(value || '').trim();
+    if (!s) return null;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? parseISO(s) : new Date(s);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  const formatDate = (value) => {
+    const d = parseDateValue(value);
+    if (!d) return '—';
+    return format(d, 'MMM d, yyyy');
+  };
+
+  const dateToTs = (value) => {
+    const d = parseDateValue(value);
+    return d ? d.getTime() : 0;
+  };
+
+  const filteredClients = useMemo(() => {
+    const q = String(search || '').trim().toLowerCase();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setHours(0, 0, 0, 0);
+
+    return clients.filter((client) => {
+      const name = String(client?.customer_name || '').toLowerCase();
+      const email = String(client?.customer_email || '').toLowerCase();
+      const matches = !q || name.includes(q) || email.includes(q);
+      if (!matches) return false;
+      if (statusFilter === 'all') return true;
+      const lastDate = parseDateValue(client?.last_booking_date);
+      const isActive = lastDate ? lastDate >= cutoff : false;
+      return statusFilter === 'active' ? isActive : !isActive;
+    });
+  }, [clients, search, statusFilter]);
+
+  const sortedClients = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredClients].sort((a, b) => {
+      if (sortKey === 'name') {
+        return (
+          dir *
+          String(a?.customer_name || a?.customer_email || '').localeCompare(
+            String(b?.customer_name || b?.customer_email || ''),
+            undefined,
+            { sensitivity: 'base' },
+          )
+        );
+      }
+      if (sortKey === 'total_bookings') {
+        return dir * (Number(a?.total_bookings || 0) - Number(b?.total_bookings || 0));
+      }
+      if (sortKey === 'total_spent') {
+        return dir * (Number(a?.total_spent || 0) - Number(b?.total_spent || 0));
+      }
+      return dir * (dateToTs(a?.last_booking_date) - dateToTs(b?.last_booking_date));
+    });
+  }, [filteredClients, sortDir, sortKey]);
+
+  const openClient = (client) => {
+    setSelectedClient(client);
+    setDrawerOpen(true);
+  };
+
+  useEffect(() => {
+    if (!drawerOpen || !selectedClient?.customer_email) return;
+    let cancelled = false;
+    const loadDetail = async () => {
+      setDetailLoading(true);
+      setDetail(null);
+      try {
+        const res = await axios.get(`${API}/clients/${encodeURIComponent(selectedClient.customer_email)}`);
+        if (cancelled) return;
+        setDetail(res.data || null);
+        setNotesValue(String(res.data?.notes || ''));
+      } catch (error) {
+        if (!cancelled) toast.error(error.response?.data?.detail || 'Failed to load client details');
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    };
+    loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [drawerOpen, selectedClient?.customer_email]);
+
+  useEffect(() => {
+    if (drawerOpen) return;
+    setSelectedClient(null);
+    setDetail(null);
+    setNotesValue('');
+  }, [drawerOpen]);
+
+  const handleSaveNotes = async () => {
+    if (!selectedClient?.customer_email) return;
+    setSavingNotes(true);
+    try {
+      const res = await axios.put(
+        `${API}/clients/${encodeURIComponent(selectedClient.customer_email)}/notes`,
+        { notes: notesValue },
+      );
+      setNotesValue(String(res.data?.notes ?? notesValue));
+      toast.success('Notes saved');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const handleSendReviewRequest = async () => {
+    const booking = detail?.bookings?.[0];
+    if (!booking?.id) return;
+    setRequestingReview(true);
+    try {
+      const res = await axios.post(`${API}/reviews/request`, { booking_id: booking.id });
+      const url = res?.data?.url;
+      const skipped = Boolean(res?.data?.email?.skipped);
+      if (skipped && url) {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success('Review link copied (email not sent)');
+        } catch {
+          toast.success('Review link created');
+        }
+      } else {
+        toast.success('Review request sent');
+      }
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        const url = error?.response?.data?.url;
+        const skipped = Boolean(error?.response?.data?.email?.skipped);
+        if (skipped && url) {
+          try {
+            await navigator.clipboard.writeText(url);
+            toast.success('Review link copied (email not sent)');
+          } catch {
+            toast.success('Review link created');
+          }
+        } else {
+          toast.success('Review request already sent');
+        }
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to request review');
+      }
+    } finally {
+      setRequestingReview(false);
+    }
+  };
+
+  const handleNewBooking = () => {
+    const clientInfo = detail?.client || selectedClient || {};
+    onNewBooking?.({
+      customer_name: clientInfo?.customer_name || '',
+      customer_email: clientInfo?.customer_email || '',
+      customer_phone: clientInfo?.customer_phone || '',
+    });
+    setDrawerOpen(false);
+  };
+
+  const clientInfo = detail?.client || selectedClient || {};
+  const recentBooking = detail?.bookings?.[0] || null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold mb-1" style={{ fontFamily: 'Manrope' }}>
+            Clients
+          </h2>
+          <p className="text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            All customers who have booked with you
+          </p>
+        </div>
+        <div className="w-full sm:w-80">
+          <div className="relative">
+            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email"
+              className="pl-9 bg-white border-zinc-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Total Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold" style={{ fontFamily: 'Manrope' }}>
+              {stats.totalClients}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Repeat Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>
+              {stats.repeatClients}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Total Revenue from Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>
+              ${stats.revenue.toFixed(2)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle style={{ fontFamily: 'Manrope' }}>Client List</CardTitle>
+            <CardDescription style={{ fontFamily: 'Inter' }}>
+              Sort and filter customers across your bookings
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-full bg-zinc-100 p-1">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'active', label: 'Active' },
+                { id: 'inactive', label: 'Inactive' },
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                    statusFilter === filter.id
+                      ? 'bg-white text-rose-600 shadow-sm'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <Select value={sortKey} onValueChange={setSortKey}>
+              <SelectTrigger className="h-10 bg-white border-zinc-200 min-w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="total_bookings">Total bookings</SelectItem>
+                <SelectItem value="total_spent">Total spent</SelectItem>
+                <SelectItem value="last_booking_date">Last booking date</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-10 p-0 border-zinc-200"
+              onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              aria-label="Toggle sort direction"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-zinc-500 text-center py-8">Loading clients…</p>
+          ) : sortedClients.length === 0 ? (
+            <p className="text-zinc-500 text-center py-8">No clients found</p>
+          ) : (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-200">
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Customer</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Phone</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Total bookings</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Total spent</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Last booking</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">First booking</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedClients.map((client) => (
+                      <tr
+                        key={client.customer_email}
+                        onClick={() => openClient(client)}
+                        className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors cursor-pointer"
+                      >
+                        <td className="py-3 px-4 font-medium">
+                          {client.customer_name || client.customer_email}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-zinc-600">{client.customer_email}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600">
+                          {client.customer_phone || '—'}
+                        </td>
+                        <td className="py-3 px-4">{client.total_bookings || 0}</td>
+                        <td className="py-3 px-4">${Number(client.total_spent || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4">{formatDate(client.last_booking_date)}</td>
+                        <td className="py-3 px-4">{formatDate(client.first_booking_date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden space-y-3">
+                {sortedClients.map((client) => (
+                  <button
+                    key={client.customer_email}
+                    type="button"
+                    onClick={() => openClient(client)}
+                    className="w-full text-left rounded-xl border border-zinc-200 p-4 bg-white hover:bg-zinc-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">{client.customer_name || client.customer_email}</div>
+                        <div className="text-xs text-zinc-500 truncate">{client.customer_email}</div>
+                      </div>
+                      <div className="text-sm font-semibold text-emerald-700">
+                        ${Number(client.total_spent || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-600">
+                      <div>Bookings: {client.total_bookings || 0}</div>
+                      <div>Last: {formatDate(client.last_booking_date)}</div>
+                      <div>First: {formatDate(client.first_booking_date)}</div>
+                      <div>Phone: {client.customer_phone || '—'}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl sm:ml-auto sm:mr-0 sm:h-[100dvh] sm:rounded-none sm:rounded-l-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Client Details</DialogTitle>
+            <DialogDescription>Booking history and internal notes</DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="py-10 text-center text-zinc-500">Loading client…</div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <div className="text-xl font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  {clientInfo.customer_name || clientInfo.customer_email || 'Client'}
+                </div>
+                <div className="text-sm text-zinc-600">{clientInfo.customer_email || '—'}</div>
+                <div className="text-sm text-zinc-600">{clientInfo.customer_phone || '—'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Total bookings</div>
+                  <div className="text-2xl font-bold text-zinc-900">{clientInfo.total_bookings || 0}</div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Total revenue</div>
+                  <div className="text-2xl font-bold text-emerald-700">
+                    ${Number(clientInfo.total_spent || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">First booking</div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    {formatDate(clientInfo.first_booking_date)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Last booking</div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    {formatDate(clientInfo.last_booking_date)}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold text-zinc-900 mb-2" style={{ fontFamily: 'Manrope' }}>
+                  Booking history
+                </div>
+                {detail?.bookings?.length ? (
+                  <div className="space-y-2">
+                    {detail.bookings.map((booking) => (
+                      <div
+                        key={booking.id}
+                        className="rounded-lg border border-zinc-200 bg-white p-3 flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-zinc-900">
+                            {formatDate(booking.booking_date)}
+                            {booking.booking_time ? ` • ${booking.booking_time}` : ''}
+                          </div>
+                          <div className="text-sm text-zinc-600 truncate">
+                            {booking.booth_type || booking.service_type || 'Service'}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold text-emerald-700">
+                            ${bookingTotalAmount(booking).toFixed(2)}
+                          </div>
+                          <div className="text-xs text-zinc-500">{booking.status || 'confirmed'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-zinc-500">No booking history available.</div>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="client_notes" className="text-zinc-700">Internal notes</Label>
+                <Textarea
+                  id="client_notes"
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  className="mt-2 bg-zinc-50 min-h-[120px]"
+                  placeholder="Add private notes about this client…"
+                />
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveNotes}
+                    disabled={savingNotes}
+                    className="h-9"
+                  >
+                    {savingNotes ? 'Saving…' : 'Save notes'}
+                  </Button>
+                  {detail?.notes_updated_at ? (
+                    <div className="text-xs text-zinc-500">
+                      Updated {formatDate(detail.notes_updated_at)}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10"
+                  disabled={!recentBooking?.id || requestingReview}
+                  onClick={handleSendReviewRequest}
+                >
+                  {requestingReview ? 'Sending…' : 'Send review request'}
+                </Button>
+                <Button
+                  type="button"
+                  className="h-10 bg-rose-600 hover:bg-rose-700"
+                  onClick={handleNewBooking}
+                >
+                  New booking
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
