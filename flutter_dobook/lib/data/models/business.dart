@@ -15,7 +15,6 @@ class Business {
     required this.subscriptionPlan,
     required this.bookingCount,
     required this.invoiceSeq,
-    required this.passwordHash,
     required this.createdAt,
   });
 
@@ -34,7 +33,6 @@ class Business {
   final String subscriptionPlan;
   final int bookingCount;
   final int invoiceSeq;
-  final String passwordHash;
   final String createdAt;
 
   Business copyWith({
@@ -52,7 +50,6 @@ class Business {
     String? subscriptionPlan,
     int? bookingCount,
     int? invoiceSeq,
-    String? passwordHash,
     String? createdAt,
   }) {
     return Business(
@@ -71,7 +68,6 @@ class Business {
       subscriptionPlan: subscriptionPlan ?? this.subscriptionPlan,
       bookingCount: bookingCount ?? this.bookingCount,
       invoiceSeq: invoiceSeq ?? this.invoiceSeq,
-      passwordHash: passwordHash ?? this.passwordHash,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -93,7 +89,6 @@ class Business {
       'subscription_plan': subscriptionPlan,
       'booking_count': bookingCount,
       'invoice_seq': invoiceSeq,
-      'password_hash': passwordHash,
       'created_at': createdAt,
     };
   }
@@ -119,7 +114,6 @@ class Business {
       invoiceSeq: (json['invoice_seq'] is num)
           ? (json['invoice_seq'] as num).toInt()
           : 0,
-      passwordHash: json['password_hash']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
     );
   }

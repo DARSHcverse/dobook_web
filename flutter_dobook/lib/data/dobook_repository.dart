@@ -9,16 +9,36 @@ import 'package:http/http.dart' as http;
 const String apiBaseUrl = kBaseUrl;
 
 class AuthResult {
-  AuthResult({required this.token, required this.business});
+  AuthResult({
+    required this.token,
+    required this.business,
+    this.expiresAt,
+  });
 
   final String token;
   final Business business;
+  final DateTime? expiresAt;
+}
+
+DateTime? _parseExpiresAt(Map<String, dynamic> data) {
+  final direct = data['expires_at'] ?? data['expiresAt'];
+  if (direct != null) return DateTime.tryParse(direct.toString());
+  final session = data['session'];
+  if (session is Map<String, dynamic>) {
+    final nested = session['expires_at'] ?? session['expiresAt'];
+    if (nested != null) return DateTime.tryParse(nested.toString());
+  }
+  return null;
 }
 
 class DobookRepository {
   DobookRepository._();
 
   static Future<DobookRepository> open() async {
+    assert(
+      kBaseUrl.startsWith('https://') || kBaseUrl.startsWith('http://localhost'),
+      'Production API must use HTTPS',
+    );
     return DobookRepository._();
   }
 
@@ -44,6 +64,7 @@ class DobookRepository {
       return AuthResult(
         token: data['token'],
         business: Business.fromJson(data['business']),
+        expiresAt: _parseExpiresAt(data),
       );
     } else {
       final data = jsonDecode(response.body);
@@ -69,6 +90,7 @@ class DobookRepository {
       return AuthResult(
         token: data['token'],
         business: Business.fromJson(data['business']),
+        expiresAt: _parseExpiresAt(data),
       );
     } else {
       final data = jsonDecode(response.body);

@@ -1,12 +1,17 @@
+import 'dart:convert';
+
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/business.dart';
+import 'package:dobook/data/models/session.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppSession extends ChangeNotifier {
   AppSession({required this.repo});
 
-  static const _prefsTokenKey = 'dobook_token';
+  static const _storageTokenKey = 'auth_token';
+  static const _storageSessionKey = 'auth_session';
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   final DobookRepository repo;
 
@@ -30,9 +35,28 @@ class AppSession extends ChangeNotifier {
       _isInitializing = true;
       notifyListeners();
 
-      final prefs = await SharedPreferences.getInstance();
-      final savedToken = prefs.getString(_prefsTokenKey);
+      final savedToken = await _storage.read(key: _storageTokenKey);
       if (savedToken == null || savedToken.isEmpty) return;
+
+      final rawSession = await _storage.read(key: _storageSessionKey);
+      if (rawSession == null || rawSession.isEmpty) {
+        await _clearStoredAuth();
+        return;
+      }
+
+      Session? session;
+      try {
+        session = Session.fromJson(
+          jsonDecode(rawSession) as Map<String, dynamic>,
+        );
+      } catch (_) {
+        session = null;
+      }
+
+      if (session == null || session.isExpired || session.token != savedToken) {
+        await _clearStoredAuth();
+        return;
+      }
 
       final business = await repo.getBusinessForToken(savedToken);
       _token = savedToken;
@@ -48,7 +72,11 @@ class AppSession extends ChangeNotifier {
   Future<void> login({required String email, required String password}) async {
     await _run(() async {
       final result = await repo.login(email: email, password: password);
-      await _persistAuth(token: result.token, business: result.business);
+      await _persistAuth(
+        token: result.token,
+        business: result.business,
+        expiresAt: result.expiresAt,
+      );
     });
   }
 
@@ -65,7 +93,11 @@ class AppSession extends ChangeNotifier {
         password: password,
         phone: phone,
       );
-      await _persistAuth(token: result.token, business: result.business);
+      await _persistAuth(
+        token: result.token,
+        business: result.business,
+        expiresAt: result.expiresAt,
+      );
     });
   }
 
@@ -83,18 +115,33 @@ class AppSession extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsTokenKey);
+    await _clearStoredAuth();
   }
 
   Future<void> _persistAuth({
     required String token,
     required Business business,
+    DateTime? expiresAt,
   }) async {
     _token = token;
     _business = business;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsTokenKey, token);
+    final now = DateTime.now();
+    final session = Session(
+      token: token,
+      businessId: business.id,
+      createdAt: now,
+      expiresAt: expiresAt ?? now.add(const Duration(days: 7)),
+    );
+    await _storage.write(key: _storageTokenKey, value: token);
+    await _storage.write(
+      key: _storageSessionKey,
+      value: jsonEncode(session.toJson()),
+    );
+  }
+
+  Future<void> _clearStoredAuth() async {
+    await _storage.delete(key: _storageTokenKey);
+    await _storage.delete(key: _storageSessionKey);
   }
 
   Future<void> _run(Future<void> Function() action) async {
