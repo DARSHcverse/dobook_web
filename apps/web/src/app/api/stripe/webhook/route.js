@@ -55,6 +55,13 @@ async function applyBusinessUpdate(target, updates) {
       }
       : updates;
 
+  if (
+    updates?.subscription_status &&
+    String(updates.subscription_status) !== String(target?.subscription_status || "")
+  ) {
+    nextUpdates.subscription_status_changed_at = new Date().toISOString();
+  }
+
   const sb = supabaseAdmin();
   await sb.from("businesses").update(nextUpdates).eq("id", target.id);
 }

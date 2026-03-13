@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Plus, Search, Edit, Trash2, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Building2, Search, Edit, Trash2, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -26,7 +28,25 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [editingBusiness, setEditingBusiness] = useState(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [businessDetail, setBusinessDetail] = useState(null);
+  const [businessDetailLoading, setBusinessDetailLoading] = useState(false);
+  const [businessDraft, setBusinessDraft] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketStatus, setTicketStatus] = useState("open");
+  const [supportReply, setSupportReply] = useState("");
+  const [supportReplySending, setSupportReplySending] = useState(false);
+  const [supportUpdating, setSupportUpdating] = useState(false);
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportFilter, setSupportFilter] = useState("open");
+  const [broadcastSubject, setBroadcastSubject] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastAudience, setBroadcastAudience] = useState("all");
+  const [broadcastPreviewCount, setBroadcastPreviewCount] = useState(null);
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [activityLog, setActivityLog] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("businesses");
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const getBusinessName = (business) => business?.business_name || business?.name || "";
@@ -102,7 +122,12 @@ export default function AdminPanel() {
     free: 0,
     pro: 0,
     active: 0,
-    inactive: 0
+    inactive: 0,
+    monthlyRevenue: 0,
+    newSignupsThisMonth: 0,
+    bookingsThisMonth: 0,
+    churnThisMonth: 0,
+    openTickets: 0
   });
 
   useEffect(() => {
@@ -135,7 +160,7 @@ export default function AdminPanel() {
       const data = await response.json();
       setBusinesses(data.businesses || []);
       calculateStats(data.businesses || []);
-      await fetchReviews(reviewsFilter);
+      await Promise.all([fetchReviews(reviewsFilter), loadStats(), fetchActivityLog()]);
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -145,14 +170,54 @@ export default function AdminPanel() {
   };
 
   const calculateStats = (businesses) => {
-    const stats = {
+    const next = {
       total: businesses.length,
       free: businesses.filter(b => b.subscription_plan === 'free').length,
       pro: businesses.filter(b => b.subscription_plan === 'pro').length,
       active: businesses.filter(b => b.subscription_status === 'active').length,
       inactive: businesses.filter(b => b.subscription_status !== 'active').length
     };
-    setStats(stats);
+    setStats((prev) => ({ ...prev, ...next }));
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch("/api/admin/stats");
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to load stats");
+      }
+      const data = await response.json();
+      setStats((prev) => ({ ...prev, ...(data || {}) }));
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    }
+  };
+
+  const fetchActivityLog = async () => {
+    setActivityLoading(true);
+    try {
+      const response = await fetch("/api/admin/activity-log?limit=100");
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to load activity log");
+      }
+      const data = await response.json();
+      setActivityLog(Array.isArray(data?.logs) ? data.logs : []);
+    } catch (error) {
+      setActivityLog([]);
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setActivityLoading(false);
+    }
   };
 
   const filterBusinesses = () => {
@@ -172,6 +237,143 @@ export default function AdminPanel() {
     setFilteredBusinesses(filtered);
   };
 
+  const fetchSupportTickets = async (status) => {
+    setSupportLoading(true);
+    try {
+      const url = new URL("/api/admin/support-tickets", window.location.origin);
+      const nextStatus = status || supportFilter;
+      if (nextStatus && nextStatus !== "all") {
+        url.searchParams.set("status", nextStatus);
+      }
+      const response = await fetch(url.toString(), { method: "GET" });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to load support tickets");
+      }
+      const data = await response.json();
+      setSupportTickets(Array.isArray(data?.tickets) ? data.tickets : []);
+    } catch (error) {
+      setSupportTickets([]);
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const updateTicketStatus = async (ticketId, status) => {
+    setSupportUpdating(true);
+    try {
+      const response = await fetch(`/api/admin/support-tickets/${ticketId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to update ticket");
+      }
+      const data = await response.json();
+      const updated = data?.ticket;
+      if (updated) {
+        setSelectedTicket((prev) => (prev?.id === updated.id ? updated : prev));
+        setSupportTickets((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+      }
+      toast.success("Ticket status updated");
+      await Promise.all([loadStats(), fetchActivityLog(), fetchSupportTickets(supportFilter)]);
+    } catch (error) {
+      toast.error(error.message || "Failed to update ticket");
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setSupportUpdating(false);
+    }
+  };
+
+  const sendSupportReply = async (ticketId) => {
+    if (!supportReply.trim()) return;
+    setSupportReplySending(true);
+    try {
+      const response = await fetch(`/api/admin/support-tickets/${ticketId}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: supportReply }),
+      });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to send reply");
+      }
+      toast.success("Reply sent");
+      setSupportReply("");
+      await fetchActivityLog();
+    } catch (error) {
+      toast.error(error.message || "Failed to send reply");
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setSupportReplySending(false);
+    }
+  };
+
+  const getAudienceCount = (audience) => {
+    const next = String(audience || "all").toLowerCase();
+    const filtered = (businesses || []).filter((b) => {
+      if (!String(b?.email || "").trim()) return false;
+      if (next === "pro") return b.subscription_plan === "pro";
+      if (next === "free") return b.subscription_plan === "free";
+      if (next === "inactive") return b.subscription_status !== "active";
+      return true;
+    });
+    return filtered.length;
+  };
+
+  const sendBroadcast = async () => {
+    if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
+      toast.error("Subject and message are required");
+      return;
+    }
+    setBroadcastSending(true);
+    try {
+      const response = await fetch("/api/admin/broadcasts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: broadcastSubject.trim(),
+          message: broadcastMessage.trim(),
+          audience: broadcastAudience,
+        }),
+      });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      if (!response.ok) {
+        const err = await readResponseError(response);
+        throw new Error(err || "Failed to send broadcast");
+      }
+      const data = await response.json();
+      toast.success(`Broadcast sent to ${data?.sent_count ?? 0} businesses`);
+      setBroadcastSubject("");
+      setBroadcastMessage("");
+      setBroadcastPreviewCount(null);
+      await Promise.all([fetchActivityLog(), loadStats()]);
+    } catch (error) {
+      toast.error(error.message || "Failed to send broadcast");
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
+
   useEffect(() => {
     filterBusinesses();
   }, [businesses, searchTerm, filterPlan]);
@@ -180,6 +382,53 @@ export default function AdminPanel() {
     fetchReviews(reviewsFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewsFilter]);
+
+  useEffect(() => {
+    if (activeTab !== "support") return;
+    fetchSupportTickets(supportFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, supportFilter]);
+
+  useEffect(() => {
+    if (!editingBusiness?.id) {
+      setBusinessDetail(null);
+      setBusinessDraft(null);
+      return;
+    }
+    let cancelled = false;
+    const loadDetail = async () => {
+      setBusinessDetailLoading(true);
+      try {
+        const response = await fetch(`/api/admin/businesses/${editingBusiness.id}/detail`);
+        if (response.status === 401) {
+          router.replace("/admin/auth");
+          return;
+        }
+        if (!response.ok) {
+          const err = await readResponseError(response);
+          throw new Error(err || "Failed to load business details");
+        }
+        const data = await response.json();
+        if (cancelled) return;
+        setBusinessDetail(data || null);
+        setBusinessDraft(data?.business ? { ...data.business } : null);
+      } catch (error) {
+        if (!cancelled) setMessage({ type: "error", text: error.message });
+      } finally {
+        if (!cancelled) setBusinessDetailLoading(false);
+      }
+    };
+    loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingBusiness?.id, router]);
+
+  useEffect(() => {
+    if (!selectedTicket) return;
+    setTicketStatus(selectedTicket.status || "open");
+    setSupportReply("");
+  }, [selectedTicket]);
 
   const handleLogout = () => {
     fetch("/api/admin/auth/logout", { method: "POST" })
@@ -194,29 +443,6 @@ export default function AdminPanel() {
       </div>
     );
   }
-
-  const handleUpgradeToPro = async (businessId) => {
-    try {
-      const response = await fetch(`/api/admin/businesses/${businessId}/upgrade`, {
-        method: 'POST'
-      });
-
-      if (response.status === 401) {
-        router.replace('/admin/auth');
-        return;
-      }
-
-      if (!response.ok) {
-        const err = await readResponseError(response);
-        throw new Error(err || 'Failed to upgrade business');
-      }
-
-      setMessage({ type: "success", text: "Business upgraded to pro plan successfully!" });
-      checkAuthAndFetch();
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    }
-  };
 
   const handleSetSubscription = async (businessId, nextPlan, nextStatus) => {
     try {
@@ -241,9 +467,11 @@ export default function AdminPanel() {
         throw new Error(err || 'Failed to update subscription');
       }
 
+      toast.success(`Subscription updated to ${String(nextPlan).toUpperCase()}`);
       setMessage({ type: "success", text: `Subscription updated to ${String(nextPlan).toUpperCase()}` });
-      checkAuthAndFetch();
+      await checkAuthAndFetch();
     } catch (error) {
+      toast.error(error.message || "Failed to update subscription");
       setMessage({ type: "error", text: error.message });
     }
   };
@@ -269,7 +497,7 @@ export default function AdminPanel() {
       }
 
       setMessage({ type: "success", text: "Business deleted successfully!" });
-      checkAuthAndFetch();
+      await checkAuthAndFetch();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     }
@@ -282,6 +510,7 @@ export default function AdminPanel() {
         email: businessData?.email || "",
         subscription_plan: businessData?.subscription_plan || "free",
         subscription_status: businessData?.subscription_status || "inactive",
+        admin_notes: businessData?.admin_notes || "",
       };
 
       const response = await fetch(`/api/admin/businesses/${editingBusiness.id}`, {
@@ -304,7 +533,7 @@ export default function AdminPanel() {
 
       setMessage({ type: "success", text: "Business updated successfully!" });
       setEditingBusiness(null);
-      checkAuthAndFetch();
+      await checkAuthAndFetch();
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     }
@@ -348,6 +577,32 @@ export default function AdminPanel() {
     );
   };
 
+  const getTicketStatusBadge = (status) => {
+    const variants = {
+      open: "secondary",
+      "in-progress": "default",
+      resolved: "outline",
+    };
+    return (
+      <Badge variant={variants[String(status || "open")] || "secondary"}>
+        {String(status || "open").toUpperCase()}
+      </Badge>
+    );
+  };
+
+  const formatDateTime = (raw) => {
+    if (!raw) return "-";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleString();
+  };
+
+  const formatAction = (action) =>
+    String(action || "")
+      .replaceAll("_", " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -358,6 +613,7 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <Toaster position="top-center" richColors />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -379,7 +635,7 @@ export default function AdminPanel() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-9 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Businesses</CardTitle>
@@ -425,10 +681,66 @@ export default function AdminPanel() {
             <div className="text-2xl font-bold">{stats.inactive}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${Number(stats.monthlyRevenue || 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">Active Pro × $20</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Signups</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.newSignupsThisMonth}</div>
+            <p className="text-xs text-muted-foreground">This month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Bookings</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.bookingsThisMonth}</div>
+            <p className="text-xs text-muted-foreground">This month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Churn</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.churnThisMonth}</div>
+            <p className="text-xs text-muted-foreground">Went inactive</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="businesses">Businesses</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="support" className="flex items-center gap-2">
+            Support
+            <Badge variant="secondary" className="ml-1">
+              {stats.openTickets || 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="businesses">
+          {/* Filters */}
+          <Card>
         <CardHeader>
           <CardTitle>Businesses</CardTitle>
           <CardDescription>Manage all registered businesses</CardDescription>
@@ -536,9 +848,11 @@ export default function AdminPanel() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Platform Reviews Moderation */}
-      <Card>
+        <TabsContent value="reviews">
+          {/* Platform Reviews Moderation */}
+          <Card>
         <CardHeader>
           <CardTitle>DoBook Reviews</CardTitle>
           <CardDescription>Approve or deny business reviews before they show on the DoBook website</CardDescription>
@@ -614,41 +928,239 @@ export default function AdminPanel() {
             <div className="text-center py-6 text-muted-foreground">No reviews in this filter.</div>
           ) : null}
         </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="support">
+          <Card>
+            <CardHeader>
+              <CardTitle>Support Tickets</CardTitle>
+              <CardDescription>Respond to business support requests</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <Select value={supportFilter} onValueChange={setSupportFilter}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Filter tickets" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="text-sm text-muted-foreground">
+                  {supportLoading ? "Loading..." : `${supportTickets.length} ticket(s)`}
+                </div>
+              </div>
+
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Business</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {supportTickets.map((ticket) => (
+                      <TableRow key={ticket.id}>
+                        <TableCell>
+                          <div className="font-medium">{ticket.business_name || "-"}</div>
+                          <div className="text-xs text-muted-foreground">{ticket.business_email || "-"}</div>
+                        </TableCell>
+                        <TableCell className="max-w-[280px] truncate">{ticket.subject}</TableCell>
+                        <TableCell>{getTicketStatusBadge(ticket.status)}</TableCell>
+                        <TableCell>{formatCreatedAt(ticket.created_at)}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedTicket(ticket)}>
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {!supportLoading && supportTickets.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">No tickets in this filter.</div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="broadcast">
+          <Card>
+            <CardHeader>
+              <CardTitle>Broadcast Email</CardTitle>
+              <CardDescription>Send updates to your businesses via email</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="broadcast-subject">Subject</Label>
+                <Input
+                  id="broadcast-subject"
+                  value={broadcastSubject}
+                  onChange={(e) => setBroadcastSubject(e.target.value)}
+                  placeholder="What's new in DoBook?"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="broadcast-audience">Audience</Label>
+                <Select value={broadcastAudience} onValueChange={setBroadcastAudience}>
+                  <SelectTrigger className="w-[240px]">
+                    <SelectValue placeholder="Audience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All businesses</SelectItem>
+                    <SelectItem value="pro">Pro only</SelectItem>
+                    <SelectItem value="free">Free only</SelectItem>
+                    <SelectItem value="inactive">Inactive only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="broadcast-message">Message</Label>
+                <Textarea
+                  id="broadcast-message"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  placeholder="Write your announcement. Basic HTML is allowed."
+                  className="min-h-[160px]"
+                />
+                <p className="text-xs text-muted-foreground">Keep it concise. Basic line breaks are supported.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBroadcastPreviewCount(getAudienceCount(broadcastAudience))}
+                >
+                  Preview Audience
+                </Button>
+                {broadcastPreviewCount !== null ? (
+                  <div className="text-sm text-muted-foreground">
+                    Will send to {broadcastPreviewCount} business(es)
+                  </div>
+                ) : null}
+              </div>
+              <Button onClick={sendBroadcast} disabled={broadcastSending} className="w-full sm:w-auto">
+                {broadcastSending ? "Sending..." : "Send Broadcast"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity Log</CardTitle>
+          <CardDescription>Recent admin actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {activityLoading ? (
+            <div className="text-sm text-muted-foreground">Loading activity…</div>
+          ) : activityLog.length ? (
+            <div className="max-h-80 overflow-y-auto space-y-3">
+              {activityLog.map((log) => (
+                <div key={log.id} className="flex items-start justify-between gap-4 border-b pb-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{formatAction(log.action)}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      Business: {log.business_name || log.target_business_id || "-"}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatDateTime(log.created_at)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No recent activity.</div>
+          )}
+        </CardContent>
       </Card>
 
-      {/* Edit Business Dialog */}
-      <Dialog open={!!editingBusiness} onOpenChange={() => setEditingBusiness(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Business</DialogTitle>
-            <DialogDescription>
-              Update business information and subscription details.
-            </DialogDescription>
-          </DialogHeader>
-          {editingBusiness && (
-            <div className="grid gap-4 py-4">
+      <Sheet
+        open={!!editingBusiness}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingBusiness(null);
+            setBusinessDetail(null);
+            setBusinessDraft(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Business Details</SheetTitle>
+            <SheetDescription>Admin-only view of business performance</SheetDescription>
+          </SheetHeader>
+          {businessDetailLoading ? (
+            <div className="py-6 text-sm text-muted-foreground">Loading business details...</div>
+          ) : businessDraft ? (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Created</div>
+                  <div className="font-medium">{formatCreatedAt(businessDetail?.business?.created_at)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Last login</div>
+                  <div className="font-medium">
+                    {businessDetail?.stats?.last_login_at ? formatDateTime(businessDetail.stats.last_login_at) : "-"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Total bookings</div>
+                  <div className="font-medium">{businessDetail?.stats?.bookings_count ?? 0}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Total revenue</div>
+                  <div className="font-medium">
+                    ${Number(businessDetail?.stats?.total_revenue || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Business type</div>
+                  <div className="font-medium">
+                    {businessDetail?.business?.business_type || businessDetail?.business?.industry || "-"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Status</div>
+                  <div className="font-medium">
+                    {String(businessDraft.subscription_status || "inactive").toUpperCase()}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="name">Business Name</Label>
+                <Label>Business Name</Label>
                 <Input
-                  id="name"
-                  value={getBusinessName(editingBusiness)}
-                  onChange={(e) => setEditingBusiness({ ...editingBusiness, business_name: e.target.value })}
+                  value={getBusinessName(businessDraft)}
+                  onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label>Email</Label>
                 <Input
-                  id="email"
                   type="email"
-                  value={editingBusiness.email || ''}
-                  onChange={(e) => setEditingBusiness({...editingBusiness, email: e.target.value})}
+                  value={businessDraft.email || ""}
+                  onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="plan">Subscription Plan</Label>
-                <Select 
-                  value={editingBusiness.subscription_plan || 'free'} 
-                  onValueChange={(value) => setEditingBusiness({...editingBusiness, subscription_plan: value})}
+                <Label>Subscription Plan</Label>
+                <Select
+                  value={businessDraft.subscription_plan || "free"}
+                  onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_plan: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -660,10 +1172,10 @@ export default function AdminPanel() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="status">Subscription Status</Label>
-                <Select 
-                  value={editingBusiness.subscription_status || 'inactive'} 
-                  onValueChange={(value) => setEditingBusiness({...editingBusiness, subscription_status: value})}
+                <Label>Subscription Status</Label>
+                <Select
+                  value={businessDraft.subscription_status || "inactive"}
+                  onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_status: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -675,18 +1187,97 @@ export default function AdminPanel() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label>Admin Notes</Label>
+                <Textarea
+                  value={businessDraft.admin_notes || ""}
+                  onChange={(e) => setBusinessDraft({ ...businessDraft, admin_notes: e.target.value })}
+                  className="min-h-[120px]"
+                />
+              </div>
             </div>
+          ) : (
+            <div className="py-6 text-sm text-muted-foreground">Select a business to view details.</div>
           )}
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => setEditingBusiness(null)}>
-              Cancel
+              Close
             </Button>
-            <Button onClick={() => handleUpdateBusiness(editingBusiness)}>
+            <Button onClick={() => handleUpdateBusiness(businessDraft)} disabled={!businessDraft}>
               Save Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={!!selectedTicket}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTicket(null);
+            setSupportReply("");
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Support Ticket</SheetTitle>
+            <SheetDescription>View message and respond</SheetDescription>
+          </SheetHeader>
+          {selectedTicket ? (
+            <div className="space-y-4 py-4">
+              <div className="text-sm text-muted-foreground">
+                <div className="font-medium text-foreground">{selectedTicket.subject}</div>
+                <div>{selectedTicket.business_name || "-"}</div>
+                <div>{selectedTicket.business_email || "-"}</div>
+                <div>{formatDateTime(selectedTicket.created_at)}</div>
+              </div>
+              <div className="rounded-md border p-4 whitespace-pre-wrap text-sm">
+                {selectedTicket.message}
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <Select value={ticketStatus} onValueChange={setTicketStatus}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  onClick={() => updateTicketStatus(selectedTicket.id, ticketStatus)}
+                  disabled={supportUpdating}
+                  className="w-fit"
+                >
+                  {supportUpdating ? "Updating..." : "Update Status"}
+                </Button>
+              </div>
+              <div className="grid gap-2">
+                <Label>Reply</Label>
+                <Textarea
+                  value={supportReply}
+                  onChange={(e) => setSupportReply(e.target.value)}
+                  placeholder="Write a response to the business..."
+                  className="min-h-[120px]"
+                />
+                <Button
+                  onClick={() => sendSupportReply(selectedTicket.id)}
+                  disabled={supportReplySending || !supportReply.trim()}
+                  className="w-fit"
+                >
+                  {supportReplySending ? "Sending..." : "Send Reply"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-sm text-muted-foreground">Select a ticket to view details.</div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { sendEmailViaResend } from "@/lib/email";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,23 @@ export async function POST(request) {
     `---\n` +
     `${messageRaw}\n`;
 
+  const sb = supabaseAdmin();
+  const { data: ticket, error: ticketError } = await sb
+    .from("support_tickets")
+    .insert({
+      business_id: businessId || null,
+      business_email: businessEmail || "",
+      subject: subjectRaw,
+      message: messageRaw,
+      status: "open",
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (ticketError) {
+    return NextResponse.json({ detail: ticketError.message || "Failed to save ticket" }, { status: 500 });
+  }
+
   const result = await sendEmailViaResend({
     to,
     subject,
@@ -63,6 +81,5 @@ export async function POST(request) {
     return NextResponse.json({ detail: result?.error || "Failed to send" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ticket_id: ticket?.id || null });
 }
-
