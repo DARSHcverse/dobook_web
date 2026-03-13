@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
 
+export const SESSION_COOKIE = "dobook_session";
+
 export function sanitizeBusiness(business) {
   // Never return password hashes to the client.
   // eslint-disable-next-line no-unused-vars
@@ -30,8 +32,25 @@ export function getBearerToken(request) {
   return token;
 }
 
+export function getSessionToken(request) {
+  if (request?.cookies?.get) {
+    const cookie = request.cookies.get(SESSION_COOKIE);
+    if (cookie?.value) return cookie.value;
+  }
+
+  const raw = request?.headers?.get?.("cookie") || "";
+  if (!raw) return null;
+  const parts = raw.split(";").map((part) => part.trim()).filter(Boolean);
+  for (const part of parts) {
+    if (!part.startsWith(`${SESSION_COOKIE}=`)) continue;
+    const value = part.slice(SESSION_COOKIE.length + 1);
+    return value ? decodeURIComponent(value) : null;
+  }
+  return null;
+}
+
 export async function requireSession(request) {
-  const token = getBearerToken(request);
+  const token = getSessionToken(request) || getBearerToken(request);
   if (!token) return { error: unauthorized() };
 
   const sb = supabaseAdmin();

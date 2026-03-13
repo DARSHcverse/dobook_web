@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
-import { sanitizeBusiness } from "@/app/api/_utils/auth";
+import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 
 async function ensureOwnerAccessSupabase(sb, business) {
   if (!business) return business;
@@ -37,7 +37,8 @@ export async function POST(request) {
   const normalized = await ensureOwnerAccessSupabase(sb, business);
 
   const token = randomUUID();
-  const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expires_at = expiresAt.toISOString();
 
   const { error: sessionError } = await sb.from("sessions").insert({
     token,
@@ -59,5 +60,13 @@ export async function POST(request) {
     return NextResponse.json({ detail: sessionError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ token, business: sanitizeBusiness(normalized) });
+  const response = NextResponse.json({ business: sanitizeBusiness(normalized) });
+  response.cookies.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    expires: expiresAt,
+    path: "/",
+  });
+  return response;
 }

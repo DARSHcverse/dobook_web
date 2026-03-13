@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -41,16 +41,13 @@ export default function BusinessBookingSettingsCard() {
   const [fields, setFields] = useState([]);
   const [addons, setAddons] = useState([]);
 
-  const token = useMemo(() => (typeof window === "undefined" ? "" : localStorage.getItem("dobook_token") || ""), []);
-
   useEffect(() => {
-    if (!token) return;
     const load = async () => {
       setLoading(true);
       try {
         const [f, a] = await Promise.all([
-          axios.get(`${API}/business/booking-form-fields`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`${API}/business/service-addons`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${API}/business/booking-form-fields`),
+          axios.get(`${API}/business/service-addons`),
         ]);
         setFields(Array.isArray(f?.data) ? f.data : []);
         setAddons(Array.isArray(a?.data) ? a.data : []);
@@ -61,10 +58,9 @@ export default function BusinessBookingSettingsCard() {
       }
     };
     load();
-  }, [token]);
+  }, []);
 
   async function saveFields() {
-    if (!token) return;
     setSavingFields(true);
     try {
       const payload = (fields || []).map((f, i) => ({
@@ -77,9 +73,7 @@ export default function BusinessBookingSettingsCard() {
         field_options: Array.isArray(f?.field_options) ? f.field_options : parseOptions(f?.field_options_raw),
       }));
 
-      const res = await axios.put(`${API}/business/booking-form-fields`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.put(`${API}/business/booking-form-fields`, payload);
       setFields(Array.isArray(res?.data) ? res.data : []);
       toast.success("Booking fields saved");
     } catch (e) {
@@ -90,7 +84,6 @@ export default function BusinessBookingSettingsCard() {
   }
 
   async function saveAddons() {
-    if (!token) return;
     setSavingAddons(true);
     try {
       const payload = (addons || []).map((a, i) => ({
@@ -102,9 +95,7 @@ export default function BusinessBookingSettingsCard() {
         sort_order: i * 10,
       }));
 
-      const res = await axios.put(`${API}/business/service-addons`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.put(`${API}/business/service-addons`, payload);
       setAddons(Array.isArray(res?.data) ? res.data : []);
       toast.success("Add-ons saved");
     } catch (e) {
@@ -395,4 +386,3 @@ export default function BusinessBookingSettingsCard() {
     </Card>
   );
 }
-

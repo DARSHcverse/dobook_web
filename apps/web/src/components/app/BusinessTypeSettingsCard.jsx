@@ -54,13 +54,9 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("dobook_token");
-      if (!token) throw new Error("Not logged in");
-
       const res = await axios.post(
         `${API}/business/business-type/apply`,
         { business_type: bt },
-        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const applied = res?.data;
@@ -70,7 +66,7 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
         toast.success("Business type updated");
       }
 
-      const refreshed = await axios.get(`${API}/business/profile`, { headers: { Authorization: `Bearer ${token}` } });
+      const refreshed = await axios.get(`${API}/business/profile`);
       onUpdate?.(refreshed?.data);
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.message || "Failed to apply business type");
@@ -158,4 +154,3 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
     </Card>
   );
 }
-

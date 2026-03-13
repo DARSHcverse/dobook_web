@@ -17,12 +17,22 @@ export default function LandingCtaClient({
   const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem("dobook_token");
-      setHasSession(Boolean(token));
-    } finally {
-      setReady(true);
-    }
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        if (cancelled) return;
+        setHasSession(res.ok);
+      } catch {
+        if (!cancelled) setHasSession(false);
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const primaryHref = useMemo(() => (hasSession ? "/dashboard" : getStartedHref), [getStartedHref, hasSession]);

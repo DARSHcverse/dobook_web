@@ -161,14 +161,9 @@ export default function BusinessTour({ business, open, onOpenChange, onBusinessU
       const businessId = business?.id ? String(business.id) : "";
       if (businessId) localStorage.setItem(`dobook_tour_seen_${businessId}`, "1");
 
-      const token = localStorage.getItem("dobook_token");
-      if (!token) return;
-
       setSaving(true);
       const payload = { onboarding_tour_completed_at: new Date().toISOString() };
-      const res = await axios.put(`${API}/business/profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.put(`${API}/business/profile`, payload);
 
       const updated = res?.data || null;
       if (updated) {

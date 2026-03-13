@@ -17,6 +17,7 @@ import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplat
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
+axios.defaults.withCredentials = true;
 
 const BUSINESS_TYPE_TO_INDUSTRY = {
   salon_barbershop: "salon",
@@ -171,17 +172,14 @@ export default function AuthScreen() {
         ? { email: formData.email, password: formData.password }
         : formData;
 
-      const response = await axios.post(`${API}${endpoint}`, payload);
-      localStorage.setItem("dobook_token", response.data.token);
-      localStorage.setItem("dobook_business", JSON.stringify(minimizeBusinessForStorage(response.data.business)));
+      const response = await axios.post(`${API}${endpoint}`, payload, { withCredentials: true });
+      if (response?.data?.business) {
+        localStorage.setItem("dobook_business", JSON.stringify(minimizeBusinessForStorage(response.data.business)));
+      }
 
       if (!isLogin && formData.subscription_plan === "pro") {
         toast.success("Account created! Redirecting to payment…");
-        const checkout = await axios.post(
-          `${API}/stripe/checkout`,
-          { plan: "pro" },
-          { headers: { Authorization: `Bearer ${response.data.token}` } },
-        );
+        const checkout = await axios.post(`${API}/stripe/checkout`, { plan: "pro" }, { withCredentials: true });
         const url = checkout?.data?.url;
         if (!url) throw new Error("Missing checkout URL");
         window.location.href = url;

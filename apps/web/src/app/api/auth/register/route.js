@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { sanitizeBusiness } from "@/app/api/_utils/auth";
+import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 
@@ -123,7 +123,8 @@ export async function POST(request) {
   };
 
   const token = randomUUID();
-  const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expires_at = expiresAt.toISOString();
 
   const { error: businessInsertError } = await sb.from("businesses").insert(business);
   if (businessInsertError) {
@@ -169,5 +170,13 @@ export async function POST(request) {
     // ignore email failures
   }
 
-  return NextResponse.json({ token, business: sanitizeBusiness(business) });
+  const response = NextResponse.json({ business: sanitizeBusiness(business) });
+  response.cookies.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    expires: expiresAt,
+    path: "/",
+  });
+  return response;
 }

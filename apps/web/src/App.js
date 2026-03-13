@@ -49,6 +49,7 @@ import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
+axios.defaults.withCredentials = true;
 
 const DOBOOK_LOGO_PNG = '/brand/dobook-logo.png';
 const DOBOOK_LOGO_SVG = '/brand/dobook-logo.svg';
@@ -477,11 +478,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     let cancelled = false;
     const run = async () => {
       try {
-        const token = localStorage.getItem("dobook_token");
-        if (!token) return;
-        const res = await axios.get(`${API}/business/booking-form-fields`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(`${API}/business/booking-form-fields`);
         if (cancelled) return;
         setBookingFieldDefs(Array.isArray(res?.data) ? res.data : []);
       } catch {
@@ -611,11 +608,9 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                       if (!ok) return;
                       setUpdatingStatus(true);
                       try {
-                        const token = localStorage.getItem('dobook_token');
                         await axios.put(
                           `${API}/bookings/${booking.id}`,
                           { status: next },
-                          { headers: { Authorization: `Bearer ${token}` } },
                         );
                         toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
                         onClose?.();
@@ -639,11 +634,9 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 	                      onClick={async () => {
 	                        setRequestingReview(true);
 	                        try {
-	                          const token = localStorage.getItem('dobook_token');
 	                          const res = await axios.post(
 	                            `${API}/reviews/request`,
 	                            { booking_id: booking.id },
-	                            { headers: { Authorization: `Bearer ${token}` } },
 	                          );
 	                          const url = res?.data?.url;
 	                          const skipped = Boolean(res?.data?.email?.skipped);
@@ -687,10 +680,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     data-testid="download-invoice-btn"
                     onClick={async () => {
                       try {
-                        const token = localStorage.getItem('dobook_token');
-                        if (!token) throw new Error('Not logged in');
                         const res = await axios.get(`${API}/invoices/pdf/${booking.id}`, {
-                          headers: { Authorization: `Bearer ${token}` },
                           responseType: 'blob',
                         });
                         const blob = res?.data;
@@ -739,12 +729,12 @@ const LandingPage = ({
 } = {}) => {
   const router = useRouter();
   const [authReady, setAuthReady] = useState(false);
-  const [session, setSession] = useState({ token: null, business: null });
+  const [session, setSession] = useState({ authed: false, business: null });
   const [heroPreviewTab, setHeroPreviewTab] = useState('bookings');
   const [productPreviewTab, setProductPreviewTab] = useState('bookings');
   const [platformReviews, setPlatformReviews] = useState([]);
 
-  const isAuthed = authReady && Boolean(session?.token);
+  const isAuthed = authReady && Boolean(session?.authed);
   const businessName = String(session?.business?.business_name || session?.business?.email || '').trim();
   const avatarUrl = String(session?.business?.logo_url || '').trim();
 
@@ -759,21 +749,28 @@ const LandingPage = ({
   }, [businessName]);
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('dobook_token');
-      const raw = localStorage.getItem('dobook_business');
-      let business = null;
-      if (raw) {
-        try {
-          business = JSON.parse(raw);
-        } catch {
-          business = null;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        if (cancelled) return;
+        if (!res.ok) {
+          setSession({ authed: false, business: null });
+          return;
         }
+        const data = await res.json();
+        if (cancelled) return;
+        setSession({ authed: true, business: data?.business || null });
+      } catch {
+        if (!cancelled) setSession({ authed: false, business: null });
+      } finally {
+        if (!cancelled) setAuthReady(true);
       }
-      setSession({ token, business });
-    } finally {
-      setAuthReady(true);
-    }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const uiPreviewTabs = [
@@ -1840,14 +1837,7 @@ const Dashboard = () => {
 
   const refreshBusiness = async () => {
     try {
-      const token = localStorage.getItem('dobook_token');
-      if (!token) {
-        setHasRefreshed(true);
-        return;
-      }
-      const response = await axios.get(`${API}/business/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(`${API}/business/profile`);
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       setBusiness(response.data);
     } catch {
@@ -1871,15 +1861,7 @@ const Dashboard = () => {
 
   const loadBookings = async () => {
     try {
-      const token = localStorage.getItem('dobook_token');
-      if (!token) {
-        setBookings([]);
-        setLoading(false);
-        return;
-      }
-      const response = await axios.get(`${API}/bookings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API}/bookings`);
       const list = Array.isArray(response.data) ? response.data : [];
       const normalized = list.map((b) => ({
         ...b,
@@ -1903,8 +1885,8 @@ const Dashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('dobook_token');
     localStorage.removeItem('dobook_business');
+    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     router.push('/');
     toast.success('Logged out successfully');
   };
@@ -2513,15 +2495,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     setPlatformReviewChecked(false);
     setPlatformReviewHasReview(false);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('dobook_token') : null;
-    if (!token || !business?.id) {
+    if (!business?.id) {
       setPlatformReviewChecked(true);
       return () => {
         cancelled = true;
       };
     }
 
-    axios.get(`${API}/business/platform-reviews`, { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`${API}/business/platform-reviews`)
       .then((res) => {
         if (cancelled) return;
         setPlatformReviewHasReview(Boolean(res.data?.hasReview));
@@ -2562,7 +2543,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 
     setUploadingLogo(true);
     try {
-      const token = localStorage.getItem('dobook_token');
       const formDataUpload = new FormData();
       const type = String(file.type || '').toLowerCase();
       let uploadFile = file;
@@ -2596,7 +2576,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 
       const response = await axios.post(`${API}/business/upload-logo`, formDataUpload, {
         headers: { 
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
@@ -2619,7 +2598,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
       const slugKey = (label) =>
         String(label || '')
           .trim()
@@ -2657,9 +2635,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       payload.travel_fee_rate_per_km = Number(formData.travel_fee_rate_per_km || 0);
       payload.cbd_fee_amount = Number(formData.cbd_fee_amount || 0);
 
-      const response = await axios.put(`${API}/business/profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.put(`${API}/business/profile`, payload);
       
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       onUpdate(response.data);
@@ -2674,12 +2650,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const handleUpgrade = async () => {
     setBillingLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.post(
-        `${API}/stripe/checkout`,
-        { plan: 'pro' },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.post(`${API}/stripe/checkout`, { plan: 'pro' });
       const url = response?.data?.url;
       if (!url) throw new Error('Missing checkout URL');
       window.location.href = url;
@@ -2693,12 +2664,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const handleManageBilling = async () => {
     setBillingLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.post(
-        `${API}/stripe/portal`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.post(`${API}/stripe/portal`, {});
       const url = response?.data?.url;
       if (!url) throw new Error('Missing portal URL');
       window.location.href = url;
@@ -2712,12 +2678,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const handleCancelSubscription = async () => {
     setBillingLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.post(
-        `${API}/stripe/portal`,
-        { flow: 'cancel' },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.post(`${API}/stripe/portal`, { flow: 'cancel' });
       const url = response?.data?.url;
       if (!url) throw new Error('Missing portal URL');
       window.location.href = url;
@@ -2731,13 +2692,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      await axios.delete(`${API}/business/delete`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${API}/business/delete`);
 
-      localStorage.removeItem('dobook_token');
       localStorage.removeItem('dobook_business');
+      fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
       toast.success('Account deleted');
       router.push('/');
       return true;
@@ -3319,11 +3277,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   }
                   setPlatformReviewSubmitting(true);
                   try {
-                    const token = localStorage.getItem('dobook_token');
                     await axios.post(
                       `${API}/business/platform-reviews`,
                       { rating, comment },
-                      { headers: { Authorization: `Bearer ${token}` } },
                     );
                     toast.success('Thanks! Your review was submitted for approval.');
                     setPlatformReviewRating('5');
@@ -3390,11 +3346,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 }
                 setSupportSending(true);
                 try {
-                  const token = localStorage.getItem('dobook_token');
                   await axios.post(
                     `${API}/support/contact`,
                     { subject, message },
-                    { headers: { Authorization: `Bearer ${token}` } },
                   );
                   toast.success('Message sent. We’ll get back to you soon.');
                   setSupportSubject('');
@@ -4150,10 +4104,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
 	  const loadTemplates = async () => {
 	    try {
-	      const token = localStorage.getItem('dobook_token');
-	      const response = await axios.get(`${API}/invoices/templates`, {
-	        headers: { Authorization: `Bearer ${token}` }
-	      });
+	      const response = await axios.get(`${API}/invoices/templates`);
 	      setTemplates(response.data);
 	      const active = Array.isArray(response.data) ? response.data[0] : null;
 	      if (active) {
@@ -4176,7 +4127,6 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
 	  const handleSaveTemplate = async () => {
 	    try {
-	      const token = localStorage.getItem('dobook_token');
 	      await axios.post(`${API}/invoices/templates`, {
 	        template_name: selectedTemplate,
 	        logo_url: logoUrl || null,
@@ -4188,8 +4138,6 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 	        show_notes: Boolean(showNotes),
 	        table_style: tableStyle,
 	        footer_text: footerText || null,
-	      }, {
-	        headers: { Authorization: `Bearer ${token}` }
 	      });
 	      toast.success('Invoice template saved and set as active!');
 	      loadTemplates();
@@ -4966,8 +4914,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
     if (!business?.id) return;
     setCustomerReviewsLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const res = await axios.get(`${API}/business/reviews`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${API}/business/reviews`);
       setCustomerReviews(Array.isArray(res.data?.reviews) ? res.data.reviews : []);
     } catch {
       setCustomerReviews([]);
@@ -4984,7 +4931,6 @@ const PublicProfileTab = ({ business, onUpdate }) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
       const payload = {
         public_enabled: Boolean(formData.public_enabled),
         public_postcode: String(formData.public_postcode || ''),
@@ -4994,9 +4940,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
         public_services: Array.isArray(formData.public_services) ? formData.public_services : [],
       };
 
-      const response = await axios.put(`${API}/business/profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.put(`${API}/business/profile`, payload);
 
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       onUpdate(response.data);
@@ -5302,11 +5246,9 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                         className="h-9 bg-emerald-600 hover:bg-emerald-700 rounded-lg"
                         onClick={async () => {
                           try {
-                            const token = localStorage.getItem('dobook_token');
                             await axios.put(
                               `${API}/business/reviews/${r.id}`,
                               { status: 'approved' },
-                              { headers: { Authorization: `Bearer ${token}` } },
                             );
                             toast.success('Review approved');
                             refreshCustomerReviews();
@@ -5323,11 +5265,9 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                         className="h-9 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
                         onClick={async () => {
                           try {
-                            const token = localStorage.getItem('dobook_token');
                             await axios.put(
                               `${API}/business/reviews/${r.id}`,
                               { status: 'rejected' },
-                              { headers: { Authorization: `Bearer ${token}` } },
                             );
                             toast.success('Review rejected');
                             refreshCustomerReviews();
