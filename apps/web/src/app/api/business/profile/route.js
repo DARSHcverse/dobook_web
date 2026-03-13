@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
+import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
 
 export async function GET(request) {
   const auth = await requireSession(request);
@@ -27,6 +28,15 @@ export async function PUT(request) {
     const raw = String(value || "").trim().toLowerCase();
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
     return allowed.has(raw) ? raw : "photobooth";
+  };
+  const normalizeReminderTimes = (value) => {
+    const allowed = new Set([1, 2, 4, 12, 24, 48, 72, 168]);
+    const list = Array.isArray(value) ? value : [];
+    const cleaned = list
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && allowed.has(v));
+    const unique = Array.from(new Set(cleaned));
+    return unique.slice(0, 3);
   };
   const allowed = [
     "business_name",
@@ -57,6 +67,12 @@ export async function PUT(request) {
     "public_website",
     "public_services",
     "onboarding_tour_completed_at",
+    "reminders_enabled",
+    "reminder_times",
+    "reminder_custom_message",
+    "reminder_include_payment_link",
+    "reminder_include_booking_details",
+    "confirmation_email_enabled",
   ];
 
   if (auth.mode === "supabase") {
@@ -137,6 +153,32 @@ export async function PUT(request) {
             .filter((s) => s.name)
             .slice(0, 25)
           : [];
+        continue;
+      }
+      if (key === "reminders_enabled") {
+        const subStatus = String(auth.business?.subscription_status || "").trim().toLowerCase();
+        const proActive = hasProAccess(auth.business) && (isOwnerBusiness(auth.business) || subStatus === "active");
+        updates.reminders_enabled = proActive ? asBool(body.reminders_enabled) : false;
+        continue;
+      }
+      if (key === "reminder_times") {
+        updates.reminder_times = normalizeReminderTimes(body.reminder_times);
+        continue;
+      }
+      if (key === "reminder_custom_message") {
+        updates.reminder_custom_message = String(body.reminder_custom_message || "").slice(0, 300);
+        continue;
+      }
+      if (key === "reminder_include_payment_link") {
+        updates.reminder_include_payment_link = asBool(body.reminder_include_payment_link);
+        continue;
+      }
+      if (key === "reminder_include_booking_details") {
+        updates.reminder_include_booking_details = asBool(body.reminder_include_booking_details);
+        continue;
+      }
+      if (key === "confirmation_email_enabled") {
+        updates.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
         continue;
       }
       if (key === "booth_types") {
@@ -245,6 +287,32 @@ export async function PUT(request) {
           .filter((s) => s.name)
           .slice(0, 25)
         : [];
+      continue;
+    }
+    if (key === "reminders_enabled") {
+      const subStatus = String(auth.business?.subscription_status || "").trim().toLowerCase();
+      const proActive = hasProAccess(auth.business) && (isOwnerBusiness(auth.business) || subStatus === "active");
+      auth.business.reminders_enabled = proActive ? asBool(body.reminders_enabled) : false;
+      continue;
+    }
+    if (key === "reminder_times") {
+      auth.business.reminder_times = normalizeReminderTimes(body.reminder_times);
+      continue;
+    }
+    if (key === "reminder_custom_message") {
+      auth.business.reminder_custom_message = String(body.reminder_custom_message || "").slice(0, 300);
+      continue;
+    }
+    if (key === "reminder_include_payment_link") {
+      auth.business.reminder_include_payment_link = asBool(body.reminder_include_payment_link);
+      continue;
+    }
+    if (key === "reminder_include_booking_details") {
+      auth.business.reminder_include_booking_details = asBool(body.reminder_include_booking_details);
+      continue;
+    }
+    if (key === "confirmation_email_enabled") {
+      auth.business.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
       continue;
     }
     if (key === "booth_types") {

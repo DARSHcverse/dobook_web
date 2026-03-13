@@ -2812,6 +2812,19 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     bsb: business?.bsb || '',
     account_number: business?.account_number || '',
     payment_link: business?.payment_link || '',
+    reminders_enabled: business?.reminders_enabled !== undefined ? Boolean(business.reminders_enabled) : true,
+    reminder_times: Array.isArray(business?.reminder_times) && business.reminder_times.length
+      ? business.reminder_times
+      : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]),
+    reminder_custom_message: business?.reminder_custom_message || '',
+    reminder_include_payment_link:
+      business?.reminder_include_payment_link !== undefined
+        ? Boolean(business.reminder_include_payment_link)
+        : Boolean(String(business?.payment_link || '').trim()),
+    reminder_include_booking_details:
+      business?.reminder_include_booking_details !== undefined ? Boolean(business.reminder_include_booking_details) : true,
+    confirmation_email_enabled:
+      business?.confirmation_email_enabled !== undefined ? Boolean(business.confirmation_email_enabled) : true,
     travel_fee_enabled: Boolean(business?.travel_fee_enabled),
     travel_fee_label: business?.travel_fee_label || 'Travel fee',
     travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
@@ -2841,6 +2854,37 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const [platformReviewSubmitting, setPlatformReviewSubmitting] = useState(false);
   const [platformReviewChecked, setPlatformReviewChecked] = useState(false);
   const [platformReviewHasReview, setPlatformReviewHasReview] = useState(false);
+  const [reminderRows, setReminderRows] = useState([]);
+
+  const reminderOptions = [
+    { value: 1, label: '1 hour before' },
+    { value: 2, label: '2 hours before' },
+    { value: 4, label: '4 hours before' },
+    { value: 12, label: '12 hours before' },
+    { value: 24, label: '24 hours before' },
+    { value: 48, label: '48 hours before' },
+    { value: 72, label: '72 hours before' },
+    { value: 168, label: '1 week before' },
+  ];
+
+  const normalizeReminderTimes = (times) => {
+    const allowed = new Set(reminderOptions.map((opt) => opt.value));
+    const list = Array.isArray(times) ? times : [];
+    const cleaned = list
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && allowed.has(v));
+    return Array.from(new Set(cleaned)).slice(0, 3);
+  };
+
+  const buildReminderRows = (times) => {
+    const normalized = normalizeReminderTimes(times);
+    const base = normalized.length ? normalized : [48, 2];
+    return base.slice(0, 3).map((hours, idx) => ({
+      id: `${hours}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      hours,
+      enabled: true,
+    }));
+  };
 
   useEffect(() => {
     if (business) {
@@ -2855,6 +2899,19 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         bsb: business.bsb || '',
         account_number: business.account_number || '',
         payment_link: business.payment_link || '',
+        reminders_enabled: business?.reminders_enabled !== undefined ? Boolean(business.reminders_enabled) : true,
+        reminder_times: Array.isArray(business?.reminder_times) && business.reminder_times.length
+          ? business.reminder_times
+          : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]),
+        reminder_custom_message: business?.reminder_custom_message || '',
+        reminder_include_payment_link:
+          business?.reminder_include_payment_link !== undefined
+            ? Boolean(business.reminder_include_payment_link)
+            : Boolean(String(business?.payment_link || '').trim()),
+        reminder_include_booking_details:
+          business?.reminder_include_booking_details !== undefined ? Boolean(business.reminder_include_booking_details) : true,
+        confirmation_email_enabled:
+          business?.confirmation_email_enabled !== undefined ? Boolean(business.confirmation_email_enabled) : true,
         travel_fee_enabled: Boolean(business?.travel_fee_enabled),
         travel_fee_label: business?.travel_fee_label || 'Travel fee',
         travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
@@ -2867,6 +2924,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
       });
+      const reminderTimes = Array.isArray(business?.reminder_times) && business.reminder_times.length
+        ? business.reminder_times
+        : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]);
+      setReminderRows(buildReminderRows(reminderTimes));
       setSubscriptionInfo({
         plan: business.subscription_plan || 'free',
         booking_count: business.booking_count || 0
@@ -2907,6 +2968,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
   const effectivePlan = isOwner ? 'pro' : plan;
   const subscriptionStatus = String(business?.subscription_status || 'inactive');
+  const hasReminderAccess = isOwner || (effectivePlan === 'pro' && subscriptionStatus === 'active');
   const bookingsThisMonth = useMemo(() => {
     const list = Array.isArray(bookings) ? bookings : [];
     const now = new Date();
@@ -2979,7 +3041,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async ({ successMessage } = {}) => {
     setLoading(true);
     try {
       const slugKey = (label) =>
@@ -2993,6 +3055,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       const booth_types = Array.isArray(formData.booth_types)
         ? formData.booth_types.map((t) => String(t || '').trim()).filter(Boolean)
         : [];
+
+      const reminder_times = normalizeReminderTimes(reminderRows.map((r) => (r.enabled ? r.hours : null)));
+      const reminders_enabled = hasReminderAccess ? Boolean(formData.reminders_enabled && reminder_times.length) : false;
 
       const defsRaw = Array.isArray(formData.booking_custom_fields) ? formData.booking_custom_fields : [];
       const used = new Set();
@@ -3013,7 +3078,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           return { key, label: f.label, type: f.type };
         });
 
-      const payload = { ...formData, booth_types, booking_custom_fields };
+      const payload = {
+        ...formData,
+        booth_types,
+        booking_custom_fields,
+        reminders_enabled,
+        reminder_times,
+        reminder_custom_message: String(formData.reminder_custom_message || '').slice(0, 300),
+        reminder_include_payment_link: Boolean(formData.reminder_include_payment_link),
+        reminder_include_booking_details: Boolean(formData.reminder_include_booking_details),
+        confirmation_email_enabled: Boolean(formData.confirmation_email_enabled),
+      };
       payload.travel_fee_amount = Number(formData.travel_fee_amount || 0);
       payload.travel_fee_free_km = Math.max(0, Math.floor(Number(formData.travel_fee_free_km || 40)));
       payload.travel_fee_rate_per_km = Number(formData.travel_fee_rate_per_km || 0);
@@ -3023,7 +3098,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       onUpdate(response.data);
-      toast.success('Account settings updated!');
+      toast.success(successMessage || 'Account settings updated!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to update settings');
     } finally {
@@ -3482,8 +3557,198 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 	              If enabled, this charge is applied automatically when the booking address postcode is <strong>3000</strong>.
 	            </p>
 	          </div>
-	        </CardContent>
-	      </Card>
+        </CardContent>
+      </Card>
+
+      {/* Reminder Settings */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Reminder Settings</CardTitle>
+          <CardDescription>Automate emails to reduce no-shows</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                checked={hasReminderAccess ? Boolean(formData.reminders_enabled) : false}
+                onCheckedChange={(v) => {
+                  if (!hasReminderAccess) return;
+                  setFormData({ ...formData, reminders_enabled: Boolean(v) });
+                }}
+                disabled={!hasReminderAccess}
+              />
+              <div>
+                <div className="font-semibold">Send automatic booking reminders</div>
+                <div className="text-xs text-zinc-500">
+                  Reminders are sent based on your selected timing.
+                </div>
+              </div>
+            </div>
+            {!hasReminderAccess && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-zinc-500">
+                <span>Upgrade to Pro to enable reminders.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9"
+                  onClick={handleUpgrade}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Redirecting…' : 'Upgrade to Pro'}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-zinc-900">Reminder timing</div>
+            <div className="space-y-2">
+              {reminderRows.map((row, idx) => (
+                <div key={row.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 p-3">
+                  <Checkbox
+                    checked={row.enabled}
+                    onCheckedChange={(v) => {
+                      if (!hasReminderAccess) return;
+                      setReminderRows((prev) =>
+                        prev.map((r) => (r.id === row.id ? { ...r, enabled: Boolean(v) } : r)),
+                      );
+                    }}
+                    disabled={!hasReminderAccess}
+                  />
+                  <Select
+                    value={String(row.hours)}
+                    onValueChange={(val) => {
+                      if (!hasReminderAccess) return;
+                      const nextHours = Number(val);
+                      setReminderRows((prev) =>
+                        prev.map((r) => (r.id === row.id ? { ...r, hours: nextHours } : r)),
+                      );
+                    }}
+                    disabled={!hasReminderAccess}
+                  >
+                    <SelectTrigger className="h-10 bg-zinc-50 min-w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reminderOptions.map((opt) => {
+                        const alreadyUsed = reminderRows.some((r) => r.hours === opt.value && r.id !== row.id);
+                        return (
+                          <SelectItem key={opt.value} value={String(opt.value)} disabled={alreadyUsed}>
+                            {opt.label}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {reminderRows.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9"
+                      onClick={() => {
+                        if (!hasReminderAccess) return;
+                        setReminderRows((prev) => prev.filter((r) => r.id !== row.id));
+                      }}
+                      disabled={!hasReminderAccess}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => {
+                if (!hasReminderAccess) return;
+                setReminderRows((prev) => {
+                  if (prev.length >= 3) return prev;
+                  const used = new Set(prev.map((r) => r.hours));
+                  const next = reminderOptions.find((opt) => !used.has(opt.value)) || reminderOptions[0];
+                  return [
+                    ...prev,
+                    {
+                      id: `${next.value}-${Math.random().toString(36).slice(2, 6)}`,
+                      hours: next.value,
+                      enabled: true,
+                    },
+                  ];
+                });
+              }}
+              disabled={!hasReminderAccess || reminderRows.length >= 3}
+            >
+              Add another reminder
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="text-sm font-semibold text-zinc-900">Reminder email content</div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.reminder_include_booking_details)}
+                onCheckedChange={(v) => setFormData({ ...formData, reminder_include_booking_details: Boolean(v) })}
+                disabled={!hasReminderAccess}
+              />
+              <span className="text-sm text-zinc-700">Include booking details in reminder</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.reminder_include_payment_link)}
+                onCheckedChange={(v) => setFormData({ ...formData, reminder_include_payment_link: Boolean(v) })}
+                disabled={!hasReminderAccess}
+              />
+              <span className="text-sm text-zinc-700">Include payment link in reminder</span>
+            </div>
+            {!String(formData.payment_link || '').trim() && (
+              <div className="text-xs text-zinc-500">
+                Add a payment link in Payment Details to show a pay button in reminders.
+              </div>
+            )}
+            <div>
+              <Label htmlFor="reminder_message">Add a personal message to reminders (optional)</Label>
+              <Textarea
+                id="reminder_message"
+                value={formData.reminder_custom_message}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 300);
+                  setFormData({ ...formData, reminder_custom_message: value });
+                }}
+                placeholder="e.g. Please bring a valid ID to your appointment"
+                className="bg-zinc-50 mt-2 min-h-[96px]"
+                maxLength={300}
+                disabled={!hasReminderAccess}
+              />
+              <div className="mt-1 text-xs text-zinc-500">
+                {String(formData.reminder_custom_message || '').length}/300 characters
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.confirmation_email_enabled)}
+                onCheckedChange={(v) => setFormData({ ...formData, confirmation_email_enabled: Boolean(v) })}
+              />
+              <div>
+                <div className="font-semibold">Send booking confirmation email to customer</div>
+                <div className="text-xs text-zinc-500">Sent immediately when a booking is created.</div>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={() => handleSave({ successMessage: 'Reminder settings saved!' })}
+            disabled={loading}
+            className="h-11 bg-rose-600 hover:bg-rose-700"
+          >
+            {loading ? 'Saving…' : 'Save Reminder Settings'}
+          </Button>
+        </CardContent>
+      </Card>
 
       <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
       <BusinessBookingSettingsCard />

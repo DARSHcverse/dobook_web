@@ -174,6 +174,7 @@ export async function PUT(request, { params }) {
     if (becameCancelled) {
       updates.reminder_5d_scheduled_at = null;
       updates.reminder_1d_scheduled_at = null;
+      updates.reminder_sent_hours = [];
     }
 
     const { data, error } = await auth.supabase
@@ -209,6 +210,7 @@ export async function PUT(request, { params }) {
   if (becameCancelled) {
     next.reminder_5d_scheduled_at = null;
     next.reminder_1d_scheduled_at = null;
+    next.reminder_sent_hours = [];
   }
 
   auth.db.bookings[idx] = next;

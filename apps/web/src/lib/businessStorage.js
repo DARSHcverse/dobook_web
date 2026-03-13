@@ -19,5 +19,11 @@ export function minimizeBusinessForStorage(business) {
     public_photos: business.public_photos,
     public_website: business.public_website,
     onboarding_tour_completed_at: business.onboarding_tour_completed_at,
+    reminders_enabled: business.reminders_enabled,
+    reminder_times: business.reminder_times,
+    reminder_custom_message: business.reminder_custom_message,
+    reminder_include_payment_link: business.reminder_include_payment_link,
+    reminder_include_booking_details: business.reminder_include_booking_details,
+    confirmation_email_enabled: business.confirmation_email_enabled,
   };
 }

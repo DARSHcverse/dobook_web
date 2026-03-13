@@ -448,6 +448,7 @@ export async function POST(request) {
     reminder_1d_sent_at: null,
     reminder_5d_scheduled_at: null,
     reminder_1d_scheduled_at: null,
+    reminder_sent_hours: [],
     created_at: new Date().toISOString(),
   };
 

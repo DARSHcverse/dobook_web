@@ -1,6 +1,6 @@
 import { sendEmailViaResend } from "./email";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
-import { hasProAccess } from "./entitlements";
+import { hasProAccess, isOwnerBusiness } from "./entitlements";
 import {
   bookingSummaryLines,
   bookingSummaryTableHtml,
@@ -225,6 +225,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
   const includeInvoicePdf = hasProAccess(business);
+  const confirmationEnabled = business?.confirmation_email_enabled !== false;
   const logoUrl = { url: business?.logo_url || "", businessId: business?.id || "" };
 
   const attachments = [];
@@ -310,7 +311,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
 
   const results = { customer: null, business: null };
 
-  if (customerEmail) {
+  if (customerEmail && confirmationEnabled) {
     results.customer = await sendEmailViaResend({
       to: customerEmail,
       subject,
@@ -319,6 +320,8 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
       attachments,
       replyTo: businessEmail || undefined,
     });
+  } else if (customerEmail && !confirmationEnabled) {
+    results.customer = { ok: false, skipped: true, error: "Confirmation email disabled" };
   }
 
   if (businessEmail) {
@@ -335,7 +338,10 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
 }
 
 export async function scheduleBookingRemindersViaResend({ booking, business }) {
-  if (!hasProAccess(business)) return { ok: false, skipped: true, error: "No Pro access" };
+  const subStatus = String(business?.subscription_status || "").trim().toLowerCase();
+  const proActive = hasProAccess(business) && (isOwnerBusiness(business) || subStatus === "active");
+  if (!proActive) return { ok: false, skipped: true, error: "No Pro access" };
+  if (business?.reminders_enabled === false) return { ok: false, skipped: true, error: "Reminders disabled" };
 
   const scheduleViaResend = String(process.env.REMINDERS_SCHEDULE_VIA_RESEND || "").trim().toLowerCase();
   const shouldSchedule =
@@ -346,14 +352,24 @@ export async function scheduleBookingRemindersViaResend({ booking, business }) {
 
   if (!shouldSchedule) return { ok: false, skipped: true, error: "Scheduling disabled" };
 
-  const eventAt = parseBookingDateUtc(booking?.booking_date);
+  const eventAt = parseBookingDateTimeUtc(booking);
   if (!eventAt) return { ok: false, skipped: true, error: "No booking_date" };
 
+  const reminderTimes = normalizeReminderTimes(
+    Array.isArray(business?.reminder_times) && business.reminder_times.length
+      ? business.reminder_times
+      : business?.reminder_timing_hrs,
+  );
+  if (!reminderTimes.length) return { ok: false, skipped: true, error: "No reminder times" };
+
+  const includeDetails = business?.reminder_include_booking_details !== false;
+  const includePaymentLink = Boolean(business?.reminder_include_payment_link) && Boolean(String(business?.payment_link || "").trim());
+  const customMessage = String(business?.reminder_custom_message || "").trim();
+
   const now = new Date();
-  const schedule = [5, 1];
-  const scheduled = { reminder_5d_scheduled_at: null, reminder_1d_scheduled_at: null };
-  for (const daysBefore of schedule) {
-    const when = reminderAtUtc(eventAt, daysBefore);
+  const scheduledHours = [];
+  for (const hoursBefore of reminderTimes) {
+    const when = reminderAtUtcHours(eventAt, hoursBefore);
     // Only schedule future reminders.
     if (!(when instanceof Date) || Number.isNaN(when.getTime())) continue;
     if (when.getTime() <= now.getTime() + 5 * 60 * 1000) continue;
@@ -361,40 +377,114 @@ export async function scheduleBookingRemindersViaResend({ booking, business }) {
     const res = await sendBookingReminderEmail({
       booking,
       business,
-      daysBefore,
+      hoursBefore,
       scheduledAt: when.toISOString(),
+      includeDetails,
+      includePaymentLink,
+      customMessage,
     });
-    if (res?.ok) {
-      if (daysBefore === 5) scheduled.reminder_5d_scheduled_at = when.toISOString();
-      if (daysBefore === 1) scheduled.reminder_1d_scheduled_at = when.toISOString();
+    if (res?.ok) scheduledHours.push(hoursBefore);
+  }
+
+  return { ok: true, scheduled_hours: scheduledHours };
+}
+
+function parseBookingDateTimeUtc(booking) {
+  const dateStr = String(booking?.booking_date || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [y, m, d] = dateStr.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const timeStr = String(booking?.booking_time || "").trim();
+  if (timeStr && /^\d{2}:\d{2}$/.test(timeStr)) {
+    const [h, min] = timeStr.split(":").map((n) => Number(n));
+    if (Number.isFinite(h) && Number.isFinite(min)) {
+      return new Date(Date.UTC(y, m - 1, d, h, min, 0, 0));
     }
   }
 
-  return { ok: true, scheduled };
+  return parseBookingDateUtc(dateStr);
 }
 
-export async function sendBookingReminderEmail({ booking, business, daysBefore, scheduledAt }) {
+function reminderAtUtcHours(eventAtUtc, hoursBefore) {
+  const d = new Date(eventAtUtc);
+  d.setTime(d.getTime() - Number(hoursBefore || 0) * 60 * 60 * 1000);
+  return d;
+}
+
+function normalizeReminderTimes(value) {
+  const allowed = new Set([1, 2, 4, 12, 24, 48, 72, 168]);
+  const list = Array.isArray(value) ? value : [];
+  const cleaned = list
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v) && allowed.has(v));
+  return Array.from(new Set(cleaned)).slice(0, 3);
+}
+
+function formatReminderLabel(hoursBefore) {
+  const h = Number(hoursBefore || 0);
+  if (!Number.isFinite(h) || h <= 0) return { label: "soon", value: 0, unit: "hour" };
+  if (h % 168 === 0) {
+    const weeks = h / 168;
+    return { label: `${weeks} week${weeks === 1 ? "" : "s"}`, value: weeks, unit: "week" };
+  }
+  if (h % 24 === 0) {
+    const days = h / 24;
+    return { label: `${days} day${days === 1 ? "" : "s"}`, value: days, unit: "day" };
+  }
+  return { label: `${h} hour${h === 1 ? "" : "s"}`, value: h, unit: "hour" };
+}
+
+export async function sendBookingReminderEmail({
+  booking,
+  business,
+  hoursBefore,
+  daysBefore,
+  scheduledAt,
+  includeDetails = true,
+  includePaymentLink = false,
+  customMessage = "",
+}) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
   if (String(booking?.status || "confirmed").trim().toLowerCase() === "cancelled") {
     return { ok: false, skipped: true, error: "Booking cancelled" };
   }
 
-  const subject = `Reminder: your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}`;
-  const lines = bookingSummaryLines({ booking });
+  const resolvedHours = Number.isFinite(Number(hoursBefore)) ? Number(hoursBefore) : Number(daysBefore || 0) * 24;
+  const label = formatReminderLabel(resolvedHours);
+  const subject = `Reminder: your event is in ${label.label}`;
+  const lines = includeDetails ? bookingSummaryLines({ booking }) : [];
   const summaryText = lines.join("\n");
+  const paymentLink = String(business?.payment_link || "").trim();
+  const customNote = String(customMessage || "").trim();
 
   const html = emailLayout({
     title: "Event reminder",
-    preheader: `Your event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}.`,
+    preheader: `Your event is in ${label.label}.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: safeName(business?.business_name) || "DoBook",
     contentHtml: `
-      ${paragraphHtml(`Just a reminder your event is coming up in <strong style="color:#18181b;">${daysBefore}</strong> day${daysBefore === 1 ? "" : "s"}.`)}
-      ${bookingSummaryTableHtml({ booking })}
+      ${paragraphHtml(`Just a reminder your event is coming up in <strong style="color:#18181b;">${escapeHtml(label.label)}</strong>.`)}
+      ${customNote ? paragraphHtml(escapeHtml(customNote)) : ""}
+      ${includeDetails ? bookingSummaryTableHtml({ booking }) : ""}
+      ${includePaymentLink && paymentLink
+        ? `
+          <div style="margin-top:12px;">
+            <a href="${escapeHtml(paymentLink)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+              Pay now
+            </a>
+          </div>
+        `
+        : ""
+      }
     `,
   });
-  const text = `Event Reminder\n\nYour event is in ${daysBefore} day${daysBefore === 1 ? "" : "s"}.\n\n${summaryText}`;
+  const text =
+    `Event Reminder\n\nYour event is in ${label.label}.\n` +
+    (customNote ? `\n${customNote}\n` : "") +
+    (includeDetails && summaryText ? `\n${summaryText}\n` : "") +
+    (includePaymentLink && paymentLink ? `\nPayment link: ${paymentLink}\n` : "");
 
   return sendEmailViaResend({
     to: customerEmail,
