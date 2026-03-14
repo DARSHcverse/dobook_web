@@ -1,12 +1,14 @@
 import 'package:dobook/app/session.dart';
+import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
-import 'package:dobook/ui/widgets/empty_state.dart';
-import 'package:dobook/ui/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/widgets/status_badge.dart';
+import 'package:dobook/ui/shared/widgets/empty_state.dart';
+import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
 import 'package:dobook/util/format.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -30,9 +32,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final business = context.watch<AppSession>().business!;
+    final scheme = Theme.of(context).colorScheme;
+    final brand = Theme.of(context).extension<BrandColors>();
     return Scaffold(
-      appBar: AppBar(title: Text('${business.businessName} calendar')),
+      appBar: AppBar(title: const Text('Calendar')),
       body: FutureBuilder<List<Booking>>(
         future: _future,
         builder: (context, snapshot) {
@@ -59,13 +62,70 @@ class _CalendarPageState extends State<CalendarPage> {
           );
           final selectedBookings = byDay[selectedKey] ?? const [];
 
-          final scheme = Theme.of(context).colorScheme;
           return Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      DateFormat('MMMM yyyy').format(_focusedDay),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        backgroundColor: scheme.primary,
+                        foregroundColor: scheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: () {
+                        final now = DateTime.now();
+                        setState(() {
+                          _focusedDay = now;
+                          _selectedDay = now;
+                        });
+                      },
+                      child: const Text('Today'),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.chevron_left, color: scheme.primary),
+                      onPressed: () {
+                        setState(() {
+                          _focusedDay = DateTime(
+                            _focusedDay.year,
+                            _focusedDay.month - 1,
+                            1,
+                          );
+                        });
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.chevron_right, color: scheme.primary),
+                      onPressed: () {
+                        setState(() {
+                          _focusedDay = DateTime(
+                            _focusedDay.year,
+                            _focusedDay.month + 1,
+                            1,
+                          );
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
               TableCalendar<Booking>(
                 firstDay: DateTime.now().subtract(const Duration(days: 365)),
                 lastDay: DateTime.now().add(const Duration(days: 365 * 3)),
                 focusedDay: _focusedDay,
+                headerVisible: false,
                 selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
                 eventLoader: (day) =>
                     byDay[DateTime(day.year, day.month, day.day)] ?? const [],
@@ -75,28 +135,32 @@ class _CalendarPageState extends State<CalendarPage> {
                     _focusedDay = focusedDay;
                   });
                 },
+                onPageChanged: (focusedDay) {
+                  setState(() => _focusedDay = focusedDay);
+                },
                 calendarStyle: CalendarStyle(
                   selectedDecoration: BoxDecoration(
-                    color: scheme.primary,
+                    color: scheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
                   todayDecoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.2),
+                    color: scheme.primary,
                     shape: BoxShape.circle,
                   ),
                   markerDecoration: BoxDecoration(
                     color: scheme.primary,
                     shape: BoxShape.circle,
                   ),
-                  outsideTextStyle:
-                      TextStyle(color: scheme.onSurfaceVariant),
+                  markersMaxCount: 1,
+                  weekendTextStyle: TextStyle(color: scheme.onSurfaceVariant),
+                  defaultTextStyle: TextStyle(color: scheme.onSurface),
+                  todayTextStyle: TextStyle(color: scheme.onPrimary),
+                  selectedTextStyle: TextStyle(color: scheme.primary),
+                  outsideTextStyle: TextStyle(color: scheme.onSurfaceVariant),
                 ),
-                headerStyle: HeaderStyle(
-                  titleTextStyle: Theme.of(context).textTheme.titleMedium!,
-                  formatButtonVisible: false,
-                  leftChevronIcon: Icon(Icons.chevron_left, color: scheme.primary),
-                  rightChevronIcon:
-                      Icon(Icons.chevron_right, color: scheme.primary),
+                daysOfWeekStyle: DaysOfWeekStyle(
+                  weekendStyle: TextStyle(color: scheme.onSurfaceVariant),
+                  weekdayStyle: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ),
               const Divider(height: 1),
@@ -110,72 +174,74 @@ class _CalendarPageState extends State<CalendarPage> {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                         itemCount: selectedBookings.length,
-                        separatorBuilder: (context, index) => Divider(
-                          height: 16,
-                          color: scheme.outlineVariant,
-                        ),
+                        separatorBuilder: (context, index) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
                           final b = selectedBookings[i];
-                          return Card(
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: scheme.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: brand?.cardShadow ?? Theme.of(context).shadowColor,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        BookingDetailsScreen(booking: b),
-                                  ),
+                                  slidePageRoute(BookingDetailsScreen(booking: b)),
                                 );
                               },
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(12),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Text(
+                                      b.bookingTime,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      width: 2,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: scheme.primary,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            b.customerName.isEmpty
-                                                ? '(No name)'
-                                                : b.customerName,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium,
+                                            b.customerName.isEmpty ? '(No name)' : b.customerName,
+                                            style: Theme.of(context).textTheme.titleMedium,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '${b.bookingTime} • ${b.serviceType}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: scheme
-                                                      .onSurfaceVariant,
+                                            b.serviceType,
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  color: scheme.onSurfaceVariant,
                                                 ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          formatMoney(b.total),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(
-                                                color: scheme.primary,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        StatusBadge(status: b.status),
-                                      ],
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      formatMoney(b.total),
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                   ],
                                 ),

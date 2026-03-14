@@ -2,9 +2,10 @@ import 'package:dobook/app/session.dart';
 import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/staff.dart';
-import 'package:dobook/ui/widgets/empty_state.dart';
-import 'package:dobook/ui/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/widgets/status_badge.dart';
+import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
+import 'package:dobook/ui/shared/widgets/empty_state.dart';
+import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/shared/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +27,7 @@ class _StaffPageState extends State<StaffPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Staff'),
@@ -51,9 +53,10 @@ class _StaffPageState extends State<StaffPage> {
           if (staff.isEmpty) {
             return EmptyState(
               icon: Icons.people_outline,
-              title: 'No staff yet',
-              subtitle: 'Tap + to add your first team member.',
-              actionLabel: 'Add staff',
+              title: 'No team members yet',
+              subtitle:
+                  'Add your first staff member to assign them to bookings.',
+              actionLabel: '+ Add Staff Member',
               onAction: _openStaffSheet,
             );
           }
@@ -66,70 +69,7 @@ class _StaffPageState extends State<StaffPage> {
               separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final member = staff[index];
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                member.name.isEmpty
-                                    ? 'Unnamed staff'
-                                    : member.name,
-                                style:
-                                    Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                member.email,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                              ),
-                              if (member.phone?.trim().isNotEmpty == true)
-                                Text(
-                                  member.phone!.trim(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                      ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _statusBadge(context, member.isActive),
-                        const SizedBox(width: 12),
-                        IconButton(
-                          tooltip: 'Edit',
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => _openStaffSheet(staff: member),
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _confirmDelete(member),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                return _staffCard(member, scheme);
               },
             ),
           );
@@ -138,14 +78,102 @@ class _StaffPageState extends State<StaffPage> {
     );
   }
 
+  Widget _staffCard(Staff member, ColorScheme scheme) {
+    final brand = Theme.of(context).extension<BrandColors>();
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: brand?.cardShadow ?? Theme.of(context).shadowColor,
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AvatarWidget(name: member.name, size: 52),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    member.name.isEmpty ? 'Unnamed staff' : member.name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    member.email,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  if (member.phone?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 14, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            member.phone!.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _statusBadge(context, member.isActive),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit',
+                      icon: Icon(Icons.edit, color: scheme.onSurfaceVariant),
+                      onPressed: () => _openStaffSheet(staff: member),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete',
+                      icon: Icon(Icons.delete, color: scheme.onSurfaceVariant),
+                      onPressed: () => _confirmDelete(member),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _statusBadge(BuildContext context, bool isActive) {
     final colors = Theme.of(context).extension<StatusColors>();
     return PillBadge(
       label: isActive ? 'Active' : 'Inactive',
-      background:
-          isActive ? colors!.confirmedBg : colors!.completedBg,
-      foreground:
-          isActive ? colors.confirmedFg : colors.completedFg,
+      background: isActive ? colors!.confirmedBg : colors!.completedBg,
+      foreground: isActive ? colors.confirmedFg : colors.completedFg,
     );
   }
 
@@ -261,44 +289,37 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    final isEdit = widget.staff != null;
-
+    final isEditing = widget.staff != null;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 16,
-        bottom: bottom + 16,
+        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
           children: [
             Text(
-              isEdit ? 'Edit staff' : 'Add staff',
-              style: Theme.of(context).textTheme.titleMedium,
+              isEditing ? 'Edit staff' : 'Add staff member',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Full name'),
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty) ? 'Required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _emailCtrl,
               decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                final v = value?.trim() ?? '';
-                if (v.isEmpty) return 'Required';
-                final emailOk =
-                    RegExp(r'^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$').hasMatch(v);
-                return emailOk ? null : 'Enter a valid email';
-              },
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -306,21 +327,19 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
               decoration: const InputDecoration(labelText: 'Phone (optional)'),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              value: _isActive,
               title: const Text('Active'),
-              onChanged: (value) => setState(() => _isActive = value),
+              value: _isActive,
+              onChanged: (v) => setState(() => _isActive = v),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     child: const Text('Cancel'),
                   ),
                 ),
@@ -330,8 +349,8 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                     onPressed: _saving ? null : _save,
                     child: _saving
                         ? const SizedBox(
-                            width: 18,
                             height: 18,
+                            width: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('Save'),
@@ -346,9 +365,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   }
 
   Future<void> _save() async {
-    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _saving = true);
     try {
       final repo = context.read<DobookRepository>();
@@ -367,9 +384,6 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.staff == null ? 'Staff added' : 'Staff updated')),
-      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;

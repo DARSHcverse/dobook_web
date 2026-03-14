@@ -1,9 +1,12 @@
 import 'package:dobook/app/session.dart';
+import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/staff.dart';
 import 'package:dobook/invoices/invoice_preview_screen.dart';
 import 'package:dobook/ui/dashboard/bookings/edit_booking_screen.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/section_header.dart';
 import 'package:dobook/util/format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +47,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   Widget build(BuildContext context) {
     final business = context.read<AppSession>().business!;
     final booking = _booking;
+    final scheme = Theme.of(context).colorScheme;
+    final brand = Theme.of(context).extension<BrandColors>();
 
     final paymentStatusValue = _normalizePaymentStatus(booking.paymentStatus);
     final paymentMethodValue = _normalizePaymentMethod(booking.paymentMethod);
@@ -68,10 +73,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Customer', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Customer', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -83,10 +89,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Booking', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Booking', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -103,10 +110,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Payments', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Payments', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,10 +178,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Charges', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Charges', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -197,10 +206,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Assigned Staff', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Assigned Staff', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,10 +290,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Actions', style: _sectionStyle(context)),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SectionHeader(title: 'Actions', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,8 +336,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   FilledButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => InvoicePreviewScreen(
+                        slidePageRoute(
+                          InvoicePreviewScreen(
                             business: business,
                             booking: booking,
                           ),
@@ -348,8 +359,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         : const Icon(Icons.cancel),
                     label: const Text('Cancel Booking'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                      foregroundColor: Theme.of(context).colorScheme.onError,
+                      backgroundColor: scheme.error,
+                      foregroundColor: scheme.onError,
                     ),
                   ),
                 ],
@@ -361,10 +372,26 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  TextStyle _sectionStyle(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.titleSmall!.copyWith(fontWeight: FontWeight.w600);
+  Widget _sectionCard(
+    BuildContext context,
+    BrandColors? brand,
+    Widget child,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: brand?.cardShadow ?? Theme.of(context).shadowColor,
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 
   Widget _kv(String k, String v, {String emptyValue = '—'}) {
@@ -543,9 +570,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
   Future<void> _openEdit(BuildContext context, Booking booking) async {
     final updated = await Navigator.of(context).push<Booking?>(
-      MaterialPageRoute(
-        builder: (_) => EditBookingScreen(booking: booking),
-      ),
+      slidePageRoute(EditBookingScreen(booking: booking)),
     );
 
     if (updated != null && mounted) {

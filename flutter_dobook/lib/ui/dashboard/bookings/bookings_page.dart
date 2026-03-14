@@ -1,11 +1,14 @@
 import 'package:dobook/app/session.dart';
+import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
 import 'package:dobook/ui/dashboard/bookings/booking_form_screen.dart';
-import 'package:dobook/ui/widgets/empty_state.dart';
-import 'package:dobook/ui/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/widgets/status_badge.dart';
+import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
+import 'package:dobook/ui/shared/widgets/empty_state.dart';
+import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/status_badge.dart';
 import 'package:dobook/util/format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +26,7 @@ class _BookingsPageState extends State<BookingsPage> {
   Future<List<Booking>>? _future;
   String _searchQuery = '';
   BookingFilter _filter = BookingFilter.all;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -31,9 +35,17 @@ class _BookingsPageState extends State<BookingsPage> {
   }
 
   @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = context.watch<AppSession>();
     final business = session.business!;
+    final scheme = Theme.of(context).colorScheme;
+    final brand = Theme.of(context).extension<BrandColors>();
 
     return Scaffold(
       appBar: AppBar(
@@ -48,16 +60,17 @@ class _BookingsPageState extends State<BookingsPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.of(context).push<Booking?>(
-            MaterialPageRoute(builder: (_) => const BookingFormScreen()),
+            slidePageRoute(const BookingFormScreen()),
           );
           if (created != null && context.mounted) {
             _triggerReload();
           }
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('+ New Booking'),
       ),
       body: FutureBuilder<List<Booking>>(
         future: _future,
@@ -78,7 +91,7 @@ class _BookingsPageState extends State<BookingsPage> {
               actionLabel: 'Add your first booking',
               onAction: () async {
                 final created = await Navigator.of(context).push<Booking?>(
-                  MaterialPageRoute(builder: (_) => const BookingFormScreen()),
+                  slidePageRoute(const BookingFormScreen()),
                 );
                 if (created != null && context.mounted) {
                   _triggerReload();
@@ -98,39 +111,78 @@ class _BookingsPageState extends State<BookingsPage> {
                   index < 2 ? const SizedBox(height: 12) : const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 if (i == 0) {
-                  return TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search by customer name or email',
-                      prefixIcon: Icon(Icons.search),
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    onChanged: (value) {
-                      setState(() => _searchQuery = value);
-                    },
+                    child: TextField(
+                      controller: _searchCtrl,
+                      decoration: InputDecoration(
+                        filled: false,
+                        hintText: 'Search by customer name or email',
+                        prefixIcon: Icon(Icons.search, color: scheme.onSurfaceVariant),
+                        suffixIcon: _searchQuery.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: Icon(Icons.close, color: scheme.onSurfaceVariant),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                      ),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                    ),
                   );
                 }
 
                 if (i == 1) {
-                  return Wrap(
-                    spacing: 8,
-                    children: [
-                      _filterChip('All', BookingFilter.all),
-                      _filterChip('Upcoming', BookingFilter.upcoming),
-                      _filterChip('Past', BookingFilter.past),
-                      _filterChip('Cancelled', BookingFilter.cancelled),
-                    ],
+                  return SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _filterChip('All', BookingFilter.all),
+                        const SizedBox(width: 8),
+                        _filterChip('Upcoming', BookingFilter.upcoming),
+                        const SizedBox(width: 8),
+                        _filterChip('Past', BookingFilter.past),
+                        const SizedBox(width: 8),
+                        _filterChip('Cancelled', BookingFilter.cancelled),
+                      ],
+                    ),
                   );
                 }
 
                 final b = filtered[i - 2];
-                return Card(
+                final accent = StatusBadge.accentColor(context, b.status);
+                return Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: brand?.cardShadow ?? Theme.of(context).shadowColor,
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: Border(
+                      left: BorderSide(color: accent, width: 4),
+                    ),
+                  ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () async {
-                      final result =
-                          await Navigator.of(context).push<String?>(
-                        MaterialPageRoute(
-                          builder: (_) => BookingDetailsScreen(booking: b),
-                        ),
+                      final result = await Navigator.of(context)
+                          .push<String?>(
+                        slidePageRoute(BookingDetailsScreen(booking: b)),
                       );
                       if (!context.mounted) return;
                       if (result != null) {
@@ -147,6 +199,8 @@ class _BookingsPageState extends State<BookingsPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          AvatarWidget(name: b.customerName, size: 48),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,43 +209,54 @@ class _BookingsPageState extends State<BookingsPage> {
                                   b.customerName.isEmpty
                                       ? '(No name)'
                                       : b.customerName,
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontSize: 16,
+                                      ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  b.customerEmail.isEmpty
-                                      ? 'No email'
-                                      : b.customerEmail,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                                  b.customerEmail.isEmpty ? 'No email' : b.customerEmail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: scheme.onSurfaceVariant,
                                       ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  '${b.bookingDate} • ${b.bookingTime} • ${b.serviceType}',
-                                  style:
-                                      Theme.of(context).textTheme.bodySmall,
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_today,
+                                        size: 14, color: scheme.onSurfaceVariant),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      b.bookingDate,
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Icon(Icons.schedule,
+                                        size: 14, color: scheme.onSurfaceVariant),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      b.bookingTime,
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 12),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
                                 formatMoney(b.total),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      color: scheme.primary,
                                       fontWeight: FontWeight.w700,
                                     ),
                               ),
@@ -209,6 +274,30 @@ class _BookingsPageState extends State<BookingsPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _filterChip(String label, BookingFilter filter) {
+    final scheme = Theme.of(context).colorScheme;
+    final isSelected = _filter == filter;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: scheme.primary,
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+          ),
+      backgroundColor: scheme.surface,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: isSelected ? scheme.primary : scheme.outlineVariant,
+        ),
+      ),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _filter = filter);
+        }
+      },
     );
   }
 
@@ -235,50 +324,34 @@ class _BookingsPageState extends State<BookingsPage> {
 
   List<Booking> _applyFilters(List<Booking> bookings) {
     final query = _searchQuery.trim().toLowerCase();
-    final filtered = bookings.where((b) {
-      if (query.isEmpty) return true;
-      final name = b.customerName.toLowerCase();
-      final email = b.customerEmail.toLowerCase();
-      return name.contains(query) || email.contains(query);
-    }).toList();
-
-    if (_filter == BookingFilter.all) return filtered;
-
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
 
-    return filtered.where((b) {
-      final status = b.status.toLowerCase();
-      final isCancelled = status == 'cancelled';
-      if (_filter == BookingFilter.cancelled) return isCancelled;
-      if (isCancelled) return false;
+    return bookings.where((b) {
+      if (query.isNotEmpty) {
+        final name = b.customerName.toLowerCase();
+        final email = b.customerEmail.toLowerCase();
+        if (!name.contains(query) && !email.contains(query)) {
+          return false;
+        }
+      }
+
+      if (_filter == BookingFilter.all) return true;
+      if (_filter == BookingFilter.cancelled) {
+        return b.status.toLowerCase() == 'cancelled';
+      }
 
       final date = DateTime.tryParse(b.bookingDate);
-      if (date == null) {
-        return _filter == BookingFilter.upcoming;
-      }
+      if (date == null) return false;
       final dateOnly = DateTime(date.year, date.month, date.day);
 
       if (_filter == BookingFilter.upcoming) {
         return !dateOnly.isBefore(todayOnly);
       }
       if (_filter == BookingFilter.past) {
-        return dateOnly.isBefore(todayOnly);
+        return dateOnly.isBefore(todayOnly) && b.status.toLowerCase() != 'cancelled';
       }
       return true;
     }).toList();
   }
-
-  Widget _filterChip(String label, BookingFilter filter) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: _filter == filter,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() => _filter = filter);
-        }
-      },
-    );
-  }
-
 }

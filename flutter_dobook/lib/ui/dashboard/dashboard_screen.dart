@@ -4,6 +4,8 @@ import 'package:dobook/ui/dashboard/clients/clients_page.dart';
 import 'package:dobook/ui/dashboard/overview/overview_page.dart';
 import 'package:dobook/ui/dashboard/staff/staff_page.dart';
 import 'package:dobook/ui/dashboard/settings/settings_page.dart';
+import 'package:dobook/ui/shared/widgets/fade_indexed_stack.dart';
+import 'package:dobook/ui/shared/widgets/floating_nav_bar.dart';
 import 'package:flutter/material.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -18,7 +20,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final pages = <Widget>[
       const OverviewPage(),
       const BookingsPage(),
@@ -29,42 +30,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: scheme.outlineVariant)),
-        ),
-        child: NavigationBar(
-          backgroundColor: scheme.surface,
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_rounded),
-              label: 'Overview',
+      extendBody: true,
+      body: Stack(
+        children: [
+          FadeIndexedStack(index: _index, children: pages),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FloatingNavBar(
+              currentIndex: _index,
+              onTap: (i) => setState(() => _index = i),
+              items: const [
+                FloatingNavItem(icon: Icons.dashboard_rounded, label: 'Overview'),
+                FloatingNavItem(icon: Icons.list_alt, label: 'Bookings'),
+                FloatingNavItem(icon: Icons.contacts, label: 'Clients'),
+                FloatingNavItem(icon: Icons.people, label: 'Staff'),
+                FloatingNavItem(icon: Icons.calendar_month, label: 'Calendar'),
+                FloatingNavItem(icon: Icons.settings, label: 'Settings'),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.list_alt),
-              label: 'Bookings',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.contacts),
-              label: 'Clients',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people),
-              label: 'Staff',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_month),
-              label: 'Calendar',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

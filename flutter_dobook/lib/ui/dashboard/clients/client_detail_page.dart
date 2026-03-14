@@ -3,9 +3,11 @@ import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/client.dart';
 import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
-import 'package:dobook/ui/widgets/empty_state.dart';
-import 'package:dobook/ui/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/widgets/status_badge.dart';
+import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
+import 'package:dobook/ui/shared/widgets/empty_state.dart';
+import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/status_badge.dart';
 import 'package:dobook/util/format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -91,19 +93,50 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   }
 
   Widget _headerCard(String? phone) {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              _client.name.isEmpty ? 'Unnamed client' : _client.name,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            AvatarWidget(name: _client.name, size: 56),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _client.name.isEmpty ? 'Unnamed client' : _client.name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _client.email,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  if (phone != null && phone.isNotEmpty)
+                    Text(
+                      phone,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(_client.email),
-            if (phone != null && phone.isNotEmpty) Text(phone),
           ],
         ),
       ),
@@ -111,7 +144,19 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   }
 
   Widget _statsCard() {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -145,7 +190,19 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   }
 
   Widget _notesCard() {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -159,7 +216,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
             Text(
               'Notes are private and never shown to customers.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: scheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: 12),
@@ -192,7 +249,18 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   }
 
   Widget _bookingTile(Booking booking) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ListTile(
         title: Text(
           booking.serviceType.isEmpty ? 'Service' : booking.serviceType,
@@ -215,9 +283,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         ),
         onTap: () {
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => BookingDetailsScreen(booking: booking),
-            ),
+            slidePageRoute(BookingDetailsScreen(booking: booking)),
           );
         },
       ),
