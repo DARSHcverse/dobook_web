@@ -43,24 +43,28 @@ ThemeData buildDobookTheme({Brightness brightness = Brightness.light}) {
       letterSpacing: 0.2,
     ),
   );
+  final appBarForeground =
+      brightness == Brightness.light ? scheme.onSurface : scheme.primary;
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     textTheme: textTheme,
-    scaffoldBackgroundColor: scheme.surface,
+    scaffoldBackgroundColor:
+        brightness == Brightness.light ? const Color(0xFFF8F9FA) : scheme.surface,
     appBarTheme: AppBarTheme(
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.primary,
+      backgroundColor:
+          brightness == Brightness.light ? Colors.white : scheme.surface,
+      foregroundColor: appBarForeground,
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
       titleTextStyle: textTheme.titleLarge?.copyWith(
-        color: scheme.primary,
+        color: appBarForeground,
       ),
-      iconTheme: IconThemeData(color: scheme.primary),
-      actionsIconTheme: IconThemeData(color: scheme.primary),
+      iconTheme: IconThemeData(color: appBarForeground),
+      actionsIconTheme: IconThemeData(color: appBarForeground),
       shape: Border(bottom: BorderSide(color: scheme.outlineVariant)),
     ),
     cardTheme: CardThemeData(
@@ -207,11 +211,11 @@ ColorScheme _buildScheme(Brightness brightness) {
     error: const Color(0xFFC62828),
     onError: Colors.white,
     surface: isDark ? const Color(0xFF0F1115) : Colors.white,
-    onSurface: isDark ? const Color(0xFFF9FAFB) : const Color(0xFF111827),
+    onSurface: isDark ? const Color(0xFFF9FAFB) : const Color(0xFF1A1A2E),
     surfaceContainerHighest:
-        isDark ? const Color(0xFF1B1F27) : const Color(0xFFF5F5F5),
+        isDark ? const Color(0xFF1B1F27) : const Color(0xFFF3F4F6),
     surfaceContainerLow:
-        isDark ? const Color(0xFF151922) : const Color(0xFFF9FAFB),
+        isDark ? const Color(0xFF151922) : const Color(0xFFF8F9FA),
     surfaceContainerLowest:
         isDark ? const Color(0xFF0F1115) : Colors.white,
     onSurfaceVariant:

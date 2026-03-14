@@ -1,14 +1,18 @@
 import 'dart:convert';
+
 import 'package:dobook/app/session.dart';
 import 'package:dobook/app/theme.dart';
-import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/business.dart';
+import 'package:dobook/ui/dashboard/settings/additional_charges_screen.dart';
+import 'package:dobook/ui/dashboard/settings/business_information_screen.dart';
+import 'package:dobook/ui/dashboard/settings/business_type_screen.dart';
+import 'package:dobook/ui/dashboard/settings/payment_details_screen.dart';
+import 'package:dobook/ui/dashboard/settings/reminder_settings_screen.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
 import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/shared/widgets/section_header.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -74,7 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
               children: [
                 _profileHeader(context, business),
-                const SectionHeader(title: 'Business'),
+                _sectionHeader(context, 'Business'),
                 _sectionCard(
                   context,
                   children: [
@@ -83,7 +87,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.storefront,
                       label: 'Business Information',
                       color: Theme.of(context).colorScheme.primary,
-                      onTap: () => _openEditSheet(context, business),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const BusinessInformationScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -91,7 +98,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.payments,
                       label: 'Payment Details',
                       color: Theme.of(context).colorScheme.secondary,
-                      onTap: () => _openEditSheet(context, business),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const PaymentDetailsScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -99,11 +109,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.attach_money,
                       label: 'Additional Charges',
                       color: Theme.of(context).colorScheme.tertiary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const AdditionalChargesScreen(),
+                      ),
                     ),
                   ],
                 ),
-                const SectionHeader(title: 'Booking'),
+                _sectionHeader(context, 'Booking'),
                 _sectionCard(
                   context,
                   children: [
@@ -120,7 +133,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.notifications_active,
                       label: 'Reminder Settings',
                       color: Theme.of(context).colorScheme.secondary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const ReminderSettingsScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -128,11 +144,41 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.category,
                       label: 'Business Type',
                       color: Theme.of(context).colorScheme.tertiary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const BusinessTypeScreen(),
+                      ),
                     ),
                   ],
                 ),
-                const SectionHeader(title: 'Account'),
+                _sectionHeader(context, 'Appearance'),
+                _sectionCard(
+                  context,
+                  children: [
+                    _settingsRow(
+                      context,
+                      icon: Icons.dark_mode,
+                      label: 'Dark Mode',
+                      color: Theme.of(context).colorScheme.primary,
+                      trailing: Switch(
+                        value: session.themeMode == ThemeMode.dark,
+                        onChanged: (value) {
+                          session.setThemeMode(
+                            value ? ThemeMode.dark : ThemeMode.light,
+                          );
+                        },
+                      ),
+                      showChevron: false,
+                      onTap: () {
+                        final next = session.themeMode == ThemeMode.dark
+                            ? ThemeMode.light
+                            : ThemeMode.dark;
+                        session.setThemeMode(next);
+                      },
+                    ),
+                  ],
+                ),
+                _sectionHeader(context, 'Account'),
                 _sectionCard(
                   context,
                   children: [
@@ -162,7 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                const SectionHeader(title: 'Danger Zone'),
+                _sectionHeader(context, 'Danger Zone'),
                 _sectionCard(
                   context,
                   children: [
@@ -194,41 +240,57 @@ class _SettingsPageState extends State<SettingsPage> {
             backgroundColor: scheme.surfaceContainerHighest,
             backgroundImage: MemoryImage(logo),
           );
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: isLight ? Colors.white : scheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         children: [
-          avatar,
-          const SizedBox(height: 12),
-          Text(
-            business.businessName,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              children: [
+                avatar,
+                const SizedBox(height: 12),
+                Text(
+                  business.businessName,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            business.email,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                const SizedBox(height: 4),
+                Text(
+                  business.email,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                 ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 36,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(20),
+              ),
+            ),
             child: FilledButton(
-              onPressed: () => _openEditSheet(context, business),
+              onPressed: () => _openSettingsScreen(
+                context,
+                const BusinessInformationScreen(),
+              ),
               child: const Text('Edit Profile'),
             ),
           ),
@@ -239,15 +301,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _sectionCard(BuildContext context, {required List<Widget> children}) {
     final scheme = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: isLight ? Colors.white : scheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -259,6 +322,21 @@ class _SettingsPageState extends State<SettingsPage> {
     return Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant);
   }
 
+  Widget _sectionHeader(BuildContext context, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: 11,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF9CA3AF),
+            ),
+      ),
+    );
+  }
+
   Widget _settingsRow(
     BuildContext context, {
     required IconData icon,
@@ -267,6 +345,7 @@ class _SettingsPageState extends State<SettingsPage> {
     VoidCallback? onTap,
     Widget? trailing,
     bool danger = false,
+    bool showChevron = true,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final brand = Theme.of(context).extension<BrandColors>();
@@ -299,8 +378,10 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(width: 8),
               trailing,
             ],
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+            if (showChevron) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, color: Color(0xFFD1D5DB)),
+            ],
           ],
         ),
       ),
@@ -326,13 +407,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _openEditSheet(BuildContext context, Business business) async {
-    final updated = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _EditBusinessSheet(business: business),
-    );
-    if (updated == true && mounted) {
+  Future<void> _openSettingsScreen(BuildContext context, Widget screen) async {
+    await Navigator.of(context).push(slidePageRoute(screen));
+    if (mounted) {
       setState(() => _loadFuture = _loadBusiness());
     }
   }
@@ -412,261 +489,5 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-  }
-}
-
-class _EditBusinessSheet extends StatefulWidget {
-  const _EditBusinessSheet({required this.business});
-
-  final Business business;
-
-  @override
-  State<_EditBusinessSheet> createState() => _EditBusinessSheetState();
-}
-
-class _EditBusinessSheetState extends State<_EditBusinessSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _businessNameCtrl;
-  late final TextEditingController _phoneCtrl;
-  late final TextEditingController _addressCtrl;
-  late final TextEditingController _abnCtrl;
-  late final TextEditingController _bankNameCtrl;
-  late final TextEditingController _accountNameCtrl;
-  late final TextEditingController _bsbCtrl;
-  late final TextEditingController _accountNumberCtrl;
-  late final TextEditingController _paymentLinkCtrl;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final b = widget.business;
-    _businessNameCtrl = TextEditingController(text: b.businessName);
-    _phoneCtrl = TextEditingController(text: b.phone ?? '');
-    _addressCtrl = TextEditingController(text: b.businessAddress);
-    _abnCtrl = TextEditingController(text: b.abn);
-    _bankNameCtrl = TextEditingController(text: b.bankName);
-    _accountNameCtrl = TextEditingController(text: b.accountName);
-    _bsbCtrl = TextEditingController(text: b.bsb);
-    _accountNumberCtrl = TextEditingController(text: b.accountNumber);
-    _paymentLinkCtrl = TextEditingController(text: b.paymentLink);
-  }
-
-  @override
-  void dispose() {
-    _businessNameCtrl.dispose();
-    _phoneCtrl.dispose();
-    _addressCtrl.dispose();
-    _abnCtrl.dispose();
-    _bankNameCtrl.dispose();
-    _accountNameCtrl.dispose();
-    _bsbCtrl.dispose();
-    _accountNumberCtrl.dispose();
-    _paymentLinkCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final logo = _logoImage(widget.business);
-    final avatar = logo == null
-        ? AvatarWidget(name: widget.business.businessName, size: 52)
-        : CircleAvatar(
-            radius: 26,
-            backgroundColor: scheme.surfaceContainerHighest,
-            backgroundImage: MemoryImage(logo),
-          );
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            Text(
-              'Edit business profile',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                avatar,
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _pickLogo(context),
-                  icon: const Icon(Icons.image),
-                  label: const Text('Upload logo'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const SectionHeader(title: 'Business profile', padding: EdgeInsets.zero),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _businessNameCtrl,
-              decoration: const InputDecoration(labelText: 'Business name'),
-              validator: (v) =>
-                  (v == null || v.trim().length < 2) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneCtrl,
-              decoration: const InputDecoration(labelText: 'Phone'),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _addressCtrl,
-              decoration: const InputDecoration(labelText: 'Business address'),
-              minLines: 2,
-              maxLines: 4,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _abnCtrl,
-              decoration: const InputDecoration(labelText: 'ABN'),
-            ),
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'Bank details', padding: EdgeInsets.zero),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _bankNameCtrl,
-              decoration: const InputDecoration(labelText: 'Bank name'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _accountNameCtrl,
-              decoration: const InputDecoration(labelText: 'Account name'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _bsbCtrl,
-              decoration: const InputDecoration(labelText: 'BSB'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _accountNumberCtrl,
-              decoration: const InputDecoration(labelText: 'Account number'),
-            ),
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'Payments', padding: EdgeInsets.zero),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _paymentLinkCtrl,
-              decoration: const InputDecoration(labelText: 'Payment link'),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _busy ? null : () => _save(context),
-                    child: _busy
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Uint8List? _logoImage(Business business) {
-    if (business.logoUrl.startsWith('data:')) {
-      final parts = business.logoUrl.split(',');
-      if (parts.length == 2) {
-        try {
-          return base64Decode(parts[1]);
-        } catch (_) {
-          return null;
-        }
-      }
-    }
-    return null;
-  }
-
-  Future<void> _save(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _busy = true);
-    try {
-      final repo = context.read<DobookRepository>();
-      final session = context.read<AppSession>();
-      final token = session.token!;
-
-      await repo.updateBusinessProfile(token, {
-        'business_name': _businessNameCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
-        'business_address': _addressCtrl.text.trim(),
-        'abn': _abnCtrl.text.trim(),
-        'bank_name': _bankNameCtrl.text.trim(),
-        'account_name': _accountNameCtrl.text.trim(),
-        'bsb': _bsbCtrl.text.trim(),
-        'account_number': _accountNumberCtrl.text.trim(),
-        'payment_link': _paymentLinkCtrl.text.trim(),
-      });
-
-      await session.refreshBusiness();
-      if (!context.mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _pickLogo(BuildContext context) async {
-    setState(() => _busy = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final repo = context.read<DobookRepository>();
-    final session = context.read<AppSession>();
-
-    try {
-      final picker = ImagePicker();
-      final xfile = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-      );
-      if (xfile == null) return;
-      final bytes = await xfile.readAsBytes();
-      final mime = _mimeFromPath(xfile.name);
-
-      await repo.uploadLogo(session.token!, bytes: bytes, contentType: mime);
-      await session.refreshBusiness();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  String _mimeFromPath(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
   }
 }

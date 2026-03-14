@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/business.dart';
 import 'package:dobook/data/models/session.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppSession extends ChangeNotifier {
@@ -11,6 +11,7 @@ class AppSession extends ChangeNotifier {
 
   static const _storageTokenKey = 'auth_token';
   static const _storageSessionKey = 'auth_session';
+  static const _storageThemeKey = 'theme_mode';
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   final DobookRepository repo;
@@ -30,10 +31,17 @@ class AppSession extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode get themeMode => _themeMode;
+
   Future<void> init() async {
     try {
       _isInitializing = true;
       notifyListeners();
+
+      final savedTheme = await _storage.read(key: _storageThemeKey);
+      _themeMode =
+          savedTheme == 'dark' ? ThemeMode.dark : ThemeMode.light;
 
       final savedToken = await _storage.read(key: _storageTokenKey);
       if (savedToken == null || savedToken.isEmpty) return;
@@ -67,6 +75,16 @@ class AppSession extends ChangeNotifier {
       _isInitializing = false;
       notifyListeners();
     }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (_themeMode == mode) return;
+    _themeMode = mode;
+    notifyListeners();
+    await _storage.write(
+      key: _storageThemeKey,
+      value: mode == ThemeMode.dark ? 'dark' : 'light',
+    );
   }
 
   Future<void> login({required String email, required String password}) async {

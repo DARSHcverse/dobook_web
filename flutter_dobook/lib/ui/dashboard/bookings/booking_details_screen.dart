@@ -7,7 +7,9 @@ import 'package:dobook/invoices/invoice_preview_screen.dart';
 import 'package:dobook/ui/dashboard/bookings/edit_booking_screen.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
 import 'package:dobook/ui/shared/widgets/section_header.dart';
+import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/util/format.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,6 +24,8 @@ class BookingDetailsScreen extends StatefulWidget {
 
 class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   late Booking _booking;
+  bool _bookingLoading = false;
+  String? _bookingError;
   bool _savingPayment = false;
   bool _sendingInvoice = false;
   bool _requestingReview = false;
@@ -40,6 +44,15 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     _staffSelection = _booking.staffId;
     _assignedStaffId = _booking.staffId;
     _assignedStaffName = _booking.staffName;
+    _bookingLoading = true;
+    if (kDebugMode) {
+      debugPrint(
+        'BookingDetailsScreen: received booking id=${_booking.id} '
+        'invoice=${_booking.invoiceId} customer=${_booking.customerName}',
+      );
+      _logMissingFields(_booking);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBookingDetails());
     _loadStaff();
   }
 
@@ -49,6 +62,30 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     final booking = _booking;
     final scheme = Theme.of(context).colorScheme;
     final brand = Theme.of(context).extension<BrandColors>();
+    final title = booking.invoiceId.isEmpty ? 'Booking' : booking.invoiceId;
+
+    if (_bookingLoading) {
+      if (kDebugMode) {
+        debugPrint('BookingDetailsScreen: booking data loading...');
+      }
+      return Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: const LoadingShimmerList(
+          padding: EdgeInsets.all(16),
+          itemCount: 6,
+        ),
+      );
+    }
+
+    if (_bookingError != null) {
+      if (kDebugMode) {
+        debugPrint('BookingDetailsScreen: booking error=$_bookingError');
+      }
+      return Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: _errorState(context, _bookingError!),
+      );
+    }
 
     final paymentStatusValue = _normalizePaymentStatus(booking.paymentStatus);
     final paymentMethodValue = _normalizePaymentMethod(booking.paymentMethod);
@@ -68,7 +105,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(booking.invoiceId.isEmpty ? 'Booking' : booking.invoiceId),
+        title: Text(title),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -99,12 +136,16 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 children: [
                   _kv('Service', booking.serviceType),
                   _kv('Booth', booking.boothType),
+                  _kv('Package', booking.packageDuration),
                   _kv('Date', booking.bookingDate),
                   _kv('Time', booking.bookingTime),
+                  _kv('End time', booking.endTime),
+                  _kv('Price', formatMoney(booking.price)),
+                  _kv('Quantity', booking.quantity.toString()),
                   _kv('Duration', '${booking.durationMinutes} min'),
-                  if (booking.eventLocation.isNotEmpty)
-                    _kv('Location', booking.eventLocation),
-                  if (booking.notes.isNotEmpty) _kv('Notes', booking.notes),
+                  _kv('Location', booking.eventLocation),
+                  _kv('Parking', booking.parkingInfo),
+                  _kv('Notes', booking.notes),
                 ],
               ),
             ),
@@ -201,6 +242,30 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                     breakdown.totalAmount,
                     isBold: true,
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const SectionHeader(title: 'Status & Invoice', padding: EdgeInsets.only(bottom: 8)),
+          _sectionCard(
+            context,
+            brand,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _kv('Status', booking.status),
+                  _kv('Payment status', booking.paymentStatus),
+                  _kv('Payment method', booking.paymentMethod),
+                  _kv('Invoice ID', booking.invoiceId),
+                  _kv('Invoice date', booking.invoiceDate),
+                  _kv('Due date', booking.dueDate),
+                  _kv('Created at', booking.createdAt),
+                  _kv('Booking ID', booking.id),
+                  _kv('Business ID', booking.businessId),
+                  _kv('Staff ID', booking.staffId),
+                  _kv('Staff name', booking.staffName),
                 ],
               ),
             ),
@@ -424,6 +489,98 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _errorState(BuildContext context, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 40,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Unable to load booking',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _loadBookingDetails,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _logMissingFields(Booking booking) {
+    final missing = <String>[];
+    if (booking.id.trim().isEmpty) missing.add('id');
+    if (booking.businessId.trim().isEmpty) missing.add('business_id');
+    if (booking.customerName.trim().isEmpty) missing.add('customer_name');
+    if (booking.customerEmail.trim().isEmpty) missing.add('customer_email');
+    if (booking.bookingDate.trim().isEmpty) missing.add('booking_date');
+    if (booking.bookingTime.trim().isEmpty) missing.add('booking_time');
+    if (booking.invoiceId.trim().isEmpty) missing.add('invoice_id');
+    if (missing.isNotEmpty) {
+      debugPrint('BookingDetailsScreen: missing fields -> ${missing.join(', ')}');
+    }
+  }
+
+  Future<void> _loadBookingDetails() async {
+    setState(() {
+      _bookingLoading = true;
+      _bookingError = null;
+    });
+
+    if (kDebugMode) {
+      debugPrint('BookingDetailsScreen: loading booking ${_booking.id}');
+    }
+
+    try {
+      if (_booking.id.trim().isEmpty) {
+        if (kDebugMode) {
+          debugPrint('BookingDetailsScreen: missing booking id, skipping refresh.');
+        }
+        return;
+      }
+      final repo = context.read<DobookRepository>();
+      final token = context.read<AppSession>().token;
+      if (token == null || token.isEmpty) {
+        if (kDebugMode) {
+          debugPrint('BookingDetailsScreen: missing auth token, skipping refresh.');
+        }
+        return;
+      }
+      final list = await repo.getBookings(token);
+      final refreshed = list.firstWhere(
+        (item) => item.id == _booking.id,
+        orElse: () => _booking,
+      );
+      if (!mounted) return;
+      setState(() => _booking = refreshed);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _bookingError = e.toString());
+    } finally {
+      if (mounted) setState(() => _bookingLoading = false);
+      if (kDebugMode) {
+        debugPrint('BookingDetailsScreen: booking load complete');
+      }
+    }
   }
 
   String _normalizePaymentStatus(String status) {

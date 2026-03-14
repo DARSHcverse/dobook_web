@@ -162,19 +162,23 @@ class _BookingsPageState extends State<BookingsPage> {
 
                 final b = filtered[i - 2];
                 final accent = StatusBadge.accentColor(context, b.status);
+                final isLight = Theme.of(context).brightness == Brightness.light;
+                final cardShadow = BoxShadow(
+                  color: isLight
+                      ? Colors.black.withValues(alpha: 0.06)
+                      : (brand?.cardShadow ?? Theme.of(context).shadowColor),
+                  blurRadius: isLight ? 8 : 12,
+                  offset: isLight ? const Offset(0, 2) : const Offset(0, 6),
+                );
                 return Container(
                   decoration: BoxDecoration(
                     color: scheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
-                      BoxShadow(
-                        color: brand?.cardShadow ?? Theme.of(context).shadowColor,
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
-                      ),
+                      cardShadow,
                     ],
                     border: Border(
-                      left: BorderSide(color: accent, width: 4),
+                      left: BorderSide(color: accent, width: 3),
                     ),
                   ),
                   child: InkWell(
@@ -195,74 +199,121 @@ class _BookingsPageState extends State<BookingsPage> {
                       }
                     },
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          AvatarWidget(name: b.customerName, size: 48),
-                          const SizedBox(width: 12),
                           Expanded(
-                            child: Column(
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  b.customerName.isEmpty
-                                      ? '(No name)'
-                                      : b.customerName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontSize: 16,
+                                AvatarWidget(name: b.customerName, size: 48),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        b.customerName.isEmpty
+                                            ? '(No name)'
+                                            : b.customerName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontSize: 16,
+                                            ),
                                       ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  b.customerEmail.isEmpty ? 'No email' : b.customerEmail,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: scheme.onSurfaceVariant,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        b.customerEmail.isEmpty
+                                            ? 'No email'
+                                            : b.customerEmail,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
                                       ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_today,
-                                        size: 14, color: scheme.onSurfaceVariant),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      b.bookingDate,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Icon(Icons.schedule,
-                                        size: 14, color: scheme.onSurfaceVariant),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      b.bookingTime,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today,
+                                            size: 14,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              b.bookingDate,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(
+                                            Icons.schedule,
+                                            size: 14,
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              b.bookingTime,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                formatMoney(b.total),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      color: scheme.primary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              StatusBadge(status: b.status),
-                            ],
+                          SizedBox(
+                            width: 100,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  formatMoney(b.total),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        color: scheme.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                StatusBadge(status: b.status),
+                              ],
+                            ),
                           ),
                         ],
                       ),
