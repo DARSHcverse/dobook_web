@@ -1,6 +1,7 @@
 import 'package:dobook/app/session.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
+import 'package:dobook/data/models/staff.dart';
 import 'package:dobook/invoices/invoice_preview_screen.dart';
 import 'package:dobook/ui/dashboard/bookings/edit_booking_screen.dart';
 import 'package:dobook/util/format.dart';
@@ -22,11 +23,21 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   bool _sendingInvoice = false;
   bool _requestingReview = false;
   bool _cancelling = false;
+  bool _staffLoading = false;
+  bool _assigningStaff = false;
+  String _staffSelection = '';
+  String _assignedStaffName = '';
+  String _assignedStaffId = '';
+  List<Staff> _staffList = const [];
 
   @override
   void initState() {
     super.initState();
     _booking = widget.booking;
+    _staffSelection = _booking.staffId;
+    _assignedStaffId = _booking.staffId;
+    _assignedStaffName = _booking.staffName;
+    _loadStaff();
   }
 
   @override
@@ -39,6 +50,16 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
     final lineItems = booking.lineItems;
     final breakdown = _buildBreakdown(booking, lineItems);
+    final activeStaff =
+        _staffList.where((member) => member.isActive).toList();
+    final activeStaffIds = activeStaff.map((member) => member.id).toSet();
+    Staff? currentStaff;
+    for (final member in _staffList) {
+      if (member.id == _assignedStaffId || member.id == booking.staffId) {
+        currentStaff = member;
+        break;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -176,15 +197,81 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Staff', style: _sectionStyle(context)),
+          Text('Assigned Staff', style: _sectionStyle(context)),
           const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: _kv(
-                'Assigned',
-                _staffLabel(booking),
-                emptyValue: 'Not assigned',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_staffLoading) ...[
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_assignedStaffName.trim().isNotEmpty ||
+                      (currentStaff?.name.trim().isNotEmpty ?? false))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Currently assigned: ${_assignedStaffName.isNotEmpty ? _assignedStaffName : (currentStaff?.name ?? '')}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('staff-$_staffSelection'),
+                    initialValue: activeStaffIds.contains(_staffSelection)
+                        ? _staffSelection
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Select staff member',
+                    ),
+                    items: activeStaff
+                        .map(
+                          (member) => DropdownMenuItem(
+                            value: member.id,
+                            child: Text(member.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _assigningStaff
+                        ? null
+                        : (value) {
+                            setState(() => _staffSelection = value ?? '');
+                          },
+                  ),
+                  if (!_staffLoading && activeStaff.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'No active staff members yet.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      FilledButton(
+                        onPressed: _assigningStaff || _staffSelection.isEmpty
+                            ? null
+                            : _assignStaff,
+                        child: _assigningStaff
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Assign'),
+                      ),
+                      const SizedBox(width: 12),
+                      if (_assignedStaffId.isNotEmpty)
+                        TextButton(
+                          onPressed: _assigningStaff ? null : _removeStaff,
+                          child: const Text('Remove'),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -327,10 +414,101 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
-  String _staffLabel(Booking booking) {
-    if (booking.staffName.trim().isNotEmpty) return booking.staffName.trim();
-    if (booking.staffId.trim().isNotEmpty) return booking.staffId.trim();
-    return '';
+  Future<void> _loadStaff() async {
+    setState(() => _staffLoading = true);
+    try {
+      final repo = context.read<DobookRepository>();
+      final token = context.read<AppSession>().token;
+      final list = await repo.getStaff(token: token);
+      if (!mounted) return;
+      Staff? assigned;
+      if (_assignedStaffId.isNotEmpty) {
+        for (final member in list) {
+          if (member.id == _assignedStaffId) {
+            assigned = member;
+            break;
+          }
+        }
+      }
+      setState(() {
+        _staffList = list;
+        if (assigned != null) {
+          _assignedStaffName = assigned.name;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _staffLoading = false);
+    }
+  }
+
+  Future<void> _assignStaff() async {
+    if (_assigningStaff || _staffSelection.isEmpty) return;
+    setState(() => _assigningStaff = true);
+    try {
+      final repo = context.read<DobookRepository>();
+      final token = context.read<AppSession>().token;
+      await repo.assignStaff(_booking.id, _staffSelection, token: token);
+      if (!mounted) return;
+      Staff? assigned;
+      for (final member in _staffList) {
+        if (member.id == _staffSelection) {
+          assigned = member;
+          break;
+        }
+      }
+      setState(() {
+        _assignedStaffId = _staffSelection;
+        if (assigned != null) {
+          _assignedStaffName = assigned.name;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Staff assigned')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _assigningStaff = false);
+    }
+  }
+
+  Future<void> _removeStaff() async {
+    if (_assigningStaff) return;
+    setState(() => _assigningStaff = true);
+    try {
+      final repo = context.read<DobookRepository>();
+      final token = context.read<AppSession>().token;
+      final updated = await repo.updateBooking(
+        _booking.id,
+        {'staff_id': null},
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _booking = updated;
+        _assignedStaffId = '';
+        _assignedStaffName = '';
+        _staffSelection = '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Staff removed')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _assigningStaff = false);
+    }
   }
 
   Future<void> _savePayment(Map<String, dynamic> updates) async {

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dobook/app/config.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/business.dart';
+import 'package:dobook/data/models/staff.dart';
 import 'package:http/http.dart' as http;
 
 const String apiBaseUrl = kBaseUrl;
@@ -205,6 +206,113 @@ class DobookRepository {
       return bookings;
     } else {
       throw Exception('Failed to fetch bookings');
+    }
+  }
+
+  Future<List<Staff>> getStaff({String? token}) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.get(
+      Uri.parse('$apiBaseUrl/staff'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final List staffList = (data['staff'] ?? data) as List;
+      return staffList
+          .map((s) => Staff.fromJson(s as Map<String, dynamic>))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch staff');
+    }
+  }
+
+  Future<Staff> createStaff(
+    Map<String, dynamic> data, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/staff'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final staffData = data['staff'] ?? data;
+      return Staff.fromJson(staffData as Map<String, dynamic>);
+    } else {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to create staff');
+    }
+  }
+
+  Future<Staff> updateStaff(
+    String id,
+    Map<String, dynamic> data, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.put(
+      Uri.parse('$apiBaseUrl/staff/$id'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final staffData = data['staff'] ?? data;
+      return Staff.fromJson(staffData as Map<String, dynamic>);
+    } else {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to update staff');
+    }
+  }
+
+  Future<void> deleteStaff(String id, {String? token}) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.delete(
+      Uri.parse('$apiBaseUrl/staff/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to delete staff');
+    }
+  }
+
+  Future<void> assignStaff(
+    String bookingId,
+    String staffId, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.put(
+      Uri.parse('$apiBaseUrl/bookings/$bookingId'),
+      headers: headers,
+      body: jsonEncode({'staff_id': staffId}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to assign staff');
     }
   }
 

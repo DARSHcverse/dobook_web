@@ -1,5 +1,6 @@
 import 'package:dobook/ui/dashboard/bookings/bookings_page.dart';
 import 'package:dobook/ui/dashboard/calendar/calendar_page.dart';
+import 'package:dobook/ui/dashboard/staff/staff_page.dart';
 import 'package:dobook/ui/dashboard/settings/settings_page.dart';
 import 'package:dobook/ui/public_booking/public_booking_screen.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final scheme = Theme.of(context).colorScheme;
     final pages = <Widget>[
       const BookingsPage(),
+      const StaffPage(),
       const CalendarPage(),
       const PublicBookingScreen(),
       const SettingsPage(),
@@ -32,6 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.list_alt), label: 'Bookings'),
+          NavigationDestination(icon: Icon(Icons.people), label: 'Staff'),
           NavigationDestination(
             icon: Icon(Icons.calendar_month),
             label: 'Calendar',
