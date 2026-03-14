@@ -257,4 +257,90 @@ class DobookRepository {
       throw Exception(data['detail'] ?? 'Failed to create booking');
     }
   }
+
+  Future<Booking> updateBooking(
+    String id,
+    Map<String, dynamic> data, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.put(
+      Uri.parse('$apiBaseUrl/bookings/$id'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final bookingData = data['booking'] ?? data;
+      return Booking.fromJson(bookingData as Map<String, dynamic>);
+    } else {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to update booking');
+    }
+  }
+
+  Future<Booking> cancelBooking(String id, {String? token}) {
+    return updateBooking(id, {'status': 'cancelled'}, token: token);
+  }
+
+  Future<void> sendInvoice(String id, {String? token}) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/bookings/$id/send-invoice'),
+      headers: headers,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to send invoice');
+    }
+  }
+
+  Future<void> requestReview(String bookingId, {String? token}) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    String detailFrom(http.Response response) {
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic> && data['detail'] != null) {
+          return data['detail'].toString();
+        }
+      } catch (_) {}
+      return 'Failed to request review';
+    }
+
+    final body = jsonEncode({'booking_id': bookingId, 'bookingId': bookingId});
+    final primary = await http.post(
+      Uri.parse('$apiBaseUrl/public/review-invites'),
+      headers: headers,
+      body: body,
+    );
+
+    if (primary.statusCode >= 200 && primary.statusCode < 300) {
+      return;
+    }
+
+    if (primary.statusCode == 404) {
+      final fallback = await http.post(
+        Uri.parse('$apiBaseUrl/reviews/request'),
+        headers: headers,
+        body: jsonEncode({'booking_id': bookingId}),
+      );
+      if (fallback.statusCode >= 200 && fallback.statusCode < 300) {
+        return;
+      }
+      throw Exception(detailFrom(fallback));
+    }
+
+    throw Exception(detailFrom(primary));
+  }
 }

@@ -18,6 +18,12 @@ class Booking {
     required this.price,
     required this.quantity,
     required this.status,
+    required this.paymentStatus,
+    required this.paymentMethod,
+    required this.lineItems,
+    required this.totalAmount,
+    required this.staffId,
+    required this.staffName,
     required this.invoiceId,
     required this.invoiceDate,
     required this.dueDate,
@@ -42,12 +48,18 @@ class Booking {
   final double price;
   final int quantity;
   final String status;
+  final String paymentStatus;
+  final String paymentMethod;
+  final List<Map<String, dynamic>> lineItems;
+  final double? totalAmount;
+  final String staffId;
+  final String staffName;
   final String invoiceId;
   final String invoiceDate; // ISO
   final String dueDate; // ISO
   final String createdAt; // ISO
 
-  double get total => price * quantity;
+  double get total => totalAmount ?? (price * quantity);
 
   Map<String, dynamic> toJson() {
     return {
@@ -69,6 +81,12 @@ class Booking {
       'price': price,
       'quantity': quantity,
       'status': status,
+      'payment_status': paymentStatus,
+      'payment_method': paymentMethod,
+      'line_items': lineItems,
+      'total_amount': totalAmount,
+      'staff_id': staffId,
+      'staff_name': staffName,
       'invoice_id': invoiceId,
       'invoice_date': invoiceDate,
       'due_date': dueDate,
@@ -100,6 +118,27 @@ class Booking {
           ? (json['quantity'] as num).toInt()
           : 1,
       status: json['status']?.toString() ?? 'confirmed',
+      paymentStatus: json['payment_status']?.toString() ?? 'unpaid',
+      paymentMethod: json['payment_method']?.toString() ?? '',
+      lineItems: (json['line_items'] is List)
+          ? (json['line_items'] as List)
+              .whereType<Map>()
+              .map(
+                (item) =>
+                    item.map((key, value) => MapEntry(key.toString(), value)),
+              )
+              .toList()
+          : <Map<String, dynamic>>[],
+      totalAmount: (json['total_amount'] is num)
+          ? (json['total_amount'] as num).toDouble()
+          : (json['totalAmount'] is num)
+              ? (json['totalAmount'] as num).toDouble()
+              : null,
+      staffId: json['staff_id']?.toString() ?? '',
+      staffName: (json['staff_name']?.toString() ??
+              json['staffName']?.toString() ??
+              json['staff']?['name']?.toString()) ??
+          '',
       invoiceId: json['invoice_id']?.toString() ?? '',
       invoiceDate: json['invoice_date']?.toString() ?? '',
       dueDate: json['due_date']?.toString() ?? '',

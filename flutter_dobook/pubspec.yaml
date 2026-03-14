@@ -48,6 +48,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.9
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -69,6 +72,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/brand/dobook-logo.png
+    - assets/icon/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -95,3 +99,23 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/icon/app_icon.png
+  android: true
+  ios: true
+  web: false
+  android_12:
+    color: "#FFFFFF"
+    image: assets/icon/app_icon.png
