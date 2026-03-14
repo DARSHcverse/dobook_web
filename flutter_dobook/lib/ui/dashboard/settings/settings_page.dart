@@ -88,98 +88,146 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
             children: [
               Text(
                 'Business ID: ${business.id}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    backgroundImage: logoBytes == null
-                        ? null
-                        : MemoryImage(logoBytes),
-                    child: logoBytes == null ? const Icon(Icons.store) : null,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        backgroundImage: logoBytes == null
+                            ? null
+                            : MemoryImage(logoBytes),
+                        child: logoBytes == null
+                            ? const Icon(Icons.store)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _pickLogo(context),
+                        icon: const Icon(Icons.image),
+                        label: const Text('Upload logo'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _pickLogo(context),
-                    icon: const Icon(Icons.image),
-                    label: const Text('Upload logo'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _businessNameCtrl,
-                decoration: const InputDecoration(labelText: 'Business name'),
-                validator: (v) =>
-                    (v == null || v.trim().length < 2) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _addressCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Business address',
                 ),
-                minLines: 2,
-                maxLines: 4,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _abnCtrl,
-                decoration: const InputDecoration(labelText: 'ABN'),
+              const SizedBox(height: 20),
+              _sectionHeader(context, 'Business profile'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _businessNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Business name',
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().length < 2)
+                                ? 'Required'
+                                : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        decoration: const InputDecoration(labelText: 'Phone'),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _addressCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Business address',
+                        ),
+                        minLines: 2,
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _abnCtrl,
+                        decoration: const InputDecoration(labelText: 'ABN'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const Divider(height: 32),
-              Text(
-                'Bank details',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SizedBox(height: 20),
+              _sectionHeader(context, 'Bank details'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _bankNameCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Bank name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _accountNameCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Account name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _bsbCtrl,
+                        decoration: const InputDecoration(labelText: 'BSB'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _accountNumberCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Account number'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _bankNameCtrl,
-                decoration: const InputDecoration(labelText: 'Bank name'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _accountNameCtrl,
-                decoration: const InputDecoration(labelText: 'Account name'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _bsbCtrl,
-                decoration: const InputDecoration(labelText: 'BSB'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _accountNumberCtrl,
-                decoration: const InputDecoration(labelText: 'Account number'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _paymentLinkCtrl,
-                decoration: const InputDecoration(labelText: 'Payment link'),
+              const SizedBox(height: 20),
+              _sectionHeader(context, 'Payments'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextFormField(
+                    controller: _paymentLinkCtrl,
+                    decoration: const InputDecoration(labelText: 'Payment link'),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _busy ? null : () => _save(context),
-                child: const Text('Save'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : () => _save(context),
+                  child: const Text('Save'),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.titleMedium,
       ),
     );
   }

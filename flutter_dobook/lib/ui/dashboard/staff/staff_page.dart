@@ -1,6 +1,10 @@
 import 'package:dobook/app/session.dart';
+import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/staff.dart';
+import 'package:dobook/ui/widgets/empty_state.dart';
+import 'package:dobook/ui/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,72 +44,84 @@ class _StaffPageState extends State<StaffPage> {
             if (snapshot.hasError) {
               return Center(child: Text('Failed to load: ${snapshot.error}'));
             }
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingShimmerList();
           }
 
           final staff = snapshot.data!;
           if (staff.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No staff yet. Tap + to add your first team member.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            return EmptyState(
+              icon: Icons.people_outline,
+              title: 'No staff yet',
+              subtitle: 'Tap + to add your first team member.',
+              actionLabel: 'Add staff',
+              onAction: _openStaffSheet,
             );
           }
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
               itemCount: staff.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final member = staff[index];
                 return Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    member.name.isEmpty
-                                        ? 'Unnamed staff'
-                                        : member.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(member.email),
-                                  if (member.phone?.trim().isNotEmpty == true)
-                                    Text(member.phone!.trim()),
-                                ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                member.name.isEmpty
+                                    ? 'Unnamed staff'
+                                    : member.name,
+                                style:
+                                    Theme.of(context).textTheme.titleMedium,
                               ),
-                            ),
-                            _statusBadge(member.isActive),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              tooltip: 'Edit',
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _openStaffSheet(staff: member),
-                            ),
-                            IconButton(
-                              tooltip: 'Delete',
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _confirmDelete(member),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                member.email,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                              if (member.phone?.trim().isNotEmpty == true)
+                                Text(
+                                  member.phone!.trim(),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _statusBadge(context, member.isActive),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Edit',
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _openStaffSheet(staff: member),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete',
+                          icon: const Icon(Icons.delete),
+                          onPressed: () => _confirmDelete(member),
                         ),
                       ],
                     ),
@@ -119,26 +135,14 @@ class _StaffPageState extends State<StaffPage> {
     );
   }
 
-  Widget _statusBadge(bool isActive) {
-    final background =
-        isActive ? Colors.green.shade100 : Colors.grey.shade300;
-    final foreground =
-        isActive ? Colors.green.shade700 : Colors.grey.shade800;
-    final label = isActive ? 'Active' : 'Inactive';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: foreground,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+  Widget _statusBadge(BuildContext context, bool isActive) {
+    final colors = Theme.of(context).extension<StatusColors>();
+    return PillBadge(
+      label: isActive ? 'Active' : 'Inactive',
+      background:
+          isActive ? colors!.confirmedBg : colors!.completedBg,
+      foreground:
+          isActive ? colors.confirmedFg : colors.completedFg,
     );
   }
 
@@ -187,6 +191,10 @@ class _StaffPageState extends State<StaffPage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               child: const Text('Confirm'),
             ),
           ],

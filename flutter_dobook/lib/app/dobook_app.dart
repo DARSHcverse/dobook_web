@@ -21,7 +21,9 @@ class DobookApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'DoBook',
-        theme: buildDobookTheme(),
+        theme: buildDobookTheme(brightness: Brightness.light),
+        darkTheme: buildDobookTheme(brightness: Brightness.dark),
+        themeMode: ThemeMode.system,
         debugShowCheckedModeBanner: false,
         home: const _Home(),
       ),

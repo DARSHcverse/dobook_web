@@ -72,7 +72,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   _kv('Name', booking.customerName),
@@ -87,7 +87,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   _kv('Service', booking.serviceType),
@@ -107,7 +107,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -174,7 +174,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   _amountRow('Base service price', breakdown.baseTotal),
@@ -201,7 +201,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -241,11 +241,15 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           },
                   ),
                   if (!_staffLoading && activeStaff.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         'No active staff members yet.',
-                        style: TextStyle(color: Colors.black54),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -280,8 +284,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           const SizedBox(height: 8),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FilledButton.icon(
                     onPressed: () => _openEdit(context, booking),
@@ -332,7 +337,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                     label: const Text('Invoice PDF'),
                   ),
                   const SizedBox(height: 12),
-                  TextButton.icon(
+                  FilledButton.icon(
                     onPressed: _cancelling ? null : _confirmCancel,
                     icon: _cancelling
                         ? const SizedBox(
@@ -342,8 +347,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           )
                         : const Icon(Icons.cancel),
                     label: const Text('Cancel Booking'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                      foregroundColor: Theme.of(context).colorScheme.onError,
                     ),
                   ),
                 ],

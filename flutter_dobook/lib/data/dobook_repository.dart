@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dobook/app/config.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/business.dart';
+import 'package:dobook/data/models/client.dart';
 import 'package:dobook/data/models/staff.dart';
 import 'package:http/http.dart' as http;
 
@@ -227,6 +228,72 @@ class DobookRepository {
           .toList();
     } else {
       throw Exception('Failed to fetch staff');
+    }
+  }
+
+  Future<List<Client>> getClients({String? token}) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.get(
+      Uri.parse('$apiBaseUrl/clients'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final List clientsList = (data['clients'] ?? data) as List;
+      return clientsList
+          .map((c) => Client.fromJson(c as Map<String, dynamic>))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch clients');
+    }
+  }
+
+  Future<List<Booking>> getClientBookings(
+    String email, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.get(
+      Uri.parse('$apiBaseUrl/clients/${Uri.encodeComponent(email)}'),
+      headers: headers,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+      final List bookingsList = (data['bookings'] ?? data) as List;
+      return bookingsList
+          .map((b) => Booking.fromJson(b as Map<String, dynamic>))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch client bookings');
+    }
+  }
+
+  Future<void> saveClientNotes(
+    String email,
+    String notes, {
+    String? token,
+  }) async {
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final response = await http.put(
+      Uri.parse('$apiBaseUrl/clients/${Uri.encodeComponent(email)}/notes'),
+      headers: headers,
+      body: jsonEncode({'notes': notes}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['detail'] ?? 'Failed to save notes');
     }
   }
 

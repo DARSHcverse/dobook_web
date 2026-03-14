@@ -52,8 +52,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
             children: [
+              Text(
+                'Public booking link',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -77,13 +82,22 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                 const SizedBox(height: 12),
                 Card(
                   child: ListTile(
-                    title: Text(_info!.businessName),
+                    title: Text(
+                      _info!.businessName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     subtitle: Text(_info!.email),
-                    trailing: _info!.phone == null ? null : Text(_info!.phone!),
+                    trailing:
+                        _info!.phone == null ? null : Text(_info!.phone!),
                   ),
                 ),
               ],
               const SizedBox(height: 12),
+              Text(
+                'Customer details',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _customerNameCtrl,
                 decoration: const InputDecoration(labelText: 'Customer name'),
@@ -107,6 +121,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
+              Text(
+                'Booking details',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -163,9 +182,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _busy ? null : () => _submit(context),
-                child: const Text('Submit booking'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : () => _submit(context),
+                  child: const Text('Submit booking'),
+                ),
               ),
             ],
           ),
