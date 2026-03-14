@@ -1,8 +1,11 @@
 import 'package:dobook/app/session.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
+import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
 import 'package:dobook/ui/widgets/empty_state.dart';
 import 'package:dobook/ui/widgets/loading_shimmer.dart';
+import 'package:dobook/ui/widgets/status_badge.dart';
+import 'package:dobook/util/format.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -107,19 +110,75 @@ class _CalendarPageState extends State<CalendarPage> {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                         itemCount: selectedBookings.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 8),
+                        separatorBuilder: (context, index) => Divider(
+                          height: 16,
+                          color: scheme.outlineVariant,
+                        ),
                         itemBuilder: (context, i) {
                           final b = selectedBookings[i];
                           return Card(
-                            child: ListTile(
-                              title: Text(
-                                b.customerName.isEmpty
-                                    ? '(No name)'
-                                    : b.customerName,
-                              ),
-                              subtitle: Text(
-                                '${b.bookingTime} • ${b.serviceType}',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        BookingDetailsScreen(booking: b),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            b.customerName.isEmpty
+                                                ? '(No name)'
+                                                : b.customerName,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${b.bookingTime} • ${b.serviceType}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: scheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          formatMoney(b.total),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                color: scheme.primary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        StatusBadge(status: b.status),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           );

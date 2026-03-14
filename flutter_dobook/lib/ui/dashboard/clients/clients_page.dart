@@ -143,6 +143,9 @@ class _ClientsPageState extends State<ClientsPage> {
                             children: [
                               Text(
                                 formatMoney(client.totalSpent),
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleSmall
@@ -194,12 +197,18 @@ class _ClientsPageState extends State<ClientsPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(
-              value.toString(),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value.toString(),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
             ),
             const SizedBox(height: 4),
             Text(label, textAlign: TextAlign.center),

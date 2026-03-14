@@ -86,6 +86,9 @@ class _StaffPageState extends State<StaffPage> {
                               const SizedBox(height: 4),
                               Text(
                                 member.email,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -110,9 +113,9 @@ class _StaffPageState extends State<StaffPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         _statusBadge(context, member.isActive),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         IconButton(
                           tooltip: 'Edit',
                           icon: const Icon(Icons.edit),

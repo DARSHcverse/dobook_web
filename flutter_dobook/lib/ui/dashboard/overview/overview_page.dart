@@ -126,12 +126,19 @@ class _OverviewPageState extends State<OverviewPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -218,8 +225,24 @@ class _OverviewPageState extends State<OverviewPage> {
         : hour < 17
             ? 'Good afternoon'
             : 'Good evening';
-    final name = businessName.isEmpty ? 'there' : businessName;
+    final name = _displayName(businessName);
     return '$label, $name';
+  }
+
+  String _displayName(String businessName) {
+    var name = businessName.trim();
+    name = name.replaceFirst(
+      RegExp(r'^owner\s*-\s*', caseSensitive: false),
+      '',
+    );
+    if (name.isEmpty) return 'there';
+    if (name.length > 20) {
+      final parts = name.split(RegExp(r'\s+'));
+      if (parts.isNotEmpty && parts.first.isNotEmpty) {
+        name = parts.first;
+      }
+    }
+    return name;
   }
 
   _OverviewStats _computeStats(List<Booking> bookings) {

@@ -33,6 +33,50 @@ DateTime? _parseExpiresAt(Map<String, dynamic> data) {
   return null;
 }
 
+const String _sessionCookieName = 'dobook_session';
+
+String? _parseTokenFromBody(Map<String, dynamic> data) {
+  final direct =
+      data['token'] ?? data['access_token'] ?? data['accessToken'];
+  if (direct != null) return direct.toString();
+  final session = data['session'];
+  if (session is Map<String, dynamic>) {
+    final nested = session['token'] ??
+        session['access_token'] ??
+        session['accessToken'];
+    if (nested != null) return nested.toString();
+  }
+  return null;
+}
+
+String? _parseTokenFromSetCookie(http.Response response) {
+  final raw = response.headers['set-cookie'];
+  if (raw == null || raw.isEmpty) return null;
+  final match = RegExp('$_sessionCookieName=([^;]+)').firstMatch(raw);
+  if (match == null) return null;
+  return Uri.decodeComponent(match.group(1)!);
+}
+
+Map<String, dynamic> _parseBusinessPayload(dynamic data) {
+  if (data is Map<String, dynamic>) {
+    final business = data['business'];
+    if (business is Map<String, dynamic>) return business;
+    return data;
+  }
+  return {};
+}
+
+List<dynamic> _parseListPayload(dynamic data, String key) {
+  if (data is List) return data;
+  if (data is Map<String, dynamic>) {
+    final value = data[key];
+    if (value is List) return value;
+    final fallback = data['data'];
+    if (fallback is List) return fallback;
+  }
+  return const [];
+}
+
 class DobookRepository {
   DobookRepository._();
 
@@ -63,9 +107,14 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
+      final token =
+          _parseTokenFromBody(data) ?? _parseTokenFromSetCookie(response);
+      if (token == null || token.isEmpty) {
+        throw Exception('Registration succeeded but no session token returned.');
+      }
       return AuthResult(
-        token: data['token'],
-        business: Business.fromJson(data['business']),
+        token: token,
+        business: Business.fromJson(_parseBusinessPayload(data)),
         expiresAt: _parseExpiresAt(data),
       );
     } else {
@@ -89,9 +138,14 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
+      final token =
+          _parseTokenFromBody(data) ?? _parseTokenFromSetCookie(response);
+      if (token == null || token.isEmpty) {
+        throw Exception('Login succeeded but no session token returned.');
+      }
       return AuthResult(
-        token: data['token'],
-        business: Business.fromJson(data['business']),
+        token: token,
+        business: Business.fromJson(_parseBusinessPayload(data)),
         expiresAt: _parseExpiresAt(data),
       );
     } else {
@@ -195,7 +249,7 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
-      final List bookingsList = (data['bookings'] ?? data) as List;
+      final List bookingsList = _parseListPayload(data, 'bookings');
       final bookings = bookingsList
           .map((b) => Booking.fromJson(b as Map<String, dynamic>))
           .toList();
@@ -222,7 +276,7 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
-      final List staffList = (data['staff'] ?? data) as List;
+      final List staffList = _parseListPayload(data, 'staff');
       return staffList
           .map((s) => Staff.fromJson(s as Map<String, dynamic>))
           .toList();
@@ -243,7 +297,7 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
-      final List clientsList = (data['clients'] ?? data) as List;
+      final List clientsList = _parseListPayload(data, 'clients');
       return clientsList
           .map((c) => Client.fromJson(c as Map<String, dynamic>))
           .toList();
@@ -267,7 +321,7 @@ class DobookRepository {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body);
-      final List bookingsList = (data['bookings'] ?? data) as List;
+      final List bookingsList = _parseListPayload(data, 'bookings');
       return bookingsList
           .map((b) => Booking.fromJson(b as Map<String, dynamic>))
           .toList();
