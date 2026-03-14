@@ -14,9 +14,33 @@ class ReminderSettingsScreen extends StatefulWidget {
 class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
   bool _remindersEnabled = true;
   int _daysBefore = 2;
+  bool _confirmationEmailEnabled = false;
+  final _messageCtrl = TextEditingController();
   bool _busy = false;
+  bool _initialized = false;
 
   static const _dayOptions = [1, 2, 3, 5, 7];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    final business = context.read<AppSession>().business;
+    if (business == null) return;
+    _remindersEnabled = business.remindersEnabled;
+    _daysBefore = _dayOptions.contains(business.reminderDaysBefore)
+        ? business.reminderDaysBefore
+        : 2;
+    _confirmationEmailEnabled = business.confirmationEmailEnabled;
+    _messageCtrl.text = business.reminderMessage;
+    _initialized = true;
+  }
+
+  @override
+  void dispose() {
+    _messageCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +84,26 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
                                 setState(() => _daysBefore = value ?? 2);
                               }
                             : null,
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _messageCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Custom reminder message (optional)',
+                        ),
+                        minLines: 2,
+                        maxLines: 4,
+                        enabled: _remindersEnabled,
+                      ),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Send confirmation email'),
+                        subtitle: const Text('Email customer when booking is confirmed'),
+                        value: _confirmationEmailEnabled,
+                        onChanged: (value) {
+                          setState(() => _confirmationEmailEnabled = value);
+                        },
                       ),
                       const SizedBox(height: 24),
                       FilledButton(
@@ -121,6 +165,8 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       await repo.updateBusinessProfile(token, {
         'reminders_enabled': _remindersEnabled,
         'reminder_days_before': _daysBefore,
+        'reminder_message': _messageCtrl.text.trim(),
+        'confirmation_email_enabled': _confirmationEmailEnabled,
       });
 
       await session.refreshBusiness();

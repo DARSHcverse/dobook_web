@@ -7,16 +7,22 @@ class LoadingShimmerList extends StatelessWidget {
     super.key,
     this.itemCount = 6,
     this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 80),
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   final int itemCount;
   final EdgeInsets padding;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: padding,
       itemCount: itemCount,
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         return _ShimmerCard(

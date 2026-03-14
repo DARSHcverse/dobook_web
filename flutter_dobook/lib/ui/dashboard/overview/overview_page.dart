@@ -9,6 +9,7 @@ import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/empty_state.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/status_badge.dart';
 import 'package:dobook/util/format.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -43,7 +44,10 @@ class _OverviewPageState extends State<OverviewPage> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             if (snapshot.hasError) {
-              return Center(child: Text('Failed to load: ${snapshot.error}'));
+              return _errorState(
+                context,
+                snapshot.error?.toString() ?? 'Failed to load bookings.',
+              );
             }
             return const _OverviewLoading();
           }
@@ -66,7 +70,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    height: 220,
+                    height: 260,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -84,14 +88,13 @@ class _OverviewPageState extends State<OverviewPage> {
                     child: SafeArea(
                       bottom: false,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                const SizedBox(width: 24),
                                 Image.asset(
                                   'assets/brand/dobook-logo.png',
                                   height: 24,
@@ -101,14 +104,15 @@ class _OverviewPageState extends State<OverviewPage> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            const Spacer(),
                             Text(
                               _greetingLine(),
                               style: Theme.of(context)
                                   .textTheme
-                                  .titleMedium
+                                  .bodyLarge
                                   ?.copyWith(
-                                    color: scheme.onPrimary,
+                                    color: scheme.onPrimary
+                                        .withValues(alpha: 0.85),
+                                    fontSize: 16,
                                   ),
                             ),
                             const SizedBox(height: 4),
@@ -120,9 +124,11 @@ class _OverviewPageState extends State<OverviewPage> {
                                   ?.copyWith(
                                     color: scheme.onPrimary,
                                     fontWeight: FontWeight.w800,
+                                    fontSize: 26,
                                   ),
                             ),
-                            const SizedBox(height: 8),
+                            // 60px space reserved for stats card overlap
+                            const SizedBox(height: 60),
                           ],
                         ),
                       ),
@@ -131,7 +137,7 @@ class _OverviewPageState extends State<OverviewPage> {
                   Positioned(
                     left: 16,
                     right: 16,
-                    bottom: -36,
+                    bottom: -30,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final cardWidth = (constraints.maxWidth - 48) / 3;
@@ -160,7 +166,7 @@ class _OverviewPageState extends State<OverviewPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 64),
+              const SizedBox(height: 58),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -206,8 +212,10 @@ class _OverviewPageState extends State<OverviewPage> {
                 child: Row(
                   children: [
                     Text(
-                      'Upcoming',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'Recent Bookings',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const Spacer(),
                     TextButton(
@@ -245,18 +253,15 @@ class _OverviewPageState extends State<OverviewPage> {
                 )
               else
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, bottom: 24),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final booking in upcoming)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: _bookingCard(context, booking),
-                          ),
-                      ],
-                    ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      for (final booking in upcoming)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _bookingCard(context, booking),
+                        ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 80),
@@ -319,6 +324,41 @@ class _OverviewPageState extends State<OverviewPage> {
     );
     if (width == null) return card;
     return SizedBox(width: width, child: card);
+  }
+
+  Widget _errorState(BuildContext context, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 40,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Unable to load overview',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => setState(() => _future = _load()),
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _chartCard(
@@ -384,16 +424,42 @@ class _OverviewPageState extends State<OverviewPage> {
     );
   }
 
+  /// Returns a clean rounded maxY and interval for the Y-axis.
+  /// E.g. max=$8810 → maxY=10000, interval=2000
+  ({double maxY, double interval}) _cleanAxis(double rawMax) {
+    if (rawMax <= 0) return (maxY: 100.0, interval: 25.0);
+    // Round up to a clean ceiling
+    final steps = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+    for (final step in steps) {
+      final top = (rawMax / step).ceilToDouble() * step;
+      if (top / step <= 8) {
+        return (maxY: top, interval: step.toDouble());
+      }
+    }
+    final step = (rawMax / 5).ceilToDouble();
+    return (maxY: step * 5, interval: step);
+  }
+
+  String _formatYAxis(double value) {
+    if (value == 0) return '\$0';
+    if (value >= 1000) {
+      final k = value / 1000;
+      return '\$${k % 1 == 0 ? k.toInt() : k.toStringAsFixed(1)}k';
+    }
+    return '\$${value.toInt()}';
+  }
+
   Widget _buildRevenueChart(
     BuildContext context,
     List<String> labels,
     List<double> values,
   ) {
     final scheme = Theme.of(context).colorScheme;
-    final maxValue = _maxValue(values);
+    final rawMax = _maxValue(values);
+    final axis = _cleanAxis(rawMax);
     return BarChart(
       BarChartData(
-        maxY: maxValue <= 0 ? 1 : maxValue * 1.2,
+        maxY: axis.maxY,
         barGroups: List.generate(values.length, (index) {
           return BarChartGroupData(
             x: index,
@@ -413,7 +479,7 @@ class _OverviewPageState extends State<OverviewPage> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxValue <= 0 ? 1 : maxValue / 4,
+          horizontalInterval: axis.interval,
           getDrawingHorizontalLine: (value) => FlLine(
             color: scheme.outlineVariant,
             strokeWidth: 1,
@@ -424,11 +490,13 @@ class _OverviewPageState extends State<OverviewPage> {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 36,
-              interval: maxValue <= 0 ? 1 : maxValue / 4,
+              reservedSize: 44,
+              interval: axis.interval,
               getTitlesWidget: (value, meta) {
+                // Only show labels that fall exactly on the interval
+                if (value > axis.maxY) return const SizedBox.shrink();
                 return Text(
-                  value == 0 ? '\$0' : '\$${value.toInt()}',
+                  _formatYAxis(value),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -556,118 +624,104 @@ class _OverviewPageState extends State<OverviewPage> {
     final scheme = Theme.of(context).colorScheme;
     final brand = Theme.of(context).extension<BrandColors>();
     final isLight = Theme.of(context).brightness == Brightness.light;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 260),
-      child: Material(
+    final accent = StatusBadge.accentColor(context, booking.status);
+    return Container(
+      decoration: BoxDecoration(
         color: isLight ? Colors.white : scheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        elevation: 0,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            Navigator.of(context).push(
-              slidePageRoute(BookingDetailsScreen(booking: booking)),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: isLight
-                      ? Colors.black.withValues(alpha: 0.08)
-                      : (brand?.cardShadow ?? Theme.of(context).shadowColor),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              color: isLight ? Colors.white : scheme.surface,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    AvatarWidget(name: booking.customerName, size: 36),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            booking.customerName.isEmpty
-                                ? '(No name)'
-                                : booking.customerName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            booking.serviceType,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 14,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${booking.bookingDate} • ${booking.bookingTime}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Row(
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: accent, width: 3)),
+        boxShadow: [
+          BoxShadow(
+            color: isLight
+                ? Colors.black.withValues(alpha: 0.06)
+                : (brand?.cardShadow ?? Theme.of(context).shadowColor),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(context).push(
+            slidePageRoute(BookingDetailsScreen(booking: booking)),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AvatarWidget(name: booking.customerName, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      formatMoney(booking.total),
+                      booking.customerName.isEmpty
+                          ? '(No name)'
+                          : booking.customerName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontSize: 15),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 2),
                     Text(
-                      booking.status.isEmpty
-                          ? '—'
-                          : booking.status[0].toUpperCase() +
-                              booking.status.substring(1),
+                      booking.serviceType,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
                           ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '${booking.bookingDate}  ${booking.bookingTime}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    formatMoney(booking.total),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  StatusBadge(status: booking.status),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -836,19 +890,67 @@ class _OverviewLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: const [
-        SizedBox(height: 12),
-        LoadingShimmerHorizontal(),
-        SizedBox(height: 16),
-        LoadingShimmerList(
-          itemCount: 2,
-          padding: EdgeInsets.symmetric(horizontal: 16),
-        ),
-        SizedBox(height: 16),
-        LoadingShimmerList(itemCount: 3),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          const LoadingShimmerHorizontal(),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                _chartShimmerCard(context, height: 180),
+                const SizedBox(height: 16),
+                _chartShimmerCard(context, height: 160),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          LoadingShimmerList(
+            itemCount: 3,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chartShimmerCard(BuildContext context, {required double height}) {
+    final scheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ShimmerLine(width: 140, height: 14),
+              const SizedBox(height: 6),
+              const ShimmerLine(width: 100, height: 12),
+              const SizedBox(height: 14),
+              ShimmerBox(
+                width: constraints.maxWidth,
+                height: height,
+                radius: BorderRadius.circular(12),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

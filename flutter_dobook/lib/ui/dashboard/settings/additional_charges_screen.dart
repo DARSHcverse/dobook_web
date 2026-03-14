@@ -23,6 +23,29 @@ class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
   final _cbdAmountCtrl = TextEditingController();
 
   bool _busy = false;
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    final business = context.read<AppSession>().business;
+    if (business == null) return;
+    _travelEnabled = business.travelChargeEnabled;
+    _travelLabelCtrl.text = business.travelChargeLabel;
+    if (business.travelChargeFreeDistance > 0) {
+      _travelFreeDistanceCtrl.text = business.travelChargeFreeDistance.toString();
+    }
+    if (business.travelChargeRatePerKm > 0) {
+      _travelRateCtrl.text = business.travelChargeRatePerKm.toString();
+    }
+    _cbdEnabled = business.cbdChargeEnabled;
+    _cbdLabelCtrl.text = business.cbdChargeLabel;
+    if (business.cbdChargeAmount > 0) {
+      _cbdAmountCtrl.text = business.cbdChargeAmount.toString();
+    }
+    _initialized = true;
+  }
 
   @override
   void dispose() {

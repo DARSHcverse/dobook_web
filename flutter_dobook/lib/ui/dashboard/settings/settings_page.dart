@@ -4,10 +4,15 @@ import 'package:dobook/app/session.dart';
 import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/models/business.dart';
 import 'package:dobook/ui/dashboard/settings/additional_charges_screen.dart';
+import 'package:dobook/ui/dashboard/settings/booking_fields_extras_screen.dart';
 import 'package:dobook/ui/dashboard/settings/business_information_screen.dart';
 import 'package:dobook/ui/dashboard/settings/business_type_screen.dart';
+import 'package:dobook/ui/dashboard/settings/change_password_screen.dart';
+import 'package:dobook/ui/dashboard/settings/contact_support_screen.dart';
+import 'package:dobook/ui/dashboard/settings/delete_account_screen.dart';
 import 'package:dobook/ui/dashboard/settings/payment_details_screen.dart';
 import 'package:dobook/ui/dashboard/settings/reminder_settings_screen.dart';
+import 'package:dobook/ui/dashboard/settings/subscription_plan_screen.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
 import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
@@ -125,7 +130,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.tune,
                       label: 'Booking Fields & Extras',
                       color: Theme.of(context).colorScheme.primary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const BookingFieldsExtrasScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -187,7 +195,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.lock,
                       label: 'Change Password',
                       color: Theme.of(context).colorScheme.primary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const ChangePasswordScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -196,7 +207,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       label: 'Subscription Plan',
                       color: Theme.of(context).colorScheme.secondary,
                       trailing: _planBadge(context, business.subscriptionPlan),
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const SubscriptionPlanScreen(),
+                      ),
                     ),
                     _settingsDivider(context),
                     _settingsRow(
@@ -204,7 +218,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.support_agent,
                       label: 'Contact Support',
                       color: Theme.of(context).colorScheme.tertiary,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const ContactSupportScreen(),
+                      ),
                     ),
                   ],
                 ),
@@ -218,7 +235,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       label: 'Delete Account',
                       color: Theme.of(context).colorScheme.error,
                       danger: true,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _openSettingsScreen(
+                        context,
+                        const DeleteAccountScreen(),
+                      ),
                     ),
                   ],
                 ),
@@ -412,12 +432,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() => _loadFuture = _loadBusiness());
     }
-  }
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coming soon')),
-    );
   }
 
   Uint8List? _logoImage(Business business) {

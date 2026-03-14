@@ -38,6 +38,8 @@ class FloatingNavBar extends StatelessWidget {
           final isSelected = index == currentIndex;
           final iconColor =
               isSelected ? selectedColor : const Color(0xFF9CA3AF);
+          final labelColor =
+              isSelected ? selectedColor : const Color(0xFF9CA3AF);
           return Expanded(
             child: InkWell(
               onTap: () => onTap(index),
@@ -50,21 +52,13 @@ class FloatingNavBar extends StatelessWidget {
                   children: [
                     Icon(item.icon, color: iconColor),
                     const SizedBox(height: 4),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: isSelected
-                          ? Text(
-                              item.label,
-                              key: ValueKey(item.label),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: selectedColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            )
-                          : const SizedBox(key: ValueKey('spacer'), height: 0),
+                    Text(
+                      item.label,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: labelColor,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
                     ),
                   ],
                 ),
