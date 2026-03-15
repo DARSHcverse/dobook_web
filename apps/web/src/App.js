@@ -695,7 +695,10 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
-      <DialogContent data-testid="booking-detail-dialog" className="sm:max-w-2xl">
+      <DialogContent
+        data-testid="booking-detail-dialog"
+        className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle style={{fontFamily: 'Manrope'}}>Booking Details</DialogTitle>
           <DialogDescription>Complete booking information</DialogDescription>
@@ -747,7 +750,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 </>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-zinc-600">Customer Name</Label>
                 <p className="font-semibold">{currentBooking.customer_name}</p>
