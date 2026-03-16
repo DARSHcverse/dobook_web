@@ -4,6 +4,12 @@ import "@/App.css";
 import ClientShell from "@/app/ClientShell";
 import SpeedInsightsClient from "@/components/app/SpeedInsightsClient";
 import ThemeModeSync from "@/components/app/ThemeModeSync";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { Inter } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata = {
   title: "DoBook",
@@ -22,9 +28,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", inter.variable)}>
       <body>
-        <ClientShell>{children}</ClientShell>
+        <TooltipProvider>
+          <ClientShell>{children}</ClientShell>
+          <Toaster />
+        </TooltipProvider>
         <ThemeModeSync />
         <SpeedInsightsClient />
       </body>

@@ -11,10 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Building2, Search, Edit, Trash2, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
-import { Toaster, toast } from "sonner";
+import { Building2, Search, Edit, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -47,7 +46,6 @@ export default function AdminPanel() {
   const [activityLog, setActivityLog] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("businesses");
-  const [message, setMessage] = useState({ type: "", text: "" });
 
   const getBusinessName = (business) => business?.business_name || business?.name || "";
   const formatCreatedAt = (raw) => {
@@ -88,7 +86,7 @@ export default function AdminPanel() {
       setReviews(Array.isArray(data?.reviews) ? data.reviews : []);
     } catch (error) {
       setReviews([]);
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to load reviews");
     } finally {
       setReviewsLoading(false);
     }
@@ -109,10 +107,10 @@ export default function AdminPanel() {
         const err = await readResponseError(response);
         throw new Error(err || "Failed to update review");
       }
-      setMessage({ type: "success", text: `Review ${status}` });
+      toast.success(`Review ${status}`);
       await fetchReviews(reviewsFilter);
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to update review");
     }
   };
 
@@ -152,7 +150,7 @@ export default function AdminPanel() {
       
       if (!response.ok) {
         const err = await readResponseError(response);
-        setMessage({ type: "error", text: err || "Failed to load businesses data" });
+        toast.error(err || "Failed to load businesses data");
         setAuthLoading(false);
         return;
       }
@@ -162,7 +160,7 @@ export default function AdminPanel() {
       calculateStats(data.businesses || []);
       await Promise.all([fetchReviews(reviewsFilter), loadStats(), fetchActivityLog()]);
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to load businesses data");
     } finally {
       setLoading(false);
       setAuthLoading(false);
@@ -194,7 +192,7 @@ export default function AdminPanel() {
       const data = await response.json();
       setStats((prev) => ({ ...prev, ...(data || {}) }));
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to load stats");
     }
   };
 
@@ -214,7 +212,7 @@ export default function AdminPanel() {
       setActivityLog(Array.isArray(data?.logs) ? data.logs : []);
     } catch (error) {
       setActivityLog([]);
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to load activity log");
     } finally {
       setActivityLoading(false);
     }
@@ -258,7 +256,7 @@ export default function AdminPanel() {
       setSupportTickets(Array.isArray(data?.tickets) ? data.tickets : []);
     } catch (error) {
       setSupportTickets([]);
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to load support tickets");
     } finally {
       setSupportLoading(false);
     }
@@ -290,7 +288,6 @@ export default function AdminPanel() {
       await Promise.all([loadStats(), fetchActivityLog(), fetchSupportTickets(supportFilter)]);
     } catch (error) {
       toast.error(error.message || "Failed to update ticket");
-      setMessage({ type: "error", text: error.message });
     } finally {
       setSupportUpdating(false);
     }
@@ -318,7 +315,6 @@ export default function AdminPanel() {
       await fetchActivityLog();
     } catch (error) {
       toast.error(error.message || "Failed to send reply");
-      setMessage({ type: "error", text: error.message });
     } finally {
       setSupportReplySending(false);
     }
@@ -368,7 +364,6 @@ export default function AdminPanel() {
       await Promise.all([fetchActivityLog(), loadStats()]);
     } catch (error) {
       toast.error(error.message || "Failed to send broadcast");
-      setMessage({ type: "error", text: error.message });
     } finally {
       setBroadcastSending(false);
     }
@@ -413,7 +408,7 @@ export default function AdminPanel() {
         setBusinessDetail(data || null);
         setBusinessDraft(data?.business ? { ...data.business } : null);
       } catch (error) {
-        if (!cancelled) setMessage({ type: "error", text: error.message });
+        if (!cancelled) toast.error(error.message || "Failed to load business details");
       } finally {
         if (!cancelled) setBusinessDetailLoading(false);
       }
@@ -468,11 +463,9 @@ export default function AdminPanel() {
       }
 
       toast.success(`Subscription updated to ${String(nextPlan).toUpperCase()}`);
-      setMessage({ type: "success", text: `Subscription updated to ${String(nextPlan).toUpperCase()}` });
       await checkAuthAndFetch();
     } catch (error) {
       toast.error(error.message || "Failed to update subscription");
-      setMessage({ type: "error", text: error.message });
     }
   };
 
@@ -496,10 +489,10 @@ export default function AdminPanel() {
         throw new Error(err || 'Failed to delete business');
       }
 
-      setMessage({ type: "success", text: "Business deleted successfully!" });
+      toast.success("Business deleted successfully!");
       await checkAuthAndFetch();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to delete business");
     }
   };
 
@@ -531,37 +524,33 @@ export default function AdminPanel() {
         throw new Error(err || 'Failed to update business');
       }
 
-      setMessage({ type: "success", text: "Business updated successfully!" });
+      toast.success("Business updated successfully!");
       setEditingBusiness(null);
       await checkAuthAndFetch();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      toast.error(error.message || "Failed to update business");
     }
   };
 
   const getPlanBadge = (plan) => {
-    const variants = {
-      free: "secondary",
-      pro: "default"
-    };
-    return (
-      <Badge variant={variants[plan] || "secondary"}>
-        {plan?.toUpperCase() || "FREE"}
-      </Badge>
-    );
+    if (String(plan || "").toLowerCase() === "pro") {
+      return <Badge>Pro</Badge>;
+    }
+    return <Badge variant="secondary">Free</Badge>;
   };
 
   const getStatusBadge = (status) => {
-    const variants = {
-      active: "default",
-      inactive: "secondary",
-      cancelled: "destructive"
-    };
-    return (
-      <Badge variant={variants[status] || "secondary"}>
-        {status?.toUpperCase() || "INACTIVE"}
-      </Badge>
-    );
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "active") {
+      return <Badge>Active</Badge>;
+    }
+    if (normalized === "inactive") {
+      return <Badge variant="outline">Inactive</Badge>;
+    }
+    if (normalized === "cancelled") {
+      return <Badge variant="destructive">Cancelled</Badge>;
+    }
+    return <Badge variant="outline">{normalized ? normalized.toUpperCase() : "INACTIVE"}</Badge>;
   };
 
   const getReviewStatusBadge = (status) => {
@@ -613,7 +602,6 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Toaster position="top-center" richColors />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -627,12 +615,6 @@ export default function AdminPanel() {
           Logout
         </Button>
       </div>
-
-      {message.text && (
-        <Alert variant={message.type === "error" ? "destructive" : "default"}>
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-9 gap-4">
@@ -806,14 +788,12 @@ export default function AdminPanel() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleSetSubscription(business.id, 'pro', 'active')}
-                          className="text-green-600 hover:text-green-700"
                         >
-                          <Crown className="w-4 h-4 mr-1" />
                           Grant Pro
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => handleSetSubscription(business.id, 'free', 'inactive')}
                         >
                           Set Free
@@ -827,11 +807,10 @@ export default function AdminPanel() {
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="destructive"
                           onClick={() => handleDeleteBusiness(business.id)}
-                          className="text-red-600 hover:text-red-700"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          Delete
                         </Button>
                       </div>
                     </TableCell>

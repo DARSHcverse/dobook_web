@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { Briefcase, GraduationCap, Hammer, Scissors, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -216,8 +216,6 @@ export default function AuthScreen() {
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-10">
-      <Toaster position="top-center" richColors />
-
       <div className="w-full max-w-md">
         <div className="mb-6">
           <button
