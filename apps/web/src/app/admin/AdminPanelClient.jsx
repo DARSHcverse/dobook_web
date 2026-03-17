@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Building2, Search, Edit, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -532,25 +533,34 @@ export default function AdminPanel() {
     }
   };
 
+  const adminBadgeClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    return cn(
+      "rounded-full px-3 py-0.5 text-xs font-medium capitalize",
+      normalized === "active" && "border-green-200 bg-green-50 text-green-700",
+      normalized === "inactive" && "border-gray-200 bg-gray-50 text-gray-600",
+      normalized === "cancelled" && "border-red-200 bg-red-50 text-red-700",
+      normalized === "pro" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+      normalized === "free" && "border-zinc-200 bg-zinc-50 text-zinc-600",
+    );
+  };
+
   const getPlanBadge = (plan) => {
-    if (String(plan || "").toLowerCase() === "pro") {
-      return <Badge>Pro</Badge>;
-    }
-    return <Badge variant="secondary">Free</Badge>;
+    const normalized = String(plan || "free").toLowerCase();
+    return (
+      <Badge variant="outline" className={adminBadgeClass(normalized)}>
+        {normalized}
+      </Badge>
+    );
   };
 
   const getStatusBadge = (status) => {
     const normalized = String(status || "").toLowerCase();
-    if (normalized === "active") {
-      return <Badge>Active</Badge>;
-    }
-    if (normalized === "inactive") {
-      return <Badge variant="outline">Inactive</Badge>;
-    }
-    if (normalized === "cancelled") {
-      return <Badge variant="destructive">Cancelled</Badge>;
-    }
-    return <Badge variant="outline">{normalized ? normalized.toUpperCase() : "INACTIVE"}</Badge>;
+    return (
+      <Badge variant="outline" className={adminBadgeClass(normalized || "inactive")}>
+        {normalized || "inactive"}
+      </Badge>
+    );
   };
 
   const getReviewStatusBadge = (status) => {
@@ -727,7 +737,7 @@ export default function AdminPanel() {
           <CardTitle>Businesses</CardTitle>
           <CardDescription>Manage all registered businesses</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1">
               <div className="relative">
@@ -788,6 +798,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleSetSubscription(business.id, 'pro', 'active')}
+                          className="rounded-full px-4 text-xs"
                         >
                           Grant Pro
                         </Button>
@@ -795,6 +806,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleSetSubscription(business.id, 'free', 'inactive')}
+                          className="rounded-full px-4 text-xs"
                         >
                           Set Free
                         </Button>
@@ -802,6 +814,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="outline"
                           onClick={() => setEditingBusiness(business)}
+                          className="rounded-full px-4 text-xs"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -809,6 +822,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDeleteBusiness(business.id)}
+                          className="rounded-full px-4 text-xs"
                         >
                           Delete
                         </Button>
@@ -836,7 +850,7 @@ export default function AdminPanel() {
           <CardTitle>DoBook Reviews</CardTitle>
           <CardDescription>Approve or deny business reviews before they show on the DoBook website</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <Select value={reviewsFilter} onValueChange={setReviewsFilter}>
               <SelectTrigger className="w-[220px]">
@@ -883,7 +897,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="outline"
                           onClick={() => updateReviewStatus(r.id, "approved")}
-                          className="text-green-600 hover:text-green-700"
+                          className="rounded-full px-4 text-xs text-green-600 hover:text-green-700"
                         >
                           Approve
                         </Button>
@@ -891,7 +905,7 @@ export default function AdminPanel() {
                           size="sm"
                           variant="outline"
                           onClick={() => updateReviewStatus(r.id, "rejected")}
-                          className="text-red-600 hover:text-red-700"
+                          className="rounded-full px-4 text-xs text-red-600 hover:text-red-700"
                         >
                           Deny
                         </Button>
@@ -916,7 +930,7 @@ export default function AdminPanel() {
               <CardTitle>Support Tickets</CardTitle>
               <CardDescription>Respond to business support requests</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <Select value={supportFilter} onValueChange={setSupportFilter}>
                   <SelectTrigger className="w-[220px]">
@@ -956,7 +970,7 @@ export default function AdminPanel() {
                         <TableCell>{getTicketStatusBadge(ticket.status)}</TableCell>
                         <TableCell>{formatCreatedAt(ticket.created_at)}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" onClick={() => setSelectedTicket(ticket)}>
+                          <Button size="sm" variant="outline" className="rounded-full px-4 text-xs" onClick={() => setSelectedTicket(ticket)}>
                             View
                           </Button>
                         </TableCell>
@@ -979,8 +993,8 @@ export default function AdminPanel() {
               <CardTitle>Broadcast Email</CardTitle>
               <CardDescription>Send updates to your businesses via email</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
+            <CardContent className="space-y-6">
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="broadcast-subject">Subject</Label>
                 <Input
                   id="broadcast-subject"
@@ -989,7 +1003,7 @@ export default function AdminPanel() {
                   placeholder="What's new in DoBook?"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="broadcast-audience">Audience</Label>
                 <Select value={broadcastAudience} onValueChange={setBroadcastAudience}>
                   <SelectTrigger className="w-[240px]">
@@ -1003,7 +1017,7 @@ export default function AdminPanel() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="broadcast-message">Message</Label>
                 <Textarea
                   id="broadcast-message"
@@ -1041,7 +1055,7 @@ export default function AdminPanel() {
           <CardTitle>Activity Log</CardTitle>
           <CardDescription>Recent admin actions</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           {activityLoading ? (
             <div className="text-sm text-muted-foreground">Loading activity…</div>
           ) : activityLog.length ? (
@@ -1120,14 +1134,14 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Business Name</Label>
                 <Input
                   value={getBusinessName(businessDraft)}
                   onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Email</Label>
                 <Input
                   type="email"
@@ -1135,7 +1149,7 @@ export default function AdminPanel() {
                   onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Subscription Plan</Label>
                 <Select
                   value={businessDraft.subscription_plan || "free"}
@@ -1150,7 +1164,7 @@ export default function AdminPanel() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Subscription Status</Label>
                 <Select
                   value={businessDraft.subscription_status || "inactive"}
@@ -1166,7 +1180,7 @@ export default function AdminPanel() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Admin Notes</Label>
                 <Textarea
                   value={businessDraft.admin_notes || ""}
@@ -1214,7 +1228,7 @@ export default function AdminPanel() {
               <div className="rounded-md border p-4 whitespace-pre-wrap text-sm">
                 {selectedTicket.message}
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Status</Label>
                 <Select value={ticketStatus} onValueChange={setTicketStatus}>
                   <SelectTrigger className="w-[200px]">
@@ -1235,7 +1249,7 @@ export default function AdminPanel() {
                   {supportUpdating ? "Updating..." : "Update Status"}
                 </Button>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 mb-4">
                 <Label>Reply</Label>
                 <Textarea
                   value={supportReply}

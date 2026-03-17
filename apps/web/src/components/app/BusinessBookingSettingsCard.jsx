@@ -106,14 +106,14 @@ export default function BusinessBookingSettingsCard() {
   }
 
   return (
-    <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+    <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
       <CardHeader>
         <CardTitle style={{ fontFamily: "Manrope" }}>Booking Fields & Extras</CardTitle>
         <CardDescription>
           These power the customer booking form. Private fields never show to customers (they’re stored on the booking only).
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8">
+      <CardContent className="space-y-6">
         <div>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -148,10 +148,10 @@ export default function BusinessBookingSettingsCard() {
               return (
                 <div key={`${f?.id || f?.field_key || idx}`} className="rounded-2xl border border-zinc-200 p-4">
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div className="md:col-span-5">
+                    <div className="md:col-span-5 grid gap-2 mb-4">
                       <Label>Label</Label>
                       <Input
-                        className="bg-zinc-50 mt-2 h-11"
+                        className="bg-zinc-50 h-11"
                         value={String(f?.field_name || "")}
                         onChange={(e) => {
                           const next = [...(fields || [])];
@@ -163,7 +163,7 @@ export default function BusinessBookingSettingsCard() {
                       />
                     </div>
 
-                    <div className="md:col-span-3">
+                    <div className="md:col-span-3 grid gap-2 mb-4">
                       <Label>Type</Label>
                       <Select
                         value={type}
@@ -173,7 +173,7 @@ export default function BusinessBookingSettingsCard() {
                           setFields(next);
                         }}
                       >
-                        <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                        <SelectTrigger className="bg-zinc-50 h-11">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -224,10 +224,10 @@ export default function BusinessBookingSettingsCard() {
                   </div>
 
                   {type === "select" ? (
-                    <div className="mt-4">
+                    <div className="mt-4 grid gap-2 mb-4">
                       <Label>Options (comma separated)</Label>
                       <Input
-                        className="bg-zinc-50 mt-2 h-11"
+                        className="bg-zinc-50 h-11"
                         value={Array.isArray(f?.field_options) ? f.field_options.join(", ") : String(f?.field_options_raw || "")}
                         onChange={(e) => {
                           const next = [...(fields || [])];
@@ -248,7 +248,7 @@ export default function BusinessBookingSettingsCard() {
               type="button"
               onClick={saveFields}
               disabled={loading || savingFields}
-              className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+              className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
             >
               {savingFields ? "Saving…" : "Save fields"}
             </Button>
@@ -287,10 +287,10 @@ export default function BusinessBookingSettingsCard() {
             {(addons || []).map((a, idx) => (
               <div key={`${a?.id || a?.name || idx}`} className="rounded-2xl border border-zinc-200 p-4">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-4 grid gap-2 mb-4">
                     <Label>Name</Label>
                     <Input
-                      className="bg-zinc-50 mt-2 h-11"
+                      className="bg-zinc-50 h-11"
                       value={String(a?.name || "")}
                       onChange={(e) => {
                         const next = [...(addons || [])];
@@ -300,10 +300,10 @@ export default function BusinessBookingSettingsCard() {
                       placeholder="e.g. Extended session (+30 min)"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-2 grid gap-2 mb-4">
                     <Label>Price</Label>
                     <Input
-                      className="bg-zinc-50 mt-2 h-11"
+                      className="bg-zinc-50 h-11"
                       type="number"
                       step="0.01"
                       min="0"
@@ -315,10 +315,10 @@ export default function BusinessBookingSettingsCard() {
                       }}
                     />
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-3 grid gap-2 mb-4">
                     <Label>Extra minutes</Label>
                     <Input
-                      className="bg-zinc-50 mt-2 h-11"
+                      className="bg-zinc-50 h-11"
                       type="number"
                       step="5"
                       min="0"
@@ -353,10 +353,10 @@ export default function BusinessBookingSettingsCard() {
                   </div>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 grid gap-2 mb-4">
                   <Label>Description</Label>
                   <Textarea
-                    className="bg-zinc-50 mt-2"
+                    className="bg-zinc-50"
                     value={String(a?.description || "")}
                     onChange={(e) => {
                       const next = [...(addons || [])];
@@ -376,7 +376,7 @@ export default function BusinessBookingSettingsCard() {
               type="button"
               onClick={saveAddons}
               disabled={loading || savingAddons}
-              className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+              className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
             >
               {savingAddons ? "Saving…" : "Save add-ons"}
             </Button>

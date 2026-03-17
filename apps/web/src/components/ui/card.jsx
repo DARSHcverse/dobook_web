@@ -83,7 +83,7 @@ function CardContent({
   return (
     <div
       data-slot="card-content"
-      className={cn("px-4 group-data-[size=sm]/card:px-3", className)}
+      className={cn("px-4 pt-6 group-data-[size=sm]/card:px-3", className)}
       {...props} />
   );
 }

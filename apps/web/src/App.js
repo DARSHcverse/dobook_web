@@ -40,7 +40,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -68,6 +67,15 @@ axios.defaults.withCredentials = true;
 
 const DOBOOK_LOGO_PNG = '/brand/dobook-logo.png';
 const DOBOOK_LOGO_SVG = '/brand/dobook-logo.svg';
+
+const bookingStatusBadgeClass = (status) =>
+  cn(
+    "rounded-full px-3 py-0.5 text-xs font-medium capitalize",
+    status === 'confirmed' && "border-green-200 bg-green-50 text-green-700",
+    status === 'cancelled' && "border-red-200 bg-red-50 text-red-700",
+    status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700",
+    status === 'completed' && "border-gray-200 bg-gray-50 text-gray-600",
+  );
 
 function BrandLogo({ size = 'md', className = '' }) {
   const [src, setSrc] = useState(DOBOOK_LOGO_PNG);
@@ -704,30 +712,24 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   };
 
   const bookingStatus = String(currentBooking?.status || 'confirmed').toLowerCase();
-  const bookingStatusVariant =
-    bookingStatus === 'confirmed'
-      ? 'default'
-      : bookingStatus === 'cancelled'
-        ? 'destructive'
-        : 'secondary';
   const invoiceNumber =
     currentBooking?.invoice_id || `INV-${String(currentBooking?.id || '').slice(0, 8).toUpperCase()}`;
   const totalAmount = Number(currentBooking?.total_amount ?? bookingTotalAmount(currentBooking)).toFixed(2);
 
   return (
-    <Sheet open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
-      <SheetContent
+    <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent
         data-testid="booking-detail-dialog"
-        className="w-[400px] sm:w-[540px] overflow-y-auto"
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
       >
-        <SheetHeader>
-          <SheetTitle>{currentBooking?.customer_name || 'Booking Details'}</SheetTitle>
+        <DialogHeader>
+          <DialogTitle>{currentBooking?.customer_name || 'Booking Details'}</DialogTitle>
           <p className="text-sm text-muted-foreground">{invoiceNumber}</p>
-        </SheetHeader>
+        </DialogHeader>
 
         {currentBooking && (
           <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 mt-4">
               {!isEditing ? (
                 <Button
                   type="button"
@@ -770,11 +772,11 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Booking Details
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
+              </p>
+              <div>
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Service</span>
                   {isEditing ? (
                     isPhotoBooth ? (
@@ -802,7 +804,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     <span className="text-sm font-medium">{currentBooking.booth_type || currentBooking.service_type}</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Date</span>
                   {isEditing ? (
                     <Input
@@ -815,7 +817,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     <span className="text-sm font-medium">{currentBooking.booking_date}</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Time</span>
                   {isEditing ? (
                     <Input
@@ -828,7 +830,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     <span className="text-sm font-medium">{currentBooking.booking_time}</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Price</span>
                   {isEditing ? (
                     <Input
@@ -845,24 +847,24 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Duration</span>
                   <span className="text-sm font-medium">
                     {Math.round((Number(currentBooking.duration_minutes) || 60) / 60 * 10) / 10} hours
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant={bookingStatusVariant}>
-                    {currentBooking.status || 'confirmed'}
+                  <Badge variant="outline" className={bookingStatusBadgeClass(bookingStatus)}>
+                    {bookingStatus}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Email</span>
                   <span className="text-sm font-medium">{currentBooking.customer_email}</span>
                 </div>
                 {currentBooking.customer_phone ? (
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex justify-between items-center py-2">
                     <span className="text-sm text-muted-foreground">Phone</span>
                     <span className="text-sm font-medium">{currentBooking.customer_phone}</span>
                   </div>
@@ -870,83 +872,96 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </div>
             </div>
 
-            <Separator />
+            <Separator className="my-4" />
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Payment
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between font-medium">
-                  <span>Total</span>
-                  <span className="text-primary">${totalAmount}</span>
+              </p>
+              <div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm font-medium text-primary">${totalAmount}</span>
                 </div>
-                <Select
-                  value={String(currentBooking?.payment_status || 'unpaid').toLowerCase()}
-                  onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
-                  disabled={savingPayment}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Payment status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentStatusOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={currentBooking?.payment_method ? String(currentBooking.payment_method).toLowerCase() : undefined}
-                  onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
-                  disabled={savingPayment}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethodOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Payment status</span>
+                  <Select
+                    value={String(currentBooking?.payment_status || 'unpaid').toLowerCase()}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Payment status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentStatusOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Payment method</span>
+                  <Select
+                    value={currentBooking?.payment_method ? String(currentBooking.payment_method).toLowerCase() : undefined}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethodOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <Separator />
+            <Separator className="my-4" />
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Staff
-              </h4>
-              <div className="space-y-3">
+              </p>
+              <div>
                 {assignedStaff ? (
-                  <div className="text-sm text-muted-foreground">
-                    Assigned to <span className="font-medium text-foreground">{assignedStaff.name}</span>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">{assignedStaff.name}</span>
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">No staff assigned yet.</div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">No staff assigned yet.</span>
+                  </div>
                 )}
-                <Select
-                  value={staffSelection || ''}
-                  onValueChange={(val) => setStaffSelection(val)}
-                  disabled={staffLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffOptions.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name} {member.email ? `(${member.email})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Select staff</span>
+                  <Select
+                    value={staffSelection || ''}
+                    onValueChange={(val) => setStaffSelection(val)}
+                    disabled={staffLoading}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Select staff member (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffOptions.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} {member.email ? `(${member.email})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 mt-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -967,16 +982,16 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                   ) : null}
                 </div>
                 {staffLoading ? (
-                  <div className="text-xs text-muted-foreground">Loading staff members...</div>
+                  <div className="text-xs text-muted-foreground mt-2">Loading staff members...</div>
                 ) : staffOptions.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No active staff members yet.</div>
+                  <div className="text-xs text-muted-foreground mt-2">No active staff members yet.</div>
                 ) : null}
-                <div>
+                <div className="grid gap-2 mb-4">
                   <Label className="text-sm">Backdrop / Setup Details (optional)</Label>
                   <Textarea
                     value={backdropNotes}
                     onChange={(e) => setBackdropNotes(e.target.value)}
-                    className="mt-2 min-h-[96px]"
+                    className="min-h-[96px]"
                     placeholder="e.g. White floral backdrop, gold frame, fairy lights"
                   />
                 </div>
@@ -985,11 +1000,11 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 
             {(currentBooking.notes || isEditing) && (
               <>
-                <Separator />
+                <Separator className="my-4" />
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                     Notes
-                  </h4>
+                  </p>
                   {isEditing ? (
                     <Textarea
                       value={editData.notes}
@@ -1003,12 +1018,12 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </>
             )}
 
-            <Separator />
+            <Separator className="my-4" />
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Charges
-              </h4>
+              </p>
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="divide-y divide-border">
                   <div className="flex items-center justify-between p-3 text-sm">
@@ -1051,11 +1066,11 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
 
             {currentBooking?.custom_fields && typeof currentBooking.custom_fields === "object" && Object.keys(currentBooking.custom_fields).length ? (
               <>
-                <Separator />
+                <Separator className="my-4" />
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                     Custom Fields
-                  </h4>
+                  </p>
                   <div className="rounded-lg border border-border overflow-hidden">
                     <div className="divide-y divide-border">
                       {Object.entries(currentBooking.custom_fields || {}).map(([k, v]) => {
@@ -1090,12 +1105,12 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               </>
             ) : null}
 
-            <Separator />
+            <Separator className="my-4" />
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Actions
-              </h4>
+              </p>
               <div className="space-y-2">
                 <Button
                   data-testid="download-invoice-btn"
@@ -1220,8 +1235,8 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
             </div>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -1293,11 +1308,6 @@ const LandingPage = ({
         : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
     }`;
 
-  const pillClass = (tone) => {
-    if (tone === 'success') return 'bg-emerald-50 text-emerald-700';
-    if (tone === 'danger') return 'bg-rose-50 text-rose-700';
-    return 'bg-zinc-100 text-zinc-700';
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1396,9 +1406,12 @@ const LandingPage = ({
                   </div>
                   <div className="flex items-center text-[11px] text-zinc-600">{row.date}</div>
                   <div className="flex items-center">
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${pillClass(row.tone)}`}>
-                      {row.status}
-                    </span>
+                    <Badge
+                      variant="outline"
+                      className={bookingStatusBadgeClass(String(row.status || 'confirmed').toLowerCase())}
+                    >
+                      {String(row.status || 'confirmed').toLowerCase()}
+                    </Badge>
                   </div>
                 </div>
               ))}
@@ -1561,7 +1574,7 @@ const LandingPage = ({
               type="button"
               variant="ghost"
               onClick={() => router.push(customerHref)}
-              className="h-11 px-4 rounded-full text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
+              className="h-11 px-4 rounded-lg text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
             >
               Find services
             </Button>
@@ -1584,7 +1597,7 @@ const LandingPage = ({
                   <Button
                     type="button"
                     onClick={() => router.push('/dashboard')}
-                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
                   >
                     Open dashboard
                   </Button>
@@ -1596,7 +1609,7 @@ const LandingPage = ({
                     type="button"
                     variant="outline"
                     onClick={() => router.push(getStartedHref)}
-                    className="h-11 px-5 rounded-full border-zinc-200"
+                    className="h-11 px-5 rounded-lg border-zinc-200"
                   >
                     Login
                   </Button>
@@ -1604,7 +1617,7 @@ const LandingPage = ({
                     data-testid="get-started-btn"
                     type="button"
                     onClick={() => router.push(startFreeHref)}
-                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
                   >
                     Start Free (Business)
                   </Button>
@@ -1645,7 +1658,7 @@ const LandingPage = ({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+                    className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
                     onClick={() => router.push(customerHref)}
                   >
                     Find services near me
@@ -1654,7 +1667,7 @@ const LandingPage = ({
                     isAuthed ? (
                       <Button
                         type="button"
-                        className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                        className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                         onClick={() => router.push('/dashboard')}
                       >
                         Open dashboard
@@ -1664,14 +1677,14 @@ const LandingPage = ({
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-11 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+                          className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
                           onClick={() => router.push(getStartedHref)}
                         >
                           Business login
                         </Button>
                         <Button
                           type="button"
-                          className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                          className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                           onClick={() => router.push(startFreeHref)}
                         >
                           Start Free (Business)
@@ -1715,7 +1728,7 @@ const LandingPage = ({
                 data-testid="hero-get-started-btn"
                 type="button"
                 onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
-                className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
                 {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
@@ -1724,7 +1737,7 @@ const LandingPage = ({
                 type="button"
                 variant="outline"
                 onClick={() => router.push(customerHref)}
-                className="h-14 px-10 rounded-full border-zinc-200"
+                className="h-14 px-10 rounded-xl border-zinc-200"
               >
                 Find services near me
               </Button>
@@ -2015,7 +2028,7 @@ const LandingPage = ({
                     />
                   </div>
                 </div>
-                <Button type="submit" className="mt-3 h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold">
+                <Button type="submit" className="mt-3 h-11 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold">
                   Search
                 </Button>
               </form>
@@ -2037,7 +2050,7 @@ const LandingPage = ({
                         <div className="truncate text-sm font-semibold text-zinc-900">{r.name}</div>
                         <div className="mt-1 text-xs text-zinc-500">{r.meta}</div>
                       </div>
-                      <Button type="button" className="h-10 rounded-full bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
+                      <Button type="button" className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
                         View
                       </Button>
                     </div>
@@ -2078,7 +2091,7 @@ const LandingPage = ({
               <Button
                 type="button"
                 onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
               >
                 {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
@@ -2106,7 +2119,7 @@ const LandingPage = ({
               <Button
                 type="button"
                 onClick={() => router.push(isAuthed ? '/dashboard' : '/auth?plan=pro')}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
               >
                 {isAuthed ? 'Open dashboard' : 'Choose Pro'}
               </Button>
@@ -2207,7 +2220,7 @@ const LandingPage = ({
               data-testid="cta-get-started-btn"
               type="button"
               onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
-              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
+              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
             </Button>
@@ -2215,7 +2228,7 @@ const LandingPage = ({
               type="button"
               variant="outline"
               onClick={() => router.push(customerHref)}
-              className="h-14 px-10 rounded-full border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white"
+              className="h-14 px-10 rounded-xl border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white"
             >
               Find services near me
             </Button>
@@ -2293,7 +2306,7 @@ const LandingPage = ({
                 <Button
                   type="button"
                   onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
-                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                  className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                 >
                   {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
                 </Button>
@@ -2468,7 +2481,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+              className="h-10 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={() => setMobileMenuOpen(true)}
             >
               <List className="h-4 w-4 mr-2" />
@@ -2477,7 +2490,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 w-10 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+              className="h-10 w-10 p-0 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={handleLogout}
               aria-label="Logout"
             >
@@ -3471,17 +3484,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   return (
     <div className="space-y-6">
       {/* Subscription Info Card */}
-      <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl">
+      <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl mb-6">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
             <CardDescription>Current plan and usage</CardDescription>
           </div>
-          <Button type="button" variant="outline" className="h-9 rounded-full border-zinc-200" onClick={onStartTour}>
+          <Button type="button" variant="outline" className="h-9 rounded-lg border-zinc-200" onClick={onStartTour}>
             Tour guide
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-zinc-50 rounded-lg">
             <div>
               <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
@@ -3498,7 +3511,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             </div>
             {effectivePlan === 'free' && (
               <Button 
-                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg w-full sm:w-auto"
+                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl w-full sm:w-auto"
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
@@ -3539,7 +3552,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               billing period.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-2 mt-4">
             <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={billingLoading}>
               Keep subscription
             </Button>
@@ -3564,7 +3577,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           <CardTitle>Business Information</CardTitle>
           <CardDescription>Update your business details</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex items-center gap-6 rounded-lg border border-border p-4">
             <div className="relative">
               {formData.logo_url ? (
@@ -3605,7 +3618,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="business_name">Business Name</Label>
               <Input
                 id="business_name"
@@ -3615,7 +3628,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="phone">Phone</Label>
               <Input
                 id="phone"
@@ -3625,7 +3638,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label>Industry</Label>
               <Select
                 value={String(formData.industry || 'photobooth')}
@@ -3646,7 +3659,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               </Select>
             </div>
 
-            <div className="md:col-span-2 grid gap-2">
+            <div className="md:col-span-2 grid gap-2 mb-4">
               <Label htmlFor="business_address">Business Address</Label>
               <AddressAutocomplete
                 value={formData.business_address}
@@ -3657,7 +3670,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="abn">ABN (Australian Business Number)</Label>
               <Input
                 id="abn"
@@ -3677,9 +3690,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           <CardTitle>Payment Details</CardTitle>
           <CardDescription>Bank details for invoice payments</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="bank_name">Bank Name</Label>
               <Input
                 id="bank_name"
@@ -3690,7 +3703,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="account_name">Account Name</Label>
               <Input
                 id="account_name"
@@ -3700,7 +3713,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="bsb">BSB</Label>
               <Input
                 id="bsb"
@@ -3712,7 +3725,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="account_number">Account Number</Label>
               <Input
                 id="account_number"
@@ -3722,7 +3735,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               />
             </div>
 
-            <div className="md:col-span-2 grid gap-2">
+            <div className="md:col-span-2 grid gap-2 mb-4">
               <Label htmlFor="payment_link">Payment Link (Optional)</Label>
               <Input
                 id="payment_link"
@@ -3737,7 +3750,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       </Card>
 
       {/* Additional Charges */}
-      <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Additional Charges</CardTitle>
           <CardDescription>
@@ -3754,17 +3767,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               <div className="font-semibold">Travel charge</div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_label">Label</Label>
                 <Input
                   id="travel_fee_label"
                   value={formData.travel_fee_label}
                   onChange={(e) => setFormData({ ...formData, travel_fee_label: e.target.value })}
                   placeholder="Travel fee"
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_free_km">Free distance (km)</Label>
                 <Input
                   id="travel_fee_free_km"
@@ -3773,10 +3786,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   step="1"
                   value={formData.travel_fee_free_km}
                   onChange={(e) => setFormData({ ...formData, travel_fee_free_km: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_rate_per_km">Rate ($/km) (over free distance)</Label>
                 <Input
                   id="travel_fee_rate_per_km"
@@ -3785,7 +3798,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   step="0.01"
                   value={formData.travel_fee_rate_per_km}
                   onChange={(e) => setFormData({ ...formData, travel_fee_rate_per_km: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
             </div>
@@ -3804,17 +3817,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               <div className="font-semibold">CBD logistics charge</div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="cbd_fee_label">Label</Label>
                 <Input
                   id="cbd_fee_label"
                   value={formData.cbd_fee_label}
                   onChange={(e) => setFormData({ ...formData, cbd_fee_label: e.target.value })}
                   placeholder="CBD logistics"
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="cbd_fee_amount">Amount ($)</Label>
                 <Input
                   id="cbd_fee_amount"
@@ -3823,7 +3836,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   step="0.01"
                   value={formData.cbd_fee_amount}
                   onChange={(e) => setFormData({ ...formData, cbd_fee_amount: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
             </div>
@@ -3835,7 +3848,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       </Card>
 
       {/* Reminder Settings */}
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Reminder Settings</CardTitle>
           <CardDescription>Automate emails to reduce no-shows</CardDescription>
@@ -3980,7 +3993,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 Add a payment link in Payment Details to show a pay button in reminders.
               </div>
             )}
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="reminder_message">Add a personal message to reminders (optional)</Label>
               <Textarea
                 id="reminder_message"
@@ -3990,7 +4003,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   setFormData({ ...formData, reminder_custom_message: value });
                 }}
                 placeholder="e.g. Please bring a valid ID to your appointment"
-                className="bg-zinc-50 mt-2 min-h-[96px]"
+                className="bg-zinc-50 min-h-[96px]"
                 maxLength={300}
                 disabled={!hasReminderAccess}
               />
@@ -4017,7 +4030,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             type="button"
             onClick={() => handleSave({ successMessage: 'Reminder settings saved!' })}
             disabled={loading}
-            className="h-11 bg-rose-600 hover:bg-rose-700"
+            className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl"
           >
             {loading ? 'Saving…' : 'Save Reminder Settings'}
           </Button>
@@ -4028,7 +4041,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       <BusinessBookingSettingsCard />
 
       {/* Booking Editor Configuration */}
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Booking Editor</CardTitle>
           <CardDescription>Customize booth types and extra fields</CardDescription>
@@ -4145,23 +4158,23 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         data-testid="save-settings-btn"
         onClick={handleSave}
         disabled={loading}
-        className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+        className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl"
       >
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
 
       {platformReviewChecked && !platformReviewHasReview && (
-        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
           <CardHeader>
             <CardTitle style={{fontFamily: 'Manrope'}}>Review DoBook</CardTitle>
             <CardDescription>Share feedback about DoBook.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label>Rating</Label>
                 <Select value={String(platformReviewRating)} onValueChange={(v) => setPlatformReviewRating(String(v))}>
-                  <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                  <SelectTrigger className="bg-zinc-50 h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -4173,14 +4186,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   </SelectContent>
                 </Select>
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 grid gap-2 mb-4">
                 <Label htmlFor="platform_review_comment">Comment</Label>
                 <Textarea
                   id="platform_review_comment"
                   value={platformReviewComment}
                   onChange={(e) => setPlatformReviewComment(e.target.value)}
                   placeholder="What did you like or want improved?"
-                  className="bg-zinc-50 mt-2 min-h-[120px]"
+                  className="bg-zinc-50 min-h-[120px]"
                 />
               </div>
             </div>
@@ -4231,30 +4244,30 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </Card>
       )}
 
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Contact support</CardTitle>
           <CardDescription>Reach us if you’re having an issue with the software</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
+        <CardContent className="space-y-6">
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="support_subject">Subject</Label>
             <Input
               id="support_subject"
               value={supportSubject}
               onChange={(e) => setSupportSubject(e.target.value)}
               placeholder="What can we help with?"
-              className="bg-zinc-50 mt-2"
+              className="bg-zinc-50"
             />
           </div>
-          <div>
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="support_message">Message</Label>
             <Textarea
               id="support_message"
               value={supportMessage}
               onChange={(e) => setSupportMessage(e.target.value)}
               placeholder="Describe the issue, and include steps to reproduce if possible."
-              className="bg-zinc-50 mt-2 min-h-[120px]"
+              className="bg-zinc-50 min-h-[120px]"
             />
           </div>
           <div className="flex justify-end">
@@ -4298,7 +4311,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             Delete your account and all associated data. This action cannot be undone.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="text-sm text-muted-foreground">
             If you delete your account, your bookings, templates, and business data may be lost permanently.
           </div>
@@ -4329,32 +4342,32 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="delete-reason">Why are you leaving us? (optional)</Label>
               <Textarea
                 id="delete-reason"
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
                 placeholder="Your feedback helps us improve."
-                className="mt-2 bg-zinc-50"
+                className="bg-zinc-50"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
               <Input
                 id="delete-confirm"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="mt-2 bg-zinc-50"
+                className="bg-zinc-50"
               />
               <p className="mt-2 text-xs text-zinc-500">
                 This will permanently delete your account and data (bookings, templates, and business settings).
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-2 mt-4">
               <Button type="button" variant="outline" onClick={closeDeleteDialog} disabled={deleting}>
                 Cancel
               </Button>
@@ -4491,7 +4504,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
         </Select>
       </div>
 
-      <Card data-testid="bookings-list-card">
+      <Card data-testid="bookings-list-card" className="mt-6">
         <Table>
           <TableHeader>
             <TableRow>
@@ -4513,8 +4526,6 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
             ) : (
               filteredBookings.map((booking) => {
                 const status = String(booking.status || 'confirmed').toLowerCase();
-                const statusVariant =
-                  status === 'confirmed' ? 'default' : status === 'cancelled' ? 'destructive' : 'secondary';
                 return (
                   <TableRow key={booking.id}>
                     <TableCell>
@@ -4532,8 +4543,8 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                       ${bookingTotalAmount(booking).toFixed(2)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant}>
-                        {booking.status || 'confirmed'}
+                      <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
+                        {status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -4542,6 +4553,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                         onClick={() => handleViewBooking(booking)}
                         size="sm"
                         variant="outline"
+                        className="rounded-full px-4 text-xs"
                       >
                         View Details
                       </Button>
@@ -4917,7 +4929,7 @@ const StaffTab = () => {
 
   return (
     <>
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -4974,7 +4986,7 @@ const StaffTab = () => {
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-8 px-3 text-xs"
+                              className="h-8 rounded-full px-4 text-xs"
                               onClick={() => openEdit(member)}
                               disabled={mutatingId === member.id || deletingId === member.id}
                             >
@@ -4984,7 +4996,7 @@ const StaffTab = () => {
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-8 px-3 text-xs"
+                              className="h-8 rounded-full px-4 text-xs"
                               onClick={() => toggleActive(member)}
                               disabled={mutatingId === member.id || deletingId === member.id}
                             >
@@ -4994,7 +5006,7 @@ const StaffTab = () => {
                               type="button"
                               size="sm"
                               variant="destructive"
-                              className="h-8 px-3 text-xs"
+                              className="h-8 rounded-full px-4 text-xs"
                               onClick={() => handleDelete(member)}
                               disabled={mutatingId === member.id || deletingId === member.id}
                             >
@@ -5538,28 +5550,33 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                 </div>
                 {detail?.bookings?.length ? (
                   <div className="space-y-2">
-                    {detail.bookings.map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="rounded-lg border border-zinc-200 bg-white p-3 flex items-center justify-between gap-4"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-zinc-900">
-                            {formatDate(booking.booking_date)}
-                            {booking.booking_time ? ` • ${booking.booking_time}` : ''}
+                    {detail.bookings.map((booking) => {
+                      const status = String(booking.status || 'confirmed').toLowerCase();
+                      return (
+                        <div
+                          key={booking.id}
+                          className="rounded-lg border border-zinc-200 bg-white p-3 flex items-center justify-between gap-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-zinc-900">
+                              {formatDate(booking.booking_date)}
+                              {booking.booking_time ? ` • ${booking.booking_time}` : ''}
+                            </div>
+                            <div className="text-sm text-zinc-600 truncate">
+                              {booking.booth_type || booking.service_type || 'Service'}
+                            </div>
                           </div>
-                          <div className="text-sm text-zinc-600 truncate">
-                            {booking.booth_type || booking.service_type || 'Service'}
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-emerald-700">
+                              ${bookingTotalAmount(booking).toFixed(2)}
+                            </div>
+                            <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
+                              {status}
+                            </Badge>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-emerald-700">
-                            ${bookingTotalAmount(booking).toFixed(2)}
-                          </div>
-                          <div className="text-xs text-zinc-500">{booking.status || 'confirmed'}</div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-sm text-zinc-500">No booking history available.</div>
@@ -5835,15 +5852,12 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                     <div className="text-emerald-700 font-semibold">
                       ${bookingTotalAmount(booking).toFixed(2)}
                     </div>
-                    <span
-                      className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
-                        String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}
+                    <Badge
+                      variant="outline"
+                      className={bookingStatusBadgeClass(String(booking.status || 'confirmed').toLowerCase())}
                     >
-                      {booking.status || 'confirmed'}
-                    </span>
+                      {String(booking.status || 'confirmed').toLowerCase()}
+                    </Badge>
                   </div>
                 </div>
               </button>
@@ -6768,7 +6782,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
             Control what customers see on your discover page.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <Label>Show on directory</Label>
@@ -6795,7 +6809,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="public_postcode">Postcode (optional)</Label>
               <Input
                 id="public_postcode"
@@ -6806,7 +6820,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="public_website">Website (optional)</Label>
               <Input
                 id="public_website"
@@ -6817,14 +6831,13 @@ const PublicProfileTab = ({ business, onUpdate }) => {
             </div>
           </div>
 
-          <div>
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="public_description">Business description</Label>
             <Textarea
               id="public_description"
               value={formData.public_description || ''}
               onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
               placeholder="Tell customers what you do, what’s included, and what areas you service…"
-              className="mt-2"
               rows={5}
             />
             <p className="text-xs text-muted-foreground mt-2">Max 2000 characters.</p>
@@ -6926,8 +6939,8 @@ const PublicProfileTab = ({ business, onUpdate }) => {
               <div className="space-y-4">
                 {(formData.public_services || []).map((s, idx) => (
                   <div key={`service-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                      <div className="md:col-span-6">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                      <div className="md:col-span-6 grid gap-2 mb-4">
                         <Label>Service name</Label>
                         <Input
                           value={s?.name || ""}
@@ -6936,11 +6949,11 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                             next[idx] = { ...(next[idx] || {}), name: e.target.value };
                             setFormData({ ...formData, public_services: next });
                           }}
-                          className="bg-white mt-2"
+                          className="bg-white"
                           placeholder="e.g. 2 Hours"
                         />
                       </div>
-                      <div className="md:col-span-3">
+                      <div className="md:col-span-3 grid gap-2 mb-4">
                         <Label>Price</Label>
                         <Input
                           value={s?.price ?? ""}
@@ -6949,12 +6962,12 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                             next[idx] = { ...(next[idx] || {}), price: e.target.value };
                             setFormData({ ...formData, public_services: next });
                           }}
-                          className="bg-white mt-2"
+                          className="bg-white"
                           placeholder="e.g. 375"
                           inputMode="decimal"
                         />
                       </div>
-                      <div className="md:col-span-3">
+                      <div className="md:col-span-3 grid gap-2 mb-4">
                         <Label>Unit</Label>
                         <Input
                           value={s?.unit || ""}
@@ -6963,12 +6976,12 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                             next[idx] = { ...(next[idx] || {}), unit: e.target.value };
                             setFormData({ ...formData, public_services: next });
                           }}
-                          className="bg-white mt-2"
+                          className="bg-white"
                           placeholder="session"
                         />
                       </div>
                     </div>
-                    <div>
+                    <div className="grid gap-2 mb-4">
                       <Label>Description (optional)</Label>
                       <Textarea
                         value={s?.description || ""}
@@ -6977,7 +6990,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                           next[idx] = { ...(next[idx] || {}), description: e.target.value };
                           setFormData({ ...formData, public_services: next });
                         }}
-                        className="bg-white mt-2"
+                        className="bg-white"
                         rows={3}
                         placeholder="What’s included?"
                       />
@@ -7005,7 +7018,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
             type="button"
             onClick={handleSave}
             disabled={loading}
-            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl"
           >
             {loading ? 'Saving...' : 'Save Public Profile'}
           </Button>
@@ -7017,7 +7030,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
           <CardTitle style={{fontFamily: 'Manrope'}}>Customer Reviews</CardTitle>
           <CardDescription>Approve reviews before they show on your public profile.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-zinc-600">
               Pending: <span className="font-semibold text-zinc-900">{pendingCustomerReviews.length}</span> • Approved:{' '}
@@ -7826,7 +7839,7 @@ const BookingWidget = () => {
                 data-testid="widget-submit-btn"
                 type="submit" 
                 disabled={loading}
-                className="w-full h-14 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="w-full h-14 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
                 {loading ? 'Booking...' : 'Book Appointment'}
               </Button>

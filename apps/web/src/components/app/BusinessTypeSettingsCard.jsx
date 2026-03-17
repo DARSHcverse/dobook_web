@@ -76,7 +76,7 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
   }
 
   return (
-    <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+    <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
       <CardHeader>
         <CardTitle style={{ fontFamily: "Manrope" }}>Business Type</CardTitle>
         <CardDescription>
@@ -84,7 +84,7 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
           afterwards.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {BUSINESS_TYPES.map((t) => {
             const Icon = ICONS[t.icon] || Briefcase;
@@ -146,7 +146,7 @@ export default function BusinessTypeSettingsCard({ business, onUpdate }) {
           type="button"
           onClick={applyTemplate}
           disabled={loading || !selected}
-          className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+          className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
         >
           {loading ? "Applying..." : "Apply suggested defaults"}
         </Button>
