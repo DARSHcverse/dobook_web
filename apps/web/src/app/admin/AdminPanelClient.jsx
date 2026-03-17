@@ -10,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, Edit, Crown, Users, TrendingUp, CreditCard } from "lucide-react";
+import { Activity, Building2, Crown, CreditCard, Edit, LifeBuoy, LogOut, Megaphone, Star, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
@@ -601,6 +600,18 @@ export default function AdminPanel() {
       .trim()
       .replace(/\b\w/g, (c) => c.toUpperCase());
   const openTicketsCount = Number(stats.openTickets || 0);
+  const navItems = [
+    { value: "businesses", label: "Businesses", icon: Building2 },
+    { value: "reviews", label: "Reviews", icon: Star },
+    {
+      value: "support",
+      label: "Support",
+      icon: LifeBuoy,
+      badge: openTicketsCount > 0 ? openTicketsCount : null,
+    },
+    { value: "broadcast", label: "Broadcast", icon: Megaphone },
+    { value: "activity", label: "Activity Log", icon: Activity },
+  ];
 
   if (loading) {
     return (
@@ -612,19 +623,99 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">👑 Admin Panel</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage businesses and subscriptions</p>
-          </div>
-          <Button variant="outline" onClick={handleLogout}>
+      <div className="hidden md:block fixed left-0 top-0 h-full w-[240px] bg-white border-r border-border p-6">
+        <div className="flex items-center gap-3 mb-8">
+          <img
+            src="/brand/dobook-logo.png"
+            alt="DoBook"
+            className="h-[72px] w-auto object-contain select-none"
+            draggable={false}
+            onError={(e) => {
+              e.currentTarget.src = "/brand/dobook-logo.svg";
+            }}
+          />
+        </div>
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.value;
+            return (
+              <Button
+                key={item.value}
+                variant="ghost"
+                onClick={() => setActiveTab(item.value)}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge ? (
+                  <span className="ml-auto bg-primary text-white text-xs rounded-full px-1.5 py-0.5">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </Button>
+            );
+          })}
+        </nav>
+        <div className="absolute bottom-6 left-6 right-6">
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
+          >
+            <LogOut className="h-4 w-4" />
             Logout
           </Button>
         </div>
       </div>
 
-      <div className="px-6 py-6 max-w-7xl mx-auto">
+      <div className="md:ml-[240px] p-4 md:p-8 pb-8">
+        <div className="mb-6 md:mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">👑 Admin Panel</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage businesses and subscriptions</p>
+          </div>
+          <Button variant="outline" onClick={handleLogout} className="w-fit md:hidden">
+            Logout
+          </Button>
+        </div>
+
+        <div className="md:hidden mb-6">
+          <div className="grid gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.value;
+              return (
+                <Button
+                  key={item.value}
+                  variant="ghost"
+                  onClick={() => setActiveTab(item.value)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge ? (
+                    <span className="ml-auto bg-primary text-white text-xs rounded-full px-1.5 py-0.5">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid grid-cols-5 gap-4 mb-4">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-5">
@@ -754,48 +845,7 @@ export default function AdminPanel() {
           </Card>
         </div>
 
-        <Tabs defaultValue="businesses" onValueChange={setActiveTab} className="w-full">
-          <div className="border-b border-border mb-6">
-            <TabsList className="bg-transparent h-auto p-0 gap-0 w-auto">
-              <TabsTrigger
-                value="businesses"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Businesses
-              </TabsTrigger>
-              <TabsTrigger
-                value="reviews"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Reviews
-              </TabsTrigger>
-              <TabsTrigger
-                value="support"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Support
-                {openTicketsCount > 0 && (
-                  <span className="ml-2 bg-primary text-white text-xs rounded-full px-1.5 py-0.5">
-                    {openTicketsCount}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="broadcast"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Broadcast
-              </TabsTrigger>
-              <TabsTrigger
-                value="activity"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Activity Log
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="businesses" className="mt-0">
+        <div className={cn("mt-8", activeTab === "businesses" ? "block" : "hidden")}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1016,9 +1066,9 @@ export default function AdminPanel() {
                 ) : null}
               </CardContent>
             </Card>
-          </TabsContent>
+        </div>
 
-          <TabsContent value="reviews" className="mt-0">
+        <div className={cn("mt-8", activeTab === "reviews" ? "block" : "hidden")}>
             <Card>
               <CardHeader>
                 <CardTitle>DoBook Reviews</CardTitle>
@@ -1096,9 +1146,9 @@ export default function AdminPanel() {
                 ) : null}
               </CardContent>
             </Card>
-          </TabsContent>
+        </div>
 
-          <TabsContent value="support" className="mt-0">
+        <div className={cn("mt-8", activeTab === "support" ? "block" : "hidden")}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1232,9 +1282,9 @@ export default function AdminPanel() {
               ) : null}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-          <TabsContent value="broadcast" className="mt-0">
+        <div className={cn("mt-8", activeTab === "broadcast" ? "block" : "hidden")}>
             <Card className="max-w-2xl">
               <CardHeader>
                 <CardTitle>Broadcast Email</CardTitle>
@@ -1294,8 +1344,9 @@ export default function AdminPanel() {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
-          <TabsContent value="activity" className="mt-0">
+        </div>
+
+        <div className={cn("mt-8", activeTab === "activity" ? "block" : "hidden")}>
             <Card>
               <CardHeader>
                 <CardTitle>Activity Log</CardTitle>
@@ -1328,8 +1379,7 @@ export default function AdminPanel() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
 
     </div>
