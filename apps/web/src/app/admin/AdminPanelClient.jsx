@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Building2, Search, Edit, Crown, Users, TrendingUp, CreditCard, LogOut } from "lucide-react";
+import { Building2, Search, Edit, Crown, Users, TrendingUp, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
@@ -601,6 +601,7 @@ export default function AdminPanel() {
       .replaceAll("_", " ")
       .trim()
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  const openTicketsCount = Number(stats.openTickets || 0);
 
   if (loading) {
     return (
@@ -611,474 +612,550 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Crown className="w-8 h-8" />
-            Admin Panel
-          </h1>
-          <p className="text-muted-foreground">Manage businesses and subscriptions</p>
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">👑 Admin Panel</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage businesses and subscriptions</p>
+          </div>
+          <Button variant="outline" onClick={handleLogout}>
+            Logout
+          </Button>
         </div>
-        <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="w-4 h-4 mr-2" />
-          Logout
-        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-9 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Businesses</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Free Plans</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.free}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pro Plans</CardTitle>
-            <Crown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pro}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inactive}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${Number(stats.monthlyRevenue || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Active Pro × $20</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Signups</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.newSignupsThisMonth}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bookings</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.bookingsThisMonth}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Churn</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.churnThisMonth}</div>
-            <p className="text-xs text-muted-foreground">Went inactive</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex flex-wrap">
-          <TabsTrigger value="businesses">Businesses</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="support" className="flex items-center gap-2">
-            Support
-            <Badge variant="secondary" className="ml-1">
-              {stats.openTickets || 0}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="businesses">
-          {/* Filters */}
-          <Card>
-        <CardHeader>
-          <CardTitle>Businesses</CardTitle>
-          <CardDescription>Manage all registered businesses</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search businesses..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+      <div className="px-6 py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Businesses</p>
+                  <p className="text-3xl font-bold mt-2">{stats.total}</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
               </div>
-            </div>
-            <Select value={filterPlan} onValueChange={setFilterPlan}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Plans</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="pro">Pro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Businesses Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBusinesses.map((business) => (
-                  <TableRow key={business.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{getBusinessName(business)}</div>
-                        {business.account_role === 'owner' && (
-                          <Badge variant="outline" className="text-xs">OWNER</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{business.email}</TableCell>
-                    <TableCell>{getPlanBadge(business.subscription_plan)}</TableCell>
-                    <TableCell>{getStatusBadge(business.subscription_status)}</TableCell>
-                    <TableCell>
-                      {formatCreatedAt(business.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSetSubscription(business.id, 'pro', 'active')}
-                          className="rounded-full px-4 text-xs"
-                        >
-                          Grant Pro
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleSetSubscription(business.id, 'free', 'inactive')}
-                          className="rounded-full px-4 text-xs"
-                        >
-                          Set Free
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingBusiness(business)}
-                          className="rounded-full px-4 text-xs"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteBusiness(business.id)}
-                          className="rounded-full px-4 text-xs"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {filteredBusinesses.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No businesses found matching your criteria.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-        </TabsContent>
-
-        <TabsContent value="reviews">
-          {/* Platform Reviews Moderation */}
-          <Card>
-        <CardHeader>
-          <CardTitle>DoBook Reviews</CardTitle>
-          <CardDescription>Approve or deny business reviews before they show on the DoBook website</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <Select value={reviewsFilter} onValueChange={setReviewsFilter}>
-              <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Filter reviews" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="text-sm text-muted-foreground">
-              {reviewsLoading ? "Loading..." : `${Array.isArray(reviews) ? reviews.length : 0} review(s)`}
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Comment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(Array.isArray(reviews) ? reviews : []).map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="min-w-0">
-                      <div className="font-medium truncate">{r.business_name || "-"}</div>
-                      <div className="text-xs text-muted-foreground font-mono truncate">{r.business_id || "-"}</div>
-                    </TableCell>
-                    <TableCell>{Number(r.rating || 0) ? `${r.rating}/5` : "-"}</TableCell>
-                    <TableCell className="max-w-[360px] truncate">{r.comment || "-"}</TableCell>
-                    <TableCell>{getReviewStatusBadge(String(r.status || "pending").toLowerCase())}</TableCell>
-                    <TableCell>{formatCreatedAt(r.created_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateReviewStatus(r.id, "approved")}
-                          className="rounded-full px-4 text-xs text-green-600 hover:text-green-700"
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateReviewStatus(r.id, "rejected")}
-                          className="rounded-full px-4 text-xs text-red-600 hover:text-red-700"
-                        >
-                          Deny
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {!reviewsLoading && (Array.isArray(reviews) ? reviews.length : 0) === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">No reviews in this filter.</div>
-          ) : null}
-        </CardContent>
+            </CardContent>
           </Card>
-        </TabsContent>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Free Plans</p>
+                  <p className="text-3xl font-bold mt-2">{stats.free}</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pro Plans</p>
+                  <p className="text-3xl font-bold mt-2">{stats.pro}</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Crown className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active</p>
+                  <p className="text-3xl font-bold mt-2">{stats.active}</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Inactive</p>
+                  <p className="text-3xl font-bold mt-2">{stats.inactive}</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        <TabsContent value="support">
-          <Card>
-            <CardHeader>
-              <CardTitle>Support Tickets</CardTitle>
-              <CardDescription>Respond to business support requests</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <Select value={supportFilter} onValueChange={setSupportFilter}>
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Filter tickets" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="all">All</SelectItem>
-                  </SelectContent>
-                </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Monthly Revenue</p>
+                  <p className="text-3xl font-bold mt-2">
+                    ${Number(stats.monthlyRevenue || 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Active Pro × $20</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">New Signups</p>
+                  <p className="text-3xl font-bold mt-2">{stats.newSignupsThisMonth}</p>
+                  <p className="text-xs text-muted-foreground mt-1">This month</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bookings</p>
+                  <p className="text-3xl font-bold mt-2">{stats.bookingsThisMonth}</p>
+                  <p className="text-xs text-muted-foreground mt-1">This month</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Churn</p>
+                  <p className="text-3xl font-bold mt-2">{stats.churnThisMonth}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Went inactive</p>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full justify-start mb-6 bg-muted/50 p-1 rounded-xl h-auto">
+            <TabsTrigger
+              value="businesses"
+              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Businesses
+            </TabsTrigger>
+            <TabsTrigger
+              value="reviews"
+              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Reviews
+            </TabsTrigger>
+            <TabsTrigger
+              value="support"
+              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Support
+              {openTicketsCount > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-2 rounded-full h-5 w-5 p-0 flex items-center justify-center text-xs"
+                >
+                  {openTicketsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="broadcast"
+              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Broadcast
+            </TabsTrigger>
+            <TabsTrigger
+              value="activity"
+              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              Activity Log
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="businesses">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>Businesses</CardTitle>
+                    <CardDescription>Manage all registered businesses</CardDescription>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search businesses..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 w-full"
+                      />
+                    </div>
+                    <Select value={filterPlan} onValueChange={setFilterPlan}>
+                      <SelectTrigger className="w-full sm:w-32">
+                        <SelectValue placeholder="All Plans" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Plans</SelectItem>
+                        <SelectItem value="pro">Pro</SelectItem>
+                        <SelectItem value="free">Free</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Business</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredBusinesses.map((business) => (
+                        <TableRow key={business.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{getBusinessName(business)}</div>
+                              {business.account_role === "owner" && (
+                                <Badge variant="outline" className="text-xs">
+                                  OWNER
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{business.email}</TableCell>
+                          <TableCell>{getPlanBadge(business.subscription_plan)}</TableCell>
+                          <TableCell>{getStatusBadge(business.subscription_status)}</TableCell>
+                          <TableCell>{formatCreatedAt(business.created_at)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSetSubscription(business.id, "pro", "active")}
+                                className="rounded-full text-xs px-3"
+                              >
+                                Grant Pro
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleSetSubscription(business.id, "free", "inactive")}
+                                className="rounded-full text-xs px-3"
+                              >
+                                Set Free
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingBusiness(business)}
+                                className="rounded-full text-xs px-3"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteBusiness(business.id)}
+                                className="rounded-full text-xs px-3 text-destructive hover:text-destructive"
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {filteredBusinesses.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No businesses found matching your criteria.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews">
+            <Card>
+              <CardHeader>
+                <CardTitle>DoBook Reviews</CardTitle>
+                <CardDescription>Approve or deny business reviews before they show on the DoBook website</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <Select value={reviewsFilter} onValueChange={setReviewsFilter}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="Filter reviews" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="text-sm text-muted-foreground">
+                    {reviewsLoading ? "Loading..." : `${Array.isArray(reviews) ? reviews.length : 0} review(s)`}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Business</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Comment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(Array.isArray(reviews) ? reviews : []).map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="min-w-0">
+                            <div className="font-medium truncate">{r.business_name || "-"}</div>
+                            <div className="text-xs text-muted-foreground font-mono truncate">{r.business_id || "-"}</div>
+                          </TableCell>
+                          <TableCell>{Number(r.rating || 0) ? `${r.rating}/5` : "-"}</TableCell>
+                          <TableCell className="max-w-[360px] truncate">{r.comment || "-"}</TableCell>
+                          <TableCell>{getReviewStatusBadge(String(r.status || "pending").toLowerCase())}</TableCell>
+                          <TableCell>{formatCreatedAt(r.created_at)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateReviewStatus(r.id, "approved")}
+                                className="rounded-full px-4 text-xs text-green-600 hover:text-green-700"
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateReviewStatus(r.id, "rejected")}
+                                className="rounded-full px-4 text-xs text-red-600 hover:text-red-700"
+                              >
+                                Deny
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {!reviewsLoading && (Array.isArray(reviews) ? reviews.length : 0) === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">No reviews in this filter.</div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="support">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>Support Tickets</CardTitle>
+                    <CardDescription>Respond to business support requests</CardDescription>
+                  </div>
+                  <Select value={supportFilter} onValueChange={setSupportFilter}>
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Open" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="text-sm text-muted-foreground">
                   {supportLoading ? "Loading..." : `${supportTickets.length} ticket(s)`}
                 </div>
-              </div>
 
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Business</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {supportTickets.map((ticket) => (
-                      <TableRow key={ticket.id}>
-                        <TableCell>
-                          <div className="font-medium">{ticket.business_name || "-"}</div>
-                          <div className="text-xs text-muted-foreground">{ticket.business_email || "-"}</div>
-                        </TableCell>
-                        <TableCell className="max-w-[280px] truncate">{ticket.subject}</TableCell>
-                        <TableCell>{getTicketStatusBadge(ticket.status)}</TableCell>
-                        <TableCell>{formatCreatedAt(ticket.created_at)}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="outline" className="rounded-full px-4 text-xs" onClick={() => setSelectedTicket(ticket)}>
-                            View
-                          </Button>
-                        </TableCell>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Business</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {!supportLoading && supportTickets.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">No tickets in this filter.</div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="broadcast">
-          <Card>
-            <CardHeader>
-              <CardTitle>Broadcast Email</CardTitle>
-              <CardDescription>Send updates to your businesses via email</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-2 mb-4">
-                <Label htmlFor="broadcast-subject">Subject</Label>
-                <Input
-                  id="broadcast-subject"
-                  value={broadcastSubject}
-                  onChange={(e) => setBroadcastSubject(e.target.value)}
-                  placeholder="What's new in DoBook?"
-                />
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label htmlFor="broadcast-audience">Audience</Label>
-                <Select value={broadcastAudience} onValueChange={setBroadcastAudience}>
-                  <SelectTrigger className="w-[240px]">
-                    <SelectValue placeholder="Audience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All businesses</SelectItem>
-                    <SelectItem value="pro">Pro only</SelectItem>
-                    <SelectItem value="free">Free only</SelectItem>
-                    <SelectItem value="inactive">Inactive only</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label htmlFor="broadcast-message">Message</Label>
-                <Textarea
-                  id="broadcast-message"
-                  value={broadcastMessage}
-                  onChange={(e) => setBroadcastMessage(e.target.value)}
-                  placeholder="Write your announcement. Basic HTML is allowed."
-                  className="min-h-[160px]"
-                />
-                <p className="text-xs text-muted-foreground">Keep it concise. Basic line breaks are supported.</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setBroadcastPreviewCount(getAudienceCount(broadcastAudience))}
-                >
-                  Preview Audience
-                </Button>
-                {broadcastPreviewCount !== null ? (
-                  <div className="text-sm text-muted-foreground">
-                    Will send to {broadcastPreviewCount} business(es)
-                  </div>
-                ) : null}
-              </div>
-              <Button onClick={sendBroadcast} disabled={broadcastSending} className="w-full sm:w-auto">
-                {broadcastSending ? "Sending..." : "Send Broadcast"}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Log</CardTitle>
-          <CardDescription>Recent admin actions</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {activityLoading ? (
-            <div className="text-sm text-muted-foreground">Loading activity…</div>
-          ) : activityLog.length ? (
-            <div className="max-h-80 overflow-y-auto space-y-3">
-              {activityLog.map((log) => (
-                <div key={log.id} className="flex items-start justify-between gap-4 border-b pb-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{formatAction(log.action)}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      Business: {log.business_name || log.target_business_id || "-"}
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDateTime(log.created_at)}
-                  </div>
+                    </TableHeader>
+                    <TableBody>
+                      {supportTickets.map((ticket) => (
+                        <TableRow key={ticket.id}>
+                          <TableCell>
+                            <div className="font-medium">{ticket.business_name || "-"}</div>
+                            <div className="text-xs text-muted-foreground">{ticket.business_email || "-"}</div>
+                          </TableCell>
+                          <TableCell className="max-w-[280px] truncate">{ticket.subject}</TableCell>
+                          <TableCell>{getTicketStatusBadge(ticket.status)}</TableCell>
+                          <TableCell>{formatCreatedAt(ticket.created_at)}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full px-4 text-xs"
+                              onClick={() => setSelectedTicket(ticket)}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">No recent activity.</div>
-          )}
-        </CardContent>
-      </Card>
+
+                {!supportLoading && supportTickets.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">No tickets in this filter.</div>
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="broadcast">
+            <Card>
+              <CardHeader>
+                <CardTitle>Broadcast Email</CardTitle>
+                <CardDescription>Send updates to your businesses via email</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="broadcast-subject">Subject</Label>
+                  <Input
+                    id="broadcast-subject"
+                    value={broadcastSubject}
+                    onChange={(e) => setBroadcastSubject(e.target.value)}
+                    placeholder="What's new in DoBook?"
+                  />
+                </div>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="broadcast-audience">Audience</Label>
+                  <Select value={broadcastAudience} onValueChange={setBroadcastAudience}>
+                    <SelectTrigger className="w-[240px]">
+                      <SelectValue placeholder="Audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All businesses</SelectItem>
+                      <SelectItem value="pro">Pro only</SelectItem>
+                      <SelectItem value="free">Free only</SelectItem>
+                      <SelectItem value="inactive">Inactive only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="broadcast-message">Message</Label>
+                  <Textarea
+                    id="broadcast-message"
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    placeholder="Write your announcement. Basic HTML is allowed."
+                    className="min-h-[160px]"
+                  />
+                  <p className="text-xs text-muted-foreground">Keep it concise. Basic line breaks are supported.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setBroadcastPreviewCount(getAudienceCount(broadcastAudience))}
+                  >
+                    Preview Audience
+                  </Button>
+                  {broadcastPreviewCount !== null ? (
+                    <div className="text-sm text-muted-foreground">
+                      Will send to {broadcastPreviewCount} business(es)
+                    </div>
+                  ) : null}
+                </div>
+                <Button onClick={sendBroadcast} disabled={broadcastSending} className="w-full sm:w-auto">
+                  {broadcastSending ? "Sending..." : "Send Broadcast"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="activity">
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Log</CardTitle>
+                <CardDescription>Recent admin actions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activityLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading activity…</div>
+                ) : activityLog.length ? (
+                  <div className="space-y-4">
+                    {activityLog.map((log) => (
+                      <div
+                        key={log.id}
+                        className="flex items-center justify-between py-3 border-b last:border-0"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{formatAction(log.action)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Business: {log.business_name || log.target_business_id || "-"}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateTime(log.created_at)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No recent activity.</div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       <Sheet
         open={!!editingBusiness}
