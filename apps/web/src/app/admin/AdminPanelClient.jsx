@@ -12,8 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Building2, Search, Edit, Crown, Users, TrendingUp, CreditCard } from "lucide-react";
+import { Building2, Edit, Crown, Users, TrendingUp, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
@@ -625,8 +624,8 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      <div className="px-6 py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+      <div className="px-6 py-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-5 gap-4 mb-4">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start justify-between">
@@ -694,7 +693,7 @@ export default function AdminPanel() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-8">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start justify-between">
@@ -755,68 +754,64 @@ export default function AdminPanel() {
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start mb-6 bg-muted/50 p-1 rounded-xl h-auto">
-            <TabsTrigger
-              value="businesses"
-              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              Businesses
-            </TabsTrigger>
-            <TabsTrigger
-              value="reviews"
-              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              Reviews
-            </TabsTrigger>
-            <TabsTrigger
-              value="support"
-              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              Support
-              {openTicketsCount > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-2 rounded-full h-5 w-5 p-0 flex items-center justify-center text-xs"
-                >
-                  {openTicketsCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="broadcast"
-              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              Broadcast
-            </TabsTrigger>
-            <TabsTrigger
-              value="activity"
-              className="rounded-lg px-6 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
-            >
-              Activity Log
-            </TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="businesses" onValueChange={setActiveTab} className="w-full">
+          <div className="border-b border-border mb-6">
+            <TabsList className="bg-transparent h-auto p-0 gap-0 w-auto">
+              <TabsTrigger
+                value="businesses"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Businesses
+              </TabsTrigger>
+              <TabsTrigger
+                value="reviews"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Reviews
+              </TabsTrigger>
+              <TabsTrigger
+                value="support"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Support
+                {openTicketsCount > 0 && (
+                  <span className="ml-2 bg-primary text-white text-xs rounded-full px-1.5 py-0.5">
+                    {openTicketsCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="broadcast"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Broadcast
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent bg-transparent px-6 py-3 font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Activity Log
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="businesses">
+          <TabsContent value="businesses" className="mt-0">
             <Card>
               <CardHeader>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Businesses</CardTitle>
                     <CardDescription>Manage all registered businesses</CardDescription>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative w-full sm:w-64">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search businesses..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 w-full"
-                      />
-                    </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search businesses..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-64"
+                    />
                     <Select value={filterPlan} onValueChange={setFilterPlan}>
-                      <SelectTrigger className="w-full sm:w-32">
+                      <SelectTrigger className="w-36">
                         <SelectValue placeholder="All Plans" />
                       </SelectTrigger>
                       <SelectContent>
@@ -905,11 +900,125 @@ export default function AdminPanel() {
                     No businesses found matching your criteria.
                   </div>
                 )}
+
+                {editingBusiness ? (
+                  <div className="rounded-lg border p-6">
+                    <div>
+                      <h3 className="text-lg font-semibold">Business Details</h3>
+                      <p className="text-sm text-muted-foreground">Admin-only view of business performance</p>
+                    </div>
+                    {businessDetailLoading ? (
+                      <div className="py-6 text-sm text-muted-foreground">Loading business details...</div>
+                    ) : businessDraft ? (
+                      <div className="space-y-6 pt-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="text-muted-foreground">Created</div>
+                            <div className="font-medium">{formatCreatedAt(businessDetail?.business?.created_at)}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Last login</div>
+                            <div className="font-medium">
+                              {businessDetail?.stats?.last_login_at ? formatDateTime(businessDetail.stats.last_login_at) : "-"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Total bookings</div>
+                            <div className="font-medium">{businessDetail?.stats?.bookings_count ?? 0}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Total revenue</div>
+                            <div className="font-medium">
+                              ${Number(businessDetail?.stats?.total_revenue || 0).toLocaleString()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Business type</div>
+                            <div className="font-medium">
+                              {businessDetail?.business?.business_type || businessDetail?.business?.industry || "-"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Status</div>
+                            <div className="font-medium">
+                              {String(businessDraft.subscription_status || "inactive").toUpperCase()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2 mb-4">
+                          <Label>Business Name</Label>
+                          <Input
+                            value={getBusinessName(businessDraft)}
+                            onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2 mb-4">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={businessDraft.email || ""}
+                            onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2 mb-4">
+                          <Label>Subscription Plan</Label>
+                          <Select
+                            value={businessDraft.subscription_plan || "free"}
+                            onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_plan: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="free">Free</SelectItem>
+                              <SelectItem value="pro">Pro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2 mb-4">
+                          <Label>Subscription Status</Label>
+                          <Select
+                            value={businessDraft.subscription_status || "inactive"}
+                            onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_status: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2 mb-4">
+                          <Label>Admin Notes</Label>
+                          <Textarea
+                            value={businessDraft.admin_notes || ""}
+                            onChange={(e) => setBusinessDraft({ ...businessDraft, admin_notes: e.target.value })}
+                            className="min-h-[120px]"
+                          />
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <Button variant="outline" onClick={() => setEditingBusiness(null)}>
+                            Close
+                          </Button>
+                          <Button onClick={() => handleUpdateBusiness(businessDraft)} disabled={!businessDraft}>
+                            Save Changes
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-6 text-sm text-muted-foreground">Select a business to view details.</div>
+                    )}
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="reviews">
+          <TabsContent value="reviews" className="mt-0">
             <Card>
               <CardHeader>
                 <CardTitle>DoBook Reviews</CardTitle>
@@ -989,16 +1098,16 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="support">
+          <TabsContent value="support" className="mt-0">
             <Card>
               <CardHeader>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Support Tickets</CardTitle>
                     <CardDescription>Respond to business support requests</CardDescription>
                   </div>
                   <Select value={supportFilter} onValueChange={setSupportFilter}>
-                    <SelectTrigger className="w-full sm:w-40">
+                    <SelectTrigger className="w-40">
                       <SelectValue placeholder="Open" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1052,20 +1161,86 @@ export default function AdminPanel() {
                   </Table>
                 </div>
 
-                {!supportLoading && supportTickets.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground">No tickets in this filter.</div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              {!supportLoading && supportTickets.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">No tickets in this filter.</div>
+              ) : null}
 
-          <TabsContent value="broadcast">
-            <Card>
+              {selectedTicket ? (
+                <div className="rounded-lg border p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Support Ticket</h3>
+                    <p className="text-sm text-muted-foreground">View message and respond</p>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <div className="font-medium text-foreground">{selectedTicket.subject}</div>
+                    <div>{selectedTicket.business_name || "-"}</div>
+                    <div>{selectedTicket.business_email || "-"}</div>
+                    <div>{formatDateTime(selectedTicket.created_at)}</div>
+                  </div>
+                  <div className="rounded-md border p-4 whitespace-pre-wrap text-sm">
+                    {selectedTicket.message}
+                  </div>
+                  <div className="grid gap-2 mb-4">
+                    <Label>Status</Label>
+                    <Select value={ticketStatus} onValueChange={setTicketStatus}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      onClick={() => updateTicketStatus(selectedTicket.id, ticketStatus)}
+                      disabled={supportUpdating}
+                      className="w-fit"
+                    >
+                      {supportUpdating ? "Updating..." : "Update Status"}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 mb-4">
+                    <Label>Reply</Label>
+                    <Textarea
+                      value={supportReply}
+                      onChange={(e) => setSupportReply(e.target.value)}
+                      placeholder="Write a response to the business..."
+                      className="min-h-[120px]"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => sendSupportReply(selectedTicket.id)}
+                        disabled={supportReplySending || !supportReply.trim()}
+                        className="w-fit"
+                      >
+                        {supportReplySending ? "Sending..." : "Send Reply"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedTicket(null);
+                          setSupportReply("");
+                        }}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+          <TabsContent value="broadcast" className="mt-0">
+            <Card className="max-w-2xl">
               <CardHeader>
                 <CardTitle>Broadcast Email</CardTitle>
                 <CardDescription>Send updates to your businesses via email</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div className="grid gap-2 mb-4">
                   <Label htmlFor="broadcast-subject">Subject</Label>
                   <Input
@@ -1120,7 +1295,7 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="activity">
+          <TabsContent value="activity" className="mt-0">
             <Card>
               <CardHeader>
                 <CardTitle>Activity Log</CardTitle>
@@ -1157,197 +1332,6 @@ export default function AdminPanel() {
         </Tabs>
       </div>
 
-      <Sheet
-        open={!!editingBusiness}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingBusiness(null);
-            setBusinessDetail(null);
-            setBusinessDraft(null);
-          }
-        }}
-      >
-        <SheetContent side="right" className="w-full sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>Business Details</SheetTitle>
-            <SheetDescription>Admin-only view of business performance</SheetDescription>
-          </SheetHeader>
-          {businessDetailLoading ? (
-            <div className="py-6 text-sm text-muted-foreground">Loading business details...</div>
-          ) : businessDraft ? (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Created</div>
-                  <div className="font-medium">{formatCreatedAt(businessDetail?.business?.created_at)}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Last login</div>
-                  <div className="font-medium">
-                    {businessDetail?.stats?.last_login_at ? formatDateTime(businessDetail.stats.last_login_at) : "-"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Total bookings</div>
-                  <div className="font-medium">{businessDetail?.stats?.bookings_count ?? 0}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Total revenue</div>
-                  <div className="font-medium">
-                    ${Number(businessDetail?.stats?.total_revenue || 0).toLocaleString()}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Business type</div>
-                  <div className="font-medium">
-                    {businessDetail?.business?.business_type || businessDetail?.business?.industry || "-"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Status</div>
-                  <div className="font-medium">
-                    {String(businessDraft.subscription_status || "inactive").toUpperCase()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-2 mb-4">
-                <Label>Business Name</Label>
-                <Input
-                  value={getBusinessName(businessDraft)}
-                  onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={businessDraft.email || ""}
-                  onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Subscription Plan</Label>
-                <Select
-                  value={businessDraft.subscription_plan || "free"}
-                  onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_plan: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="pro">Pro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Subscription Status</Label>
-                <Select
-                  value={businessDraft.subscription_status || "inactive"}
-                  onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Admin Notes</Label>
-                <Textarea
-                  value={businessDraft.admin_notes || ""}
-                  onChange={(e) => setBusinessDraft({ ...businessDraft, admin_notes: e.target.value })}
-                  className="min-h-[120px]"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="py-6 text-sm text-muted-foreground">Select a business to view details.</div>
-          )}
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setEditingBusiness(null)}>
-              Close
-            </Button>
-            <Button onClick={() => handleUpdateBusiness(businessDraft)} disabled={!businessDraft}>
-              Save Changes
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={!!selectedTicket}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedTicket(null);
-            setSupportReply("");
-          }
-        }}
-      >
-        <SheetContent side="right" className="w-full sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>Support Ticket</SheetTitle>
-            <SheetDescription>View message and respond</SheetDescription>
-          </SheetHeader>
-          {selectedTicket ? (
-            <div className="space-y-4 py-4">
-              <div className="text-sm text-muted-foreground">
-                <div className="font-medium text-foreground">{selectedTicket.subject}</div>
-                <div>{selectedTicket.business_name || "-"}</div>
-                <div>{selectedTicket.business_email || "-"}</div>
-                <div>{formatDateTime(selectedTicket.created_at)}</div>
-              </div>
-              <div className="rounded-md border p-4 whitespace-pre-wrap text-sm">
-                {selectedTicket.message}
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Status</Label>
-                <Select value={ticketStatus} onValueChange={setTicketStatus}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  onClick={() => updateTicketStatus(selectedTicket.id, ticketStatus)}
-                  disabled={supportUpdating}
-                  className="w-fit"
-                >
-                  {supportUpdating ? "Updating..." : "Update Status"}
-                </Button>
-              </div>
-              <div className="grid gap-2 mb-4">
-                <Label>Reply</Label>
-                <Textarea
-                  value={supportReply}
-                  onChange={(e) => setSupportReply(e.target.value)}
-                  placeholder="Write a response to the business..."
-                  className="min-h-[120px]"
-                />
-                <Button
-                  onClick={() => sendSupportReply(selectedTicket.id)}
-                  disabled={supportReplySending || !supportReply.trim()}
-                  className="w-fit"
-                >
-                  {supportReplySending ? "Sending..." : "Send Reply"}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="py-6 text-sm text-muted-foreground">Select a ticket to view details.</div>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
