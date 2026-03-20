@@ -1,16 +1,12 @@
 import 'package:dobook/app/session.dart';
-import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/data/models/staff.dart';
-import 'package:dobook/invoices/invoice_preview_screen.dart';
 import 'package:dobook/ui/dashboard/bookings/edit_booking_screen.dart';
 import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
-import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
-import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/section_header.dart';
 import 'package:dobook/ui/shared/widgets/status_badge.dart';
 import 'package:dobook/util/format.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -26,733 +22,542 @@ class BookingDetailsScreen extends StatefulWidget {
 
 class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   late Booking _booking;
-  bool _bookingLoading = false;
-  String? _bookingError;
+  Future<List<Staff>>? _staffFuture;
+
   bool _savingPayment = false;
   bool _sendingInvoice = false;
   bool _requestingReview = false;
   bool _cancelling = false;
-  bool _staffLoading = false;
-  bool _assigningStaff = false;
-  String _staffSelection = '';
-  String _assignedStaffId = '';
-  List<Staff> _staffList = const [];
+  bool _updatingStaff = false;
+
+  String? _selectedStaffId;
 
   @override
   void initState() {
     super.initState();
     _booking = widget.booking;
-    _staffSelection = _booking.staffId;
-    _assignedStaffId = _booking.staffId;
-    // Start with loading = false so passed booking renders immediately.
-    // We refresh in background for the latest data.
-    _bookingLoading = false;
-    if (kDebugMode) {
-      debugPrint(
-        'BookingDetailsScreen: received booking id=${_booking.id} '
-        'invoice=${_booking.invoiceId} customer=${_booking.customerName}',
-      );
-      _logMissingFields(_booking);
-    }
-    if (_booking.id.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshInBackground());
-    }
-    _loadStaff();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _staffFuture ??= _loadStaff();
   }
 
   @override
   Widget build(BuildContext context) {
-    final business = context.read<AppSession>().business!;
     final booking = _booking;
-    final scheme = Theme.of(context).colorScheme;
-    final brand = Theme.of(context).extension<BrandColors>();
-    final title = booking.invoiceId.isEmpty ? 'Booking' : booking.invoiceId;
-
-    if (_bookingLoading) {
-      if (kDebugMode) {
-        debugPrint('BookingDetailsScreen: booking data loading...');
-      }
-      return Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: const LoadingShimmerList(
-          padding: EdgeInsets.all(16),
-          itemCount: 6,
-        ),
-      );
-    }
-
-    if (_bookingError != null) {
-      if (kDebugMode) {
-        debugPrint('BookingDetailsScreen: booking error=$_bookingError');
-      }
-      return Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: _errorState(context, _bookingError!),
-      );
-    }
-
+    final breakdown = _buildBreakdown(booking, booking.lineItems);
     final paymentStatusValue = _normalizePaymentStatus(booking.paymentStatus);
     final paymentMethodValue = _normalizePaymentMethod(booking.paymentMethod);
 
-    final lineItems = booking.lineItems;
-    final breakdown = _buildBreakdown(booking, lineItems);
-    final activeStaff =
-        _staffList.where((member) => member.isActive).toList();
-    final activeStaffIds = activeStaff.map((member) => member.id).toSet();
-    Staff? currentStaff;
-    for (final member in _staffList) {
-      if (member.id == _assignedStaffId || member.id == booking.staffId) {
-        currentStaff = member;
-        break;
-      }
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          booking.customerName.isEmpty ? 'Booking' : booking.customerName,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Color(0xFFBE002B),
+          ),
         ),
-        bottom: booking.invoiceId.isEmpty
-            ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(20),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    booking.invoiceId,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
-                        ),
-                  ),
-                ),
-              ),
+        title: Text(
+          booking.customerName.trim().isEmpty ? 'Booking' : booking.customerName,
+        ),
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          // ── Card 1: Customer ───────────────────────────────────────
-          _card(
-            context,
-            brand,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  AvatarWidget(name: booking.customerName, size: 64),
-                  const SizedBox(height: 12),
-                  Text(
-                    booking.customerName.isEmpty ? '—' : booking.customerName,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  if (booking.customerEmail.isNotEmpty)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.email_outlined,
-                            size: 14,
-                            color: scheme.onSurfaceVariant),
-                        const SizedBox(width: 6),
-                        Text(
-                          booking.customerEmail,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  if (booking.customerPhone.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.phone_outlined,
-                            size: 14,
-                            color: scheme.onSurfaceVariant),
-                        const SizedBox(width: 6),
-                        Text(
-                          booking.customerPhone,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Card 2: Booking Details ────────────────────────────────
-          _card(
-            context,
-            brand,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionLabel(context, 'Booking Details'),
-                  const SizedBox(height: 12),
-                  _detailRow(context, Icons.calendar_today,
-                      _formatDate(booking.bookingDate)),
-                  _detailRow(context, Icons.schedule,
-                      _formatTime(booking.bookingTime)),
-                  if (booking.durationMinutes > 0)
-                    _detailRow(context, Icons.timer_outlined,
-                        _formatDuration(booking.durationMinutes)),
-                  if (booking.boothType.isNotEmpty)
-                    _detailRow(context, Icons.photo_camera_outlined,
-                        booking.boothType),
-                  if (booking.serviceType.isNotEmpty)
-                    _detailRow(context, Icons.miscellaneous_services_outlined,
-                        booking.serviceType),
-                  if (booking.eventLocation.isNotEmpty)
-                    _detailRow(
-                        context, Icons.location_on_outlined, booking.eventLocation),
-                  if (booking.parkingInfo.isNotEmpty)
-                    _detailRow(
-                        context, Icons.local_parking, booking.parkingInfo),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.flag_outlined,
-                          size: 16, color: scheme.onSurfaceVariant),
-                      const SizedBox(width: 10),
-                      StatusBadge(status: booking.status),
-                    ],
-                  ),
-                  if (booking.createdAt.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _detailRow(context, Icons.access_time,
-                        'Created ${_formatCreatedAt(booking.createdAt)}'),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Card 3: Payment ────────────────────────────────────────
-          _card(
-            context,
-            brand,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionLabel(context, 'Payment'),
-                  const SizedBox(height: 12),
-                  _amountRow('Base price', breakdown.baseTotal),
-                  if (breakdown.travelTotal > 0)
-                    _amountRow('Travel fee', breakdown.travelTotal),
-                  if (breakdown.cbdTotal > 0)
-                    _amountRow('CBD logistics fee', breakdown.cbdTotal),
-                  for (final addon in breakdown.addons)
-                    _amountRow(addon.label, addon.total),
-                  const Divider(height: 24),
-                  _amountRow(
-                    'Total',
-                    breakdown.totalAmount,
-                    isBold: true,
-                    valueColor: scheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('payment-status-$paymentStatusValue'),
-                    initialValue: paymentStatusValue,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment status',
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'unpaid', child: Text('Unpaid')),
-                      DropdownMenuItem(
-                          value: 'deposit_paid', child: Text('Deposit Paid')),
-                      DropdownMenuItem(
-                          value: 'paid_in_full', child: Text('Paid in Full')),
-                    ],
-                    onChanged: _savingPayment
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            _savePayment({'payment_status': value});
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('payment-method-$paymentMethodValue'),
-                    initialValue:
-                        paymentMethodValue.isEmpty ? null : paymentMethodValue,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment method',
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'bank_transfer', child: Text('Bank Transfer')),
-                      DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                      DropdownMenuItem(value: 'online', child: Text('Online')),
-                      DropdownMenuItem(value: 'other', child: Text('Other')),
-                    ],
-                    onChanged: _savingPayment
-                        ? null
-                        : (value) {
-                            _savePayment({'payment_method': value ?? ''});
-                          },
-                  ),
-                  if (_savingPayment) ...[
-                    const SizedBox(height: 12),
-                    const LinearProgressIndicator(),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Card 4: Notes (only if non-empty) ─────────────────────
-          if (booking.notes.trim().isNotEmpty) ...[
-            _card(
-              context,
-              brand,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SurfaceCard(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionLabel(context, 'Notes'),
-                    const SizedBox(height: 10),
+                    AvatarWidget(name: booking.customerName, size: 64),
+                    const SizedBox(height: 14),
                     Text(
-                      booking.notes,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      booking.customerName.trim().isEmpty
+                          ? 'Unknown Customer'
+                          : booking.customerName,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF191C1D),
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    _CenteredInfoRow(
+                      icon: Icons.mail_outline_rounded,
+                      text: booking.customerEmail.isEmpty
+                          ? 'No email provided'
+                          : booking.customerEmail,
+                    ),
+                    if (booking.customerPhone.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _CenteredInfoRow(
+                        icon: Icons.phone_outlined,
+                        text: booking.customerPhone,
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _CircleActionButton(
+                          icon: Icons.call_rounded,
+                          tooltip: 'Call',
+                          onTap: () => _showContactNotice(
+                            booking.customerPhone.trim().isEmpty
+                                ? 'No phone number available.'
+                                : 'Call ${booking.customerPhone}',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _CircleActionButton(
+                          icon: Icons.mail_rounded,
+                          tooltip: 'Email',
+                          onTap: () => _showContactNotice(
+                            booking.customerEmail.isEmpty
+                                ? 'No email available.'
+                                : 'Email ${booking.customerEmail}',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-          ],
-
-          // ── Card 5: Assigned Staff ─────────────────────────────────
-          _card(
-            context,
-            brand,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionLabel(context, 'Assigned Staff'),
-                  const SizedBox(height: 12),
-                  if (_staffLoading)
-                    const LinearProgressIndicator()
-                  else if (currentStaff != null) ...[
-                    Row(
-                      children: [
-                        AvatarWidget(name: currentStaff.name, size: 40),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(currentStaff.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                              if (currentStaff.email.isNotEmpty)
-                                Text(
-                                  currentStaff.email,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                          color: scheme.onSurfaceVariant),
-                                ),
-                            ],
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _assigningStaff ? null : _removeStaff,
-                          style: TextButton.styleFrom(
-                              foregroundColor: scheme.error),
-                          child: const Text('Remove'),
-                        ),
-                      ],
+            _SurfaceCard(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(label: 'Booking Details'),
+                    _DetailsRow(
+                      label: 'Service',
+                      value: _serviceLabel(booking),
                     ),
-                  ] else ...[
-                    if (activeStaff.isEmpty)
-                      Text(
-                        'No active staff members yet.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      )
-                    else ...[
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('staff-$_staffSelection'),
-                        initialValue: activeStaffIds.contains(_staffSelection)
-                            ? _staffSelection
-                            : null,
-                        decoration: const InputDecoration(
-                          labelText: 'Select staff member',
-                          isDense: true,
-                        ),
-                        items: activeStaff
-                            .map(
-                              (member) => DropdownMenuItem(
-                                value: member.id,
-                                child: Text(member.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _assigningStaff
-                            ? null
-                            : (value) {
-                                setState(() => _staffSelection = value ?? '');
-                              },
+                    const Divider(color: Color(0xFFF3F4F5), height: 24),
+                    _DetailsRow(
+                      label: 'Date',
+                      value: _formatDisplayDate(booking.bookingDate),
+                    ),
+                    const Divider(color: Color(0xFFF3F4F5), height: 24),
+                    _DetailsRow(
+                      label: 'Time',
+                      value: _formatDisplayTime(booking.bookingTime),
+                    ),
+                    const Divider(color: Color(0xFFF3F4F5), height: 24),
+                    _DetailsRow(
+                      label: 'Duration',
+                      value: _formatDuration(booking.durationMinutes),
+                    ),
+                    const Divider(color: Color(0xFFF3F4F5), height: 24),
+                    _DetailsRow(
+                      label: 'Created',
+                      value: _formatCreatedDate(booking.createdAt),
+                    ),
+                    const Divider(color: Color(0xFFF3F4F5), height: 24),
+                    _DetailsRow(
+                      label: 'Status',
+                      trailing: Align(
+                        alignment: Alignment.centerRight,
+                        child: StatusBadge(status: booking.status),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: _assigningStaff || _staffSelection.isEmpty
-                              ? null
-                              : _assignStaff,
-                          child: _assigningStaff
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Text('Assign'),
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // ── Action Buttons ─────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => _openEdit(context, booking),
-                  child: const Text('Edit Booking'),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _sendingInvoice ? null : _sendInvoice,
-                  child: _sendingInvoice
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Send Invoice'),
+            ),
+            const SizedBox(height: 16),
+            _SurfaceCard(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(label: 'Payment'),
+                    Text(
+                      formatMoney(breakdown.totalAmount),
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFFBE002B),
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    _PaymentLineItem(label: 'Base', amount: breakdown.baseTotal),
+                    if (breakdown.travelTotal > 0)
+                      _PaymentLineItem(
+                        label: 'Travel',
+                        amount: breakdown.travelTotal,
+                      ),
+                    if (breakdown.cbdTotal > 0)
+                      _PaymentLineItem(
+                        label: 'CBD',
+                        amount: breakdown.cbdTotal,
+                      ),
+                    for (final addon in breakdown.addons)
+                      _PaymentLineItem(label: addon.label, amount: addon.total),
+                    const Divider(color: Color(0xFFF3F4F5), height: 28),
+                    DropdownButtonFormField<String>(
+                      initialValue: paymentStatusValue,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Status',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'unpaid',
+                          child: Text('Unpaid'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'deposit_paid',
+                          child: Text('Deposit Paid'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'paid_in_full',
+                          child: Text('Paid in Full'),
+                        ),
+                      ],
+                      onChanged: _savingPayment
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              _savePayment({'payment_status': value});
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue:
+                          paymentMethodValue.isEmpty ? null : paymentMethodValue,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Method',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'bank_transfer',
+                          child: Text('Bank Transfer'),
+                        ),
+                        DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                        DropdownMenuItem(value: 'online', child: Text('Online')),
+                        DropdownMenuItem(value: 'other', child: Text('Other')),
+                      ],
+                      onChanged: _savingPayment
+                          ? null
+                          : (value) {
+                              _savePayment({'payment_method': value ?? ''});
+                            },
+                    ),
+                    if (_savingPayment) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SurfaceCard(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: FutureBuilder<List<Staff>>(
+                  future: _staffFuture,
+                  builder: (context, snapshot) {
+                    final allStaff = snapshot.data ?? const <Staff>[];
+                    final activeStaff = allStaff
+                        .where((staff) => staff.isActive)
+                        .toList();
+                    final assignedStaff = _findAssignedStaff(allStaff);
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionHeader(label: 'Assigned Staff'),
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (snapshot.hasError)
+                          Text(
+                            'Unable to load staff',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                          )
+                        else if (_hasAssignedStaff(booking))
+                          Row(
+                            children: [
+                              AvatarWidget(
+                                name: assignedStaff?.name ?? booking.staffName,
+                                size: 48,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      assignedStaff?.name.isNotEmpty == true
+                                          ? assignedStaff!.name
+                                          : _staffLabel(booking),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(fontWeight: FontWeight.w700),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.mail_outline_rounded,
+                                          size: 14,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            assignedStaff?.email ?? 'No email',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: const Color(0xFF94A3B8),
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                onPressed:
+                                    _updatingStaff ? null : _removeAssignedStaff,
+                                child: Text(
+                                  'Remove',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelLarge
+                                      ?.copyWith(
+                                        color: const Color(0xFFBE002B),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (activeStaff.isEmpty)
+                          Text(
+                            'No active staff available.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                          )
+                        else ...[
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedStaffId,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Staff',
+                            ),
+                            items: [
+                              for (final staff in activeStaff)
+                                DropdownMenuItem(
+                                  value: staff.id,
+                                  child: Text(staff.name),
+                                ),
+                            ],
+                            onChanged: _updatingStaff
+                                ? null
+                                : (value) {
+                                    setState(() => _selectedStaffId = value);
+                                  },
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _updatingStaff || _selectedStaffId == null
+                                  ? null
+                                  : _assignSelectedStaff,
+                              child: _updatingStaff
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : const Text('Assign'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            if (booking.notes.trim().isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _SurfaceCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(label: 'Notes'),
+                      Text(
+                        booking.notes,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              color: const Color(0xFF5D3F3F),
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                slidePageRoute(
-                  InvoicePreviewScreen(
-                    business: business,
-                    booking: booking,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _openEdit(context, booking),
+                    child: const Text('Edit'),
                   ),
                 ),
-              );
-            },
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.picture_as_pdf, size: 18),
-                SizedBox(width: 8),
-                Text('Invoice PDF'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _sendingInvoice ? null : _sendInvoice,
+                    child: _sendingInvoice
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Send Invoice'),
+                  ),
+                ),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _requestingReview ? null : _requestReview,
-            child: _requestingReview
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Request Review'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _cancelling ? null : _confirmCancel,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _requestingReview ? null : _requestReview,
+              child: _requestingReview
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Request Review'),
             ),
-            child: _cancelling
-                ? SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: scheme.error))
-                : const Text('Cancel Booking'),
-          ),
-          const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
-
-  // ── UI helpers ──────────────────────────────────────────────────────────
-
-  Widget _card(BuildContext context, BrandColors? brand, {required Widget child}) {
-    final scheme = Theme.of(context).colorScheme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isLight ? Colors.white : scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: isLight
-                ? Colors.black.withValues(alpha: 0.06)
-                : (brand?.cardShadow ?? Theme.of(context).shadowColor),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _sectionLabel(BuildContext context, String text) {
-    return Text(
-      text.toUpperCase(),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w700,
-          ),
-    );
-  }
-
-  Widget _detailRow(BuildContext context, IconData icon, String text) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium,
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _cancelling ? null : _confirmCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFBE002B),
+                side: const BorderSide(color: Color(0xFFBE002B), width: 1.5),
+              ),
+              child: _cancelling
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Cancel Booking'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // ── Date/time formatters ─────────────────────────────────────────────────
+  Future<List<Staff>> _loadStaff() async {
+    final repo = context.read<DobookRepository>();
+    final token = context.read<AppSession>().token;
+    return repo.getStaff(token: token);
+  }
 
-  String _formatDate(String isoDate) {
-    if (isoDate.isEmpty) return '—';
-    try {
-      final date = DateTime.parse(isoDate);
-      return DateFormat('EEEE, d MMM yyyy').format(date);
-    } catch (_) {
-      return isoDate;
+  Staff? _findAssignedStaff(List<Staff> staffList) {
+    if (_booking.staffId.trim().isNotEmpty) {
+      for (final staff in staffList) {
+        if (staff.id == _booking.staffId.trim()) return staff;
+      }
     }
+    if (_booking.staffName.trim().isNotEmpty) {
+      for (final staff in staffList) {
+        if (staff.name.trim().toLowerCase() ==
+            _booking.staffName.trim().toLowerCase()) {
+          return staff;
+        }
+      }
+    }
+    return null;
   }
 
-  String _formatTime(String time) {
-    if (time.isEmpty) return '—';
+  bool _hasAssignedStaff(Booking booking) {
+    return booking.staffId.trim().isNotEmpty || booking.staffName.trim().isNotEmpty;
+  }
+
+  String _serviceLabel(Booking booking) {
+    if (booking.boothType.trim().isEmpty) return booking.serviceType;
+    if (booking.serviceType.trim().isEmpty) return booking.boothType;
+    return '${booking.serviceType} / ${booking.boothType}';
+  }
+
+  String _formatDisplayDate(String raw) {
+    final date = DateTime.tryParse(raw);
+    if (date == null) return raw;
+    return DateFormat('EEEE, d MMM yyyy').format(date);
+  }
+
+  String _formatCreatedDate(String raw) {
+    final date = DateTime.tryParse(raw);
+    if (date == null) return raw.isEmpty ? '—' : raw;
+    return DateFormat('d MMM yyyy').format(date);
+  }
+
+  String _formatDisplayTime(String raw) {
     try {
-      final parts = time.split(':');
-      final hour = int.parse(parts[0]);
-      final minute = parts.length > 1 ? parts[1] : '00';
-      final period = hour >= 12 ? 'PM' : 'AM';
-      final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-      return '$displayHour:$minute $period';
+      final parsed = DateFormat('HH:mm').parseStrict(raw);
+      return DateFormat('h:mm a').format(parsed);
     } catch (_) {
-      return time;
+      final fallback = DateTime.tryParse('2000-01-01T$raw');
+      if (fallback != null) {
+        return DateFormat('h:mm a').format(fallback);
+      }
+      return raw;
     }
   }
 
   String _formatDuration(int minutes) {
     if (minutes <= 0) return '—';
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    if (h == 0) return '$m min';
-    if (m == 0) return '$h hour${h == 1 ? '' : 's'}';
-    return '$h hour${h == 1 ? '' : 's'} $m min';
+    final hours = minutes ~/ 60;
+    final remainder = minutes % 60;
+    if (hours == 0) return '$minutes min';
+    if (remainder == 0) return '$hours hr';
+    return '$hours hr $remainder min';
   }
 
-  String _formatCreatedAt(String isoTimestamp) {
-    if (isoTimestamp.isEmpty) return '—';
-    try {
-      final date = DateTime.parse(isoTimestamp);
-      return DateFormat('d MMM yyyy').format(date);
-    } catch (_) {
-      return isoTimestamp;
-    }
-  }
-  Widget _amountRow(String label, double amount,
-      {bool isBold = false, Color? valueColor}) {
-    final style = isBold
-        ? TextStyle(fontWeight: FontWeight.w700, color: valueColor)
-        : const TextStyle(fontWeight: FontWeight.w500);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: style)),
-          Text(formatMoney(amount), style: style),
-        ],
-      ),
+  void _showContactNotice(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
-  }
-
-  Widget _errorState(BuildContext context, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 40,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Unable to load booking',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loadBookingDetails,
-              child: const Text('Try again'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _logMissingFields(Booking booking) {
-    final missing = <String>[];
-    if (booking.id.trim().isEmpty) missing.add('id');
-    if (booking.businessId.trim().isEmpty) missing.add('business_id');
-    if (booking.customerName.trim().isEmpty) missing.add('customer_name');
-    if (booking.customerEmail.trim().isEmpty) missing.add('customer_email');
-    if (booking.bookingDate.trim().isEmpty) missing.add('booking_date');
-    if (booking.bookingTime.trim().isEmpty) missing.add('booking_time');
-    if (booking.invoiceId.trim().isEmpty) missing.add('invoice_id');
-    if (missing.isNotEmpty) {
-      debugPrint('BookingDetailsScreen: missing fields -> ${missing.join(', ')}');
-    }
-  }
-
-  /// Refreshes booking data silently in the background (no loading overlay).
-  Future<void> _refreshInBackground() async {
-    if (kDebugMode) {
-      debugPrint('BookingDetailsScreen: background refresh for ${_booking.id}');
-    }
-    try {
-      final repo = context.read<DobookRepository>();
-      final token = context.read<AppSession>().token;
-      if (token == null || token.isEmpty) return;
-      final list = await repo.getBookings(token);
-      final refreshed = list.firstWhere(
-        (item) => item.id == _booking.id,
-        orElse: () => _booking,
-      );
-      if (!mounted) return;
-      setState(() => _booking = refreshed);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('BookingDetailsScreen: background refresh error: $e');
-      }
-    }
-  }
-
-  Future<void> _loadBookingDetails() async {
-    setState(() {
-      _bookingLoading = true;
-      _bookingError = null;
-    });
-
-    if (kDebugMode) {
-      debugPrint('BookingDetailsScreen: loading booking ${_booking.id}');
-    }
-
-    try {
-      if (_booking.id.trim().isEmpty) {
-        if (kDebugMode) {
-          debugPrint('BookingDetailsScreen: missing booking id, skipping refresh.');
-        }
-        return;
-      }
-      final repo = context.read<DobookRepository>();
-      final token = context.read<AppSession>().token;
-      if (token == null || token.isEmpty) {
-        if (kDebugMode) {
-          debugPrint('BookingDetailsScreen: missing auth token, skipping refresh.');
-        }
-        return;
-      }
-      final list = await repo.getBookings(token);
-      final refreshed = list.firstWhere(
-        (item) => item.id == _booking.id,
-        orElse: () => _booking,
-      );
-      if (!mounted) return;
-      setState(() => _booking = refreshed);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _bookingError = e.toString());
-    } finally {
-      if (mounted) setState(() => _bookingLoading = false);
-      if (kDebugMode) {
-        debugPrint('BookingDetailsScreen: booking load complete');
-      }
-    }
   }
 
   String _normalizePaymentStatus(String status) {
@@ -776,78 +581,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
-  Future<void> _loadStaff() async {
-    setState(() => _staffLoading = true);
-    try {
-      final repo = context.read<DobookRepository>();
-      final token = context.read<AppSession>().token;
-      final list = await repo.getStaff(token: token);
-      if (!mounted) return;
-      setState(() {
-        _staffList = list;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _staffLoading = false);
-    }
-  }
-
-  Future<void> _assignStaff() async {
-    if (_assigningStaff || _staffSelection.isEmpty) return;
-    setState(() => _assigningStaff = true);
-    try {
-      final repo = context.read<DobookRepository>();
-      final token = context.read<AppSession>().token;
-      await repo.assignStaff(_booking.id, _staffSelection, token: token);
-      if (!mounted) return;
-      setState(() {
-        _assignedStaffId = _staffSelection;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Staff assigned')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _assigningStaff = false);
-    }
-  }
-
-  Future<void> _removeStaff() async {
-    if (_assigningStaff) return;
-    setState(() => _assigningStaff = true);
-    try {
-      final repo = context.read<DobookRepository>();
-      final token = context.read<AppSession>().token;
-      final updated = await repo.updateBooking(
-        _booking.id,
-        {'staff_id': null},
-        token: token,
-      );
-      if (!mounted) return;
-      setState(() {
-        _booking = updated;
-        _assignedStaffId = '';
-        _staffSelection = '';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Staff removed')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) setState(() => _assigningStaff = false);
-    }
+  String _staffLabel(Booking booking) {
+    if (booking.staffName.trim().isNotEmpty) return booking.staffName.trim();
+    if (booking.staffId.trim().isNotEmpty) return booking.staffId.trim();
+    return 'Unassigned';
   }
 
   Future<void> _savePayment(Map<String, dynamic> updates) async {
@@ -874,9 +611,47 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
+  Future<void> _assignSelectedStaff() async {
+    final staffId = _selectedStaffId;
+    if (staffId == null || _updatingStaff) return;
+    await _updateAssignedStaff(staffId);
+  }
+
+  Future<void> _removeAssignedStaff() async {
+    if (_updatingStaff) return;
+    await _updateAssignedStaff(null);
+  }
+
+  Future<void> _updateAssignedStaff(String? staffId) async {
+    setState(() => _updatingStaff = true);
+    try {
+      final repo = context.read<DobookRepository>();
+      final token = context.read<AppSession>().token;
+      final updated = await repo.updateBooking(
+        _booking.id,
+        {'staff_id': staffId},
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _booking = updated;
+        _selectedStaffId = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _updatingStaff = false);
+    }
+  }
+
   Future<void> _openEdit(BuildContext context, Booking booking) async {
     final updated = await Navigator.of(context).push<Booking?>(
-      slidePageRoute(EditBookingScreen(booking: booking)),
+      MaterialPageRoute(
+        builder: (_) => EditBookingScreen(booking: booking),
+      ),
     );
 
     if (updated != null && mounted) {
@@ -987,8 +762,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
 
     final baseItem = lineItems.first;
-    final extraItems =
-        lineItems.length > 1 ? lineItems.sublist(1) : const <Map<String, dynamic>>[];
+    final extraItems = lineItems.length > 1
+        ? lineItems.sublist(1)
+        : const <Map<String, dynamic>>[];
     final travelItem = extraItems.firstWhere(
       (item) => _itemDescription(item).contains('travel'),
       orElse: () => const {},
@@ -1005,9 +781,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       if (identical(item, travelItem) || identical(item, cbdItem)) continue;
       final amount = _lineItemTotal(item);
       if (amount <= 0) continue;
-      addons.add(
-        _ChargeLine(label: _itemLabel(item), total: amount),
-      );
+      addons.add(_ChargeLine(label: _itemLabel(item), total: amount));
     }
 
     return _ChargesBreakdown(
@@ -1020,8 +794,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 
   String _itemDescription(Map<String, dynamic> item) {
-    final desc = item['description']?.toString() ?? '';
-    return desc.trim().toLowerCase();
+    final description = item['description']?.toString() ?? '';
+    return description.trim().toLowerCase();
   }
 
   String _itemLabel(Map<String, dynamic> item) {
@@ -1048,6 +822,169 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 }
 
+class _SurfaceCard extends StatelessWidget {
+  const _SurfaceCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A191C1D),
+            blurRadius: 24,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CenteredInfoRow extends StatelessWidget {
+  const _CenteredInfoRow({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF94A3B8),
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleActionButton extends StatelessWidget {
+  const _CircleActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: const Color(0xFFF3F4F5),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, color: const Color(0xFFBE002B)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailsRow extends StatelessWidget {
+  const _DetailsRow({
+    required this.label,
+    this.value,
+    this.trailing,
+  });
+
+  final String label;
+  final String? value;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF94A3B8),
+                ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: trailing ??
+              Text(
+                value ?? '—',
+                textAlign: TextAlign.right,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF191C1D),
+                    ),
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaymentLineItem extends StatelessWidget {
+  const _PaymentLineItem({
+    required this.label,
+    required this.amount,
+  });
+
+  final String label;
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF5D3F3F),
+                  ),
+            ),
+          ),
+          Text(
+            formatMoney(amount),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF191C1D),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChargesBreakdown {
   const _ChargesBreakdown({
     required this.baseTotal,
@@ -1065,7 +1002,10 @@ class _ChargesBreakdown {
 }
 
 class _ChargeLine {
-  const _ChargeLine({required this.label, required this.total});
+  const _ChargeLine({
+    required this.label,
+    required this.total,
+  });
 
   final String label;
   final double total;

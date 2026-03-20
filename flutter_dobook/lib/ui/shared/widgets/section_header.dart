@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SectionHeader extends StatelessWidget {
-  const SectionHeader({super.key, required this.title, this.padding});
+  const SectionHeader({super.key, required this.label});
 
-  final String title;
-  final EdgeInsets? padding;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: padding ?? const EdgeInsets.only(top: 20, bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text(
-        title.toUpperCase(),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
-            ),
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 2.0,
+          color: const Color(0xFFAC313A),
+        ),
       ),
     );
   }

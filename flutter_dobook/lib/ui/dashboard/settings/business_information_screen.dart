@@ -1,12 +1,12 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dobook/app/session.dart';
 import 'package:dobook/data/dobook_repository.dart';
 import 'package:dobook/data/models/business.dart';
-import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
+import 'package:dobook/ui/shared/widgets/editorial_action_button.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -14,7 +14,8 @@ class BusinessInformationScreen extends StatefulWidget {
   const BusinessInformationScreen({super.key});
 
   @override
-  State<BusinessInformationScreen> createState() => _BusinessInformationScreenState();
+  State<BusinessInformationScreen> createState() =>
+      _BusinessInformationScreenState();
 }
 
 class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
@@ -55,7 +56,7 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
     _phoneCtrl.text = business.phone ?? '';
     _addressCtrl.text = business.businessAddress;
     _abnCtrl.text = business.abn;
-    _industry = '';
+    _industry = business.industry.trim();
     _initialized = true;
   }
 
@@ -74,14 +75,16 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
     final business = session.business;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Business Information')),
-      body: SafeArea(
-        child: _buildBody(context, business, session),
-      ),
+      appBar: AppBar(title: const Text('Business Info')),
+      body: SafeArea(child: _buildBody(context, business, session)),
     );
   }
 
-  Widget _buildBody(BuildContext context, Business? business, AppSession session) {
+  Widget _buildBody(
+    BuildContext context,
+    Business? business,
+    AppSession session,
+  ) {
     if (session.isInitializing) {
       return const LoadingShimmerList();
     }
@@ -97,93 +100,134 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
       );
     }
 
-    final scheme = Theme.of(context).colorScheme;
-    final logo = _logoImage(business);
-    final avatar = logo == null
-        ? AvatarWidget(name: business.businessName, size: 72)
-        : CircleAvatar(
-            radius: 36,
-            backgroundColor: scheme.surfaceContainerHighest,
-            backgroundImage: MemoryImage(logo),
-          );
+    final industryOptions = [
+      ..._industries,
+      if (_industry.isNotEmpty && !_industries.contains(_industry)) _industry,
+    ];
+    final imageProvider = _logoImageProvider(business.logoUrl);
 
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          Text(
-            'Business Logo',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: _busy ? null : () => _pickLogo(context),
-                child: avatar,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _pickLogo(context),
-                  icon: const Icon(Icons.image),
-                  label: const Text('Change logo'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _businessNameCtrl,
-            decoration: const InputDecoration(labelText: 'Business name *'),
-            validator: (v) =>
-                (v == null || v.trim().length < 2) ? 'Required' : null,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _phoneCtrl,
-            decoration: const InputDecoration(labelText: 'Phone'),
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _industry.isEmpty ? null : _industry,
-            decoration: const InputDecoration(labelText: 'Industry'),
-            items: _industries
-                .map(
-                  (item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item),
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _busy ? null : () => _pickLogo(context),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _LogoAvatar(
+                        name: business.businessName,
+                        imageProvider: imageProvider,
+                      ),
+                      Positioned(
+                        right: 4,
+                        bottom: 4,
+                        child: Material(
+                          color: const Color(0xFFBE002B),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: _busy ? null : () => _pickLogo(context),
+                            customBorder: const CircleBorder(),
+                            child: const SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: Icon(
+                                Icons.edit_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                )
-                .toList(),
-            onChanged: (value) {
-              setState(() => _industry = value ?? '');
-            },
+                ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: _busy ? null : () => _pickLogo(context),
+                  child: Text(
+                    'Update Branding',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
+                      color: const Color(0xFFBE002B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _addressCtrl,
-            decoration: const InputDecoration(labelText: 'Business address'),
-            minLines: 2,
-            maxLines: 4,
+          const SizedBox(height: 28),
+          _FieldBlock(
+            label: 'Business Name *',
+            child: TextFormField(
+              controller: _businessNameCtrl,
+              decoration: const InputDecoration(hintText: 'DoBook Studio'),
+              validator: (value) {
+                if (value == null || value.trim().length < 2) {
+                  return 'Required';
+                }
+                return null;
+              },
+            ),
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _abnCtrl,
-            decoration: const InputDecoration(labelText: 'ABN'),
+          const SizedBox(height: 24),
+          _FieldBlock(
+            label: 'Phone',
+            child: TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(hintText: '0412 345 678'),
+            ),
           ),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _busy ? null : () => _save(context),
-            child: _busy
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 24),
+          _FieldBlock(
+            label: 'Industry',
+            child: DropdownButtonFormField<String>(
+              initialValue: _industry.isEmpty ? null : _industry,
+              decoration: const InputDecoration(hintText: 'Select industry'),
+              items: industryOptions
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(item),
+                    ),
                   )
-                : const Text('Save'),
+                  .toList(),
+              onChanged: (value) {
+                setState(() => _industry = value?.trim() ?? '');
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          _FieldBlock(
+            label: 'Address',
+            child: TextFormField(
+              controller: _addressCtrl,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(hintText: 'Studio address'),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _FieldBlock(
+            label: 'ABN',
+            child: TextFormField(
+              controller: _abnCtrl,
+              decoration: const InputDecoration(hintText: '51 824 753 556'),
+            ),
+          ),
+          const SizedBox(height: 32),
+          EditorialActionButton(
+            label: 'Save Changes',
+            isLoading: _busy,
+            onPressed: _busy ? null : () => _save(context),
           ),
         ],
       ),
@@ -219,26 +263,27 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Try again'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),
     );
   }
 
-  Uint8List? _logoImage(Business business) {
-    if (business.logoUrl.startsWith('data:')) {
-      final parts = business.logoUrl.split(',');
+  ImageProvider? _logoImageProvider(String logoUrl) {
+    if (logoUrl.isEmpty) return null;
+    if (logoUrl.startsWith('data:')) {
+      final parts = logoUrl.split(',');
       if (parts.length == 2) {
         try {
-          return base64Decode(parts[1]);
+          return MemoryImage(base64Decode(parts[1]));
         } catch (_) {
           return null;
         }
       }
+    }
+    if (logoUrl.startsWith('http')) {
+      return NetworkImage(logoUrl);
     }
     return null;
   }
@@ -262,9 +307,7 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
       await repo.uploadLogo(session.token!, bytes: bytes, contentType: mime);
       await session.refreshBusiness();
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Logo updated')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('Logo updated')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
@@ -303,11 +346,101 @@ class _BusinessInformationScreenState extends State<BusinessInformationScreen> {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+}
+
+class _FieldBlock extends StatelessWidget {
+  const _FieldBlock({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8,
+            color: const Color(0xFFAC313A),
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _LogoAvatar extends StatelessWidget {
+  const _LogoAvatar({required this.name, this.imageProvider});
+
+  final String name;
+  final ImageProvider? imageProvider;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = imageProvider == null
+        ? DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8193C),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                _initials(name),
+                style: GoogleFonts.manrope(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          )
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: DecorationImage(image: imageProvider!, fit: BoxFit.cover),
+            ),
+          );
+
+    return Container(
+      width: 128,
+      height: 128,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFF3F4F5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A191C1D),
+            blurRadius: 24,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  String _initials(String value) {
+    final parts = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'DB';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 }

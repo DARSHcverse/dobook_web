@@ -1,14 +1,17 @@
 import 'package:dobook/app/session.dart';
 import 'package:dobook/data/dobook_repository.dart';
+import 'package:dobook/ui/shared/widgets/editorial_action_button.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 class AdditionalChargesScreen extends StatefulWidget {
   const AdditionalChargesScreen({super.key});
 
   @override
-  State<AdditionalChargesScreen> createState() => _AdditionalChargesScreenState();
+  State<AdditionalChargesScreen> createState() =>
+      _AdditionalChargesScreenState();
 }
 
 class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
@@ -34,7 +37,8 @@ class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
     _travelEnabled = business.travelChargeEnabled;
     _travelLabelCtrl.text = business.travelChargeLabel;
     if (business.travelChargeFreeDistance > 0) {
-      _travelFreeDistanceCtrl.text = business.travelChargeFreeDistance.toString();
+      _travelFreeDistanceCtrl.text = business.travelChargeFreeDistance
+          .toString();
     }
     if (business.travelChargeRatePerKm > 0) {
       _travelRateCtrl.text = business.travelChargeRatePerKm.toString();
@@ -67,100 +71,131 @@ class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
         child: session.isInitializing
             ? const LoadingShimmerList()
             : session.token == null
-                ? _errorState(context, 'Not authenticated. Please log in again.')
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Travel charge'),
-                        value: _travelEnabled,
-                        onChanged: (value) {
-                          setState(() => _travelEnabled = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _toggleSection(
-                        enabled: _travelEnabled,
-                        child: Column(
-                          children: [
-                            TextFormField(
+            ? _errorState(context, 'Not authenticated. Please log in again.')
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  _ChargeCard(
+                    title: 'Travel Charge',
+                    value: _travelEnabled,
+                    onChanged: (value) {
+                      setState(() => _travelEnabled = value);
+                    },
+                    child: _AnimatedChargeFields(
+                      visible: _travelEnabled,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(color: Color(0xFFF3F4F5), height: 32),
+                          _FieldBlock(
+                            label: 'Label',
+                            child: TextFormField(
                               controller: _travelLabelCtrl,
-                              decoration:
-                                  const InputDecoration(labelText: 'Label'),
+                              decoration: const InputDecoration(
+                                hintText: 'Travel charge',
+                              ),
                             ),
-                            const SizedBox(height: 12),
-                            TextFormField(
+                          ),
+                          const SizedBox(height: 20),
+                          _FieldBlock(
+                            label: 'Free Distance (km)',
+                            child: TextFormField(
                               controller: _travelFreeDistanceCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Free distance (km)',
-                              ),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(hintText: '20'),
                             ),
-                            const SizedBox(height: 12),
-                            TextFormField(
+                          ),
+                          const SizedBox(height: 20),
+                          _FieldBlock(
+                            label: 'Rate per km',
+                            child: TextFormField(
                               controller: _travelRateCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Rate per km',
-                              ),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('CBD logistics charge'),
-                        value: _cbdEnabled,
-                        onChanged: (value) {
-                          setState(() => _cbdEnabled = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _toggleSection(
-                        enabled: _cbdEnabled,
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _cbdLabelCtrl,
-                              decoration:
-                                  const InputDecoration(labelText: 'Label'),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _cbdAmountCtrl,
+                                    decimal: true,
+                                  ),
                               decoration: const InputDecoration(
-                                labelText: 'Amount',
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
+                                hintText: '1.50',
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Charges are applied only after the free distance threshold is exceeded.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(
+                                0xFF5D3F3F,
+                              ).withValues(alpha: 0.78),
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-                      FilledButton(
-                        onPressed: _busy ? null : () => _save(context),
-                        child: _busy
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Save'),
-                      ),
-                    ],
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  _ChargeCard(
+                    title: 'CBD Logistics Charge',
+                    value: _cbdEnabled,
+                    onChanged: (value) {
+                      setState(() => _cbdEnabled = value);
+                    },
+                    child: _AnimatedChargeFields(
+                      visible: _cbdEnabled,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(color: Color(0xFFF3F4F5), height: 32),
+                          _FieldBlock(
+                            label: 'Label',
+                            child: TextFormField(
+                              controller: _cbdLabelCtrl,
+                              decoration: const InputDecoration(
+                                hintText: 'CBD logistics charge',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _FieldBlock(
+                            label: 'Amount (\$)',
+                            child: TextFormField(
+                              controller: _cbdAmountCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(hintText: '35'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Applied when postcode is 3000',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(
+                                0xFF5D3F3F,
+                              ).withValues(alpha: 0.78),
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  EditorialActionButton(
+                    label: 'Save Charges',
+                    isLoading: _busy,
+                    onPressed: _busy ? null : () => _save(context),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -190,17 +225,6 @@ class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _toggleSection({required bool enabled, required Widget child}) {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: enabled ? 1 : 0.4,
-      child: IgnorePointer(
-        ignoring: !enabled,
-        child: child,
       ),
     );
   }
@@ -245,16 +269,119 @@ class _AdditionalChargesScreenState extends State<AdditionalChargesScreen> {
       await repo.updateBusinessProfile(token, updates);
       await session.refreshBusiness();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Additional charges saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Additional charges saved')));
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+}
+
+class _ChargeCard extends StatelessWidget {
+  const _ChargeCard({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    required this.child,
+  });
+
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A191C1D),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            value: value,
+            onChanged: onChanged,
+            contentPadding: EdgeInsets.zero,
+            activeThumbColor: const Color(0xFFBE002B),
+            activeTrackColor: const Color(0xFFBE002B).withValues(alpha: 0.32),
+            title: Text(
+              title,
+              style: GoogleFonts.manrope(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF191C1D),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedChargeFields extends StatelessWidget {
+  const _AnimatedChargeFields({required this.visible, required this.child});
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: (child, animation) {
+        return SizeTransition(
+          sizeFactor: animation,
+          axisAlignment: -1,
+          child: FadeTransition(opacity: animation, child: child),
+        );
+      },
+      child: visible
+          ? KeyedSubtree(key: const ValueKey('visible'), child: child)
+          : const SizedBox.shrink(key: ValueKey('hidden')),
+    );
+  }
+}
+
+class _FieldBlock extends StatelessWidget {
+  const _FieldBlock({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8,
+            color: const Color(0xFFAC313A),
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
   }
 }

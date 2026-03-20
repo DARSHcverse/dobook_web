@@ -15,10 +15,9 @@ class AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final brand = Theme.of(context).extension<BrandColors>();
     final initials = _initials(name);
-    final colors = brand?.avatarPalette ?? [scheme.primary];
+    final colors = brand?.avatarPalette ?? _fallbackPalette;
     final colorIndex = _hashIndex(name, colors.length);
     final background = colors[colorIndex];
 
@@ -28,19 +27,12 @@ class AvatarWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).shadowColor.withValues(alpha: 0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
         style: (textStyle ?? Theme.of(context).textTheme.titleMedium)?.copyWith(
-              color: scheme.onPrimary,
+              color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
       ),
@@ -69,3 +61,13 @@ class AvatarWidget extends StatelessWidget {
     return hash.abs() % max;
   }
 }
+
+const _fallbackPalette = [
+  Color(0xFF6366F1),
+  Color(0xFF0891B2),
+  Color(0xFF059669),
+  Color(0xFFD97706),
+  Color(0xFFDC2626),
+  Color(0xFF7C3AED),
+  Color(0xFFDB2777),
+];

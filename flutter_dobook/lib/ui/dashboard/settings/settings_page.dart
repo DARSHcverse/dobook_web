@@ -1,22 +1,18 @@
 import 'dart:convert';
 
 import 'package:dobook/app/session.dart';
-import 'package:dobook/app/theme.dart';
 import 'package:dobook/data/models/business.dart';
 import 'package:dobook/ui/dashboard/settings/additional_charges_screen.dart';
-import 'package:dobook/ui/dashboard/settings/booking_fields_extras_screen.dart';
 import 'package:dobook/ui/dashboard/settings/business_information_screen.dart';
 import 'package:dobook/ui/dashboard/settings/business_type_screen.dart';
-import 'package:dobook/ui/dashboard/settings/change_password_screen.dart';
 import 'package:dobook/ui/dashboard/settings/contact_support_screen.dart';
 import 'package:dobook/ui/dashboard/settings/delete_account_screen.dart';
 import 'package:dobook/ui/dashboard/settings/payment_details_screen.dart';
 import 'package:dobook/ui/dashboard/settings/reminder_settings_screen.dart';
 import 'package:dobook/ui/dashboard/settings/subscription_plan_screen.dart';
-import 'package:dobook/ui/shared/widgets/page_transitions.dart';
-import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
-import 'package:flutter/foundation.dart';
+import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/ui/shared/widgets/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,21 +36,17 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final session = context.watch<AppSession>();
 
-    if (kDebugMode) {
-      debugPrint(
-        'SettingsPage build: business=${session.business?.id ?? 'null'} '
-        'error=${session.error}',
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text('Settings'),
         actions: [
           IconButton(
             tooltip: 'Logout',
             onPressed: () => session.logout(),
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded, color: Color(0xFF94A3B8)),
           ),
         ],
       ),
@@ -80,40 +72,40 @@ class _SettingsPageState extends State<SettingsPage> {
             }
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               children: [
-                _profileHeader(context, business),
-                _sectionHeader(context, 'Business'),
-                _sectionCard(
-                  context,
+                _ProfileHeaderCard(
+                  business: business,
+                  onEdit: () => _openSettingsScreen(
+                    context,
+                    const BusinessInformationScreen(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const SectionHeader(label: 'Business'),
+                _SettingsCard(
                   children: [
-                    _settingsRow(
-                      context,
-                      icon: Icons.storefront,
+                    _SettingsRow(
+                      icon: Icons.domain_outlined,
                       label: 'Business Information',
-                      color: Theme.of(context).colorScheme.primary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const BusinessInformationScreen(),
                       ),
                     ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.payments,
+                    const Divider(color: Color(0xFFF3F4F5), height: 1),
+                    _SettingsRow(
+                      icon: Icons.payments_outlined,
                       label: 'Payment Details',
-                      color: Theme.of(context).colorScheme.secondary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const PaymentDetailsScreen(),
                       ),
                     ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.attach_money,
+                    const Divider(color: Color(0xFFF3F4F5), height: 1),
+                    _SettingsRow(
+                      icon: Icons.receipt_long_outlined,
                       label: 'Additional Charges',
-                      color: Theme.of(context).colorScheme.tertiary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const AdditionalChargesScreen(),
@@ -121,37 +113,22 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                _sectionHeader(context, 'Booking'),
-                _sectionCard(
-                  context,
+                const SizedBox(height: 20),
+                const SectionHeader(label: 'Booking'),
+                _SettingsCard(
                   children: [
-                    _settingsRow(
-                      context,
-                      icon: Icons.tune,
-                      label: 'Booking Fields & Extras',
-                      color: Theme.of(context).colorScheme.primary,
-                      onTap: () => _openSettingsScreen(
-                        context,
-                        const BookingFieldsExtrasScreen(),
-                      ),
-                    ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.notifications_active,
+                    _SettingsRow(
+                      icon: Icons.notifications_active_outlined,
                       label: 'Reminder Settings',
-                      color: Theme.of(context).colorScheme.secondary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const ReminderSettingsScreen(),
                       ),
                     ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.category,
+                    const Divider(color: Color(0xFFF3F4F5), height: 1),
+                    _SettingsRow(
+                      icon: Icons.category_outlined,
                       label: 'Business Type',
-                      color: Theme.of(context).colorScheme.tertiary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const BusinessTypeScreen(),
@@ -159,65 +136,23 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                _sectionHeader(context, 'Appearance'),
-                _sectionCard(
-                  context,
+                const SizedBox(height: 20),
+                const SectionHeader(label: 'Account'),
+                _SettingsCard(
                   children: [
-                    _settingsRow(
-                      context,
-                      icon: Icons.dark_mode,
-                      label: 'Dark Mode',
-                      color: Theme.of(context).colorScheme.primary,
-                      trailing: Switch(
-                        value: session.themeMode == ThemeMode.dark,
-                        onChanged: (value) {
-                          session.setThemeMode(
-                            value ? ThemeMode.dark : ThemeMode.light,
-                          );
-                        },
-                      ),
-                      showChevron: false,
-                      onTap: () {
-                        final next = session.themeMode == ThemeMode.dark
-                            ? ThemeMode.light
-                            : ThemeMode.dark;
-                        session.setThemeMode(next);
-                      },
-                    ),
-                  ],
-                ),
-                _sectionHeader(context, 'Account'),
-                _sectionCard(
-                  context,
-                  children: [
-                    _settingsRow(
-                      context,
-                      icon: Icons.lock,
-                      label: 'Change Password',
-                      color: Theme.of(context).colorScheme.primary,
-                      onTap: () => _openSettingsScreen(
-                        context,
-                        const ChangePasswordScreen(),
-                      ),
-                    ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.star,
+                    _SettingsRow(
+                      icon: Icons.card_membership_outlined,
                       label: 'Subscription Plan',
-                      color: Theme.of(context).colorScheme.secondary,
-                      trailing: _planBadge(context, business.subscriptionPlan),
+                      trailing: _PlanBadge(plan: business.subscriptionPlan),
                       onTap: () => _openSettingsScreen(
                         context,
                         const SubscriptionPlanScreen(),
                       ),
                     ),
-                    _settingsDivider(context),
-                    _settingsRow(
-                      context,
-                      icon: Icons.support_agent,
+                    const Divider(color: Color(0xFFF3F4F5), height: 1),
+                    _SettingsRow(
+                      icon: Icons.contact_support_outlined,
                       label: 'Contact Support',
-                      color: Theme.of(context).colorScheme.tertiary,
                       onTap: () => _openSettingsScreen(
                         context,
                         const ContactSupportScreen(),
@@ -225,204 +160,41 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                _sectionHeader(context, 'Danger Zone'),
-                _sectionCard(
-                  context,
-                  children: [
-                    _settingsRow(
-                      context,
-                      icon: Icons.delete_forever,
-                      label: 'Delete Account',
-                      color: Theme.of(context).colorScheme.error,
-                      danger: true,
-                      onTap: () => _openSettingsScreen(
-                        context,
-                        const DeleteAccountScreen(),
+                const SizedBox(height: 20),
+                Text(
+                  'DANGER ZONE',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
+                    color: const Color(0xFFBE002B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFFFDAD6)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0A191C1D),
+                        blurRadius: 18,
+                        offset: Offset(0, 6),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: _SettingsRow(
+                    icon: Icons.delete_forever_outlined,
+                    label: 'Delete Account',
+                    danger: true,
+                    onTap: () => _confirmDeleteAccount(context),
+                  ),
                 ),
               ],
             );
           },
         ),
-      ),
-    );
-  }
-
-  Widget _profileHeader(BuildContext context, Business business) {
-    final scheme = Theme.of(context).colorScheme;
-    final logo = _logoImage(business);
-    final avatar = logo == null
-        ? AvatarWidget(name: business.businessName, size: 72)
-        : CircleAvatar(
-            radius: 36,
-            backgroundColor: scheme.surfaceContainerHighest,
-            backgroundImage: MemoryImage(logo),
-          );
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight ? Colors.white : scheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Column(
-              children: [
-                avatar,
-                const SizedBox(height: 12),
-                Text(
-                  business.businessName,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  business.email,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(20),
-              ),
-            ),
-            child: FilledButton(
-              onPressed: () => _openSettingsScreen(
-                context,
-                const BusinessInformationScreen(),
-              ),
-              child: const Text('Edit Profile'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard(BuildContext context, {required List<Widget> children}) {
-    final scheme = Theme.of(context).colorScheme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight ? Colors.white : scheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _settingsDivider(BuildContext context) {
-    return Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant);
-  }
-
-  Widget _sectionHeader(BuildContext context, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Text(
-        label.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontSize: 11,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF9CA3AF),
-            ),
-      ),
-    );
-  }
-
-  Widget _settingsRow(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    VoidCallback? onTap,
-    Widget? trailing,
-    bool danger = false,
-    bool showChevron = true,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    final brand = Theme.of(context).extension<BrandColors>();
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: brand?.iconTileBg ?? scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: danger ? scheme.error : scheme.onSurface,
-                    ),
-              ),
-            ),
-            if (trailing != null) ...[
-              const SizedBox(width: 8),
-              trailing,
-            ],
-            if (showChevron) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: Color(0xFFD1D5DB)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _planBadge(BuildContext context, String plan) {
-    final scheme = Theme.of(context).colorScheme;
-    final label = plan.trim().isEmpty ? 'Free' : plan.trim();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label[0].toUpperCase() + label.substring(1),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
       ),
     );
   }
@@ -434,36 +206,45 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Uint8List? _logoImage(Business business) {
-    if (business.logoUrl.startsWith('data:')) {
-      final parts = business.logoUrl.split(',');
-      if (parts.length == 2) {
-        try {
-          return base64Decode(parts[1]);
-        } catch (_) {
-          return null;
-        }
-      }
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete this business account?'),
+          content: const Text(
+            'You can review the final confirmation details on the next screen.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFBE002B),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true && context.mounted) {
+      await _openSettingsScreen(context, const DeleteAccountScreen());
     }
-    return null;
   }
 
   Future<void> _loadBusiness() async {
-    if (kDebugMode) {
-      debugPrint('SettingsPage: loading business profile...');
-    }
     final session = context.read<AppSession>();
     final token = session.token;
     if (token == null || token.isEmpty) {
-      if (kDebugMode) {
-        debugPrint('SettingsPage: missing auth token.');
-      }
       throw Exception('Not authenticated.');
     }
     await session.refreshBusiness();
-    if (kDebugMode) {
-      debugPrint('SettingsPage: business profile loaded.');
-    }
   }
 
   Widget _errorState(BuildContext context, String message) {
@@ -493,13 +274,295 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () {
-                setState(() {
-                  _loadFuture = _loadBusiness();
-                });
+                setState(() => _loadFuture = _loadBusiness());
               },
               child: const Text('Try again'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({required this.business, required this.onEdit});
+
+  final Business business;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = _logoImageProvider(business.logoUrl);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A191C1D),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _BusinessAvatar(
+                name: business.businessName,
+                size: 80,
+                imageProvider: imageProvider,
+              ),
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: Material(
+                  color: const Color(0xFFBE002B),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    onTap: onEdit,
+                    customBorder: const CircleBorder(),
+                    child: const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Icon(
+                        Icons.edit_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  business.businessName.isEmpty
+                      ? 'Business Name'
+                      : business.businessName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  business.email,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontSize: 14,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF91F2F4).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Verified Business',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: const Color(0xFF004F51),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  ImageProvider? _logoImageProvider(String logoUrl) {
+    if (logoUrl.isEmpty) return null;
+    if (logoUrl.startsWith('data:')) {
+      final parts = logoUrl.split(',');
+      if (parts.length == 2) {
+        try {
+          return MemoryImage(base64Decode(parts[1]));
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    if (logoUrl.startsWith('http')) {
+      return NetworkImage(logoUrl);
+    }
+    return null;
+  }
+}
+
+class _BusinessAvatar extends StatelessWidget {
+  const _BusinessAvatar({
+    required this.name,
+    required this.size,
+    this.imageProvider,
+  });
+
+  final String name;
+  final double size;
+  final ImageProvider? imageProvider;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageProvider != null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          image: DecorationImage(image: imageProvider!, fit: BoxFit.cover),
+        ),
+      );
+    }
+
+    final initials = _initials(name);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFBE002B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  String _initials(String value) {
+    final parts = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty);
+    if (parts.isEmpty) return 'DB';
+    final list = parts.toList();
+    if (list.length == 1) return list.first.substring(0, 1).toUpperCase();
+    return '${list.first[0]}${list.last[0]}'.toUpperCase();
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A191C1D),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.trailing,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? trailing;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = danger
+        ? const Color(0xFFBE002B)
+        : const Color(0xFF191C1D);
+    final iconColor = danger
+        ? const Color(0xFFBE002B)
+        : const Color(0xFF94A3B8);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(icon, size: 24, color: iconColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: labelColor,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanBadge extends StatelessWidget {
+  const _PlanBadge({required this.plan});
+
+  final String plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = plan.toLowerCase().contains('pro') ? 'Pro' : 'Free';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: normalized == 'Pro'
+            ? const Color(0xFF91F2F4).withValues(alpha: 0.3)
+            : const Color(0xFFE7E8E9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        normalized,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: normalized == 'Pro'
+              ? const Color(0xFF004F51)
+              : const Color(0xFF5D3F3F),
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

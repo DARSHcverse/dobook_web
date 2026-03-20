@@ -1,78 +1,375 @@
 import 'package:dobook/app/session.dart';
-import 'package:dobook/app/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
   @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = context.watch<AppSession>();
     final scheme = Theme.of(context).colorScheme;
-    final brand = Theme.of(context).extension<BrandColors>();
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _PatternPainter(color: brand?.patternColor ?? scheme.primaryContainer),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 32),
-                  Center(
-                    child: Image.asset(
-                      'assets/brand/dobook-logo.png',
-                      height: 90,
-                      fit: BoxFit.contain,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 48,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Smart booking for your business',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => _openAuthSheet(context, isLogin: false),
-                      child: const Text('Get Started'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => _openAuthSheet(context, isLogin: true),
-                    child: Text(
-                      'I already have an account',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const _LandingHeader(),
+                        const SizedBox(height: 48),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0A000000),
+                                blurRadius: 24,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
                           ),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              children: [
+                                TextFormField(
+                                  controller: _emailCtrl,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email',
+                                    suffixIcon: Icon(
+                                      Icons.mail_outline_rounded,
+                                      color: Color(0xFFAC313A),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Enter an email';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                                TextFormField(
+                                  controller: _passwordCtrl,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.done,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Password',
+                                    suffixIcon: Icon(
+                                      Icons.lock_outline_rounded,
+                                      color: Color(0xFFAC313A),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.length < 6) {
+                                      return 'Minimum 6 characters';
+                                    }
+                                    return null;
+                                  },
+                                  onFieldSubmitted: (_) => _submit(context),
+                                ),
+                                if (session.error != null) ...[
+                                  const SizedBox(height: 16),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      session.error!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: scheme.error),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 24),
+                                _EditorialButton(
+                                  label: 'Login',
+                                  height: 56,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFBE002B),
+                                      Color(0xFFE8193C),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  textColor: Colors.white,
+                                  onTap: session.isBusy
+                                      ? null
+                                      : () => _submit(context),
+                                  child: session.isBusy
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.4,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(height: 16),
+                                _EditorialButton(
+                                  label: 'Sign Up',
+                                  height: 56,
+                                  backgroundColor: const Color(0xFFE7E8E9),
+                                  textColor: const Color(0xFFBE002B),
+                                  onTap: session.isBusy
+                                      ? null
+                                      : () => _openAuthSheet(
+                                            context,
+                                            isLogin: false,
+                                          ),
+                                ),
+                                const SizedBox(height: 14),
+                                TextButton(
+                                  onPressed: session.isBusy
+                                      ? null
+                                      : () => _showForgotPasswordNotice(
+                                            context,
+                                          ),
+                                  child: Text(
+                                    'Forgot password?',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFBE002B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        const _DecorativeLines(),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
 
   void _openAuthSheet(BuildContext context, {required bool isLogin}) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (context) => _AuthSheet(initialIsLogin: isLogin),
+    );
+  }
+
+  Future<void> _submit(BuildContext context) async {
+    final session = context.read<AppSession>();
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      await session.login(
+        email: _emailCtrl.text,
+        password: _passwordCtrl.text,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  void _showForgotPasswordNotice(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Password reset is not available in the app yet.'),
+      ),
+    );
+  }
+}
+
+class _LandingHeader extends StatelessWidget {
+  const _LandingHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8193C),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(
+            Icons.book_online_rounded,
+            color: Colors.white,
+            size: 32,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'DoBook',
+          style: GoogleFonts.manrope(
+            fontSize: 40,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFFBE002B),
+            letterSpacing: -1.4,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Smart booking for your business',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF5D3F3F).withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditorialButton extends StatelessWidget {
+  const _EditorialButton({
+    required this.label,
+    required this.height,
+    required this.textColor,
+    this.onTap,
+    this.backgroundColor,
+    this.gradient,
+    this.child,
+  });
+
+  final String label;
+  final double height;
+  final VoidCallback? onTap;
+  final Color textColor;
+  final Color? backgroundColor;
+  final Gradient? gradient;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.6,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: gradient == null
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x33BE002B),
+                    blurRadius: 16,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: double.infinity,
+              height: height,
+              child: Center(
+                child: child ??
+                    Text(
+                      label,
+                      style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DecorativeLines extends StatelessWidget {
+  const _DecorativeLines();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        _DecorativeLine(widthFactor: 0.88),
+        SizedBox(height: 10),
+        _DecorativeLine(widthFactor: 0.66),
+        SizedBox(height: 10),
+        _DecorativeLine(widthFactor: 0.42),
+      ],
+    );
+  }
+}
+
+class _DecorativeLine extends StatelessWidget {
+  const _DecorativeLine({required this.widthFactor});
+
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: Container(
+        height: 8,
+        decoration: BoxDecoration(
+          color: const Color(0xFFBE002B).withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
     );
   }
 }
@@ -184,9 +481,9 @@ class _AuthSheetState extends State<_AuthSheet> {
                 controller: _businessNameCtrl,
                 decoration: const InputDecoration(labelText: 'Business name'),
                 textInputAction: TextInputAction.next,
-                validator: (v) {
+                validator: (value) {
                   if (_isLogin) return null;
-                  if (v == null || v.trim().length < 2) {
+                  if (value == null || value.trim().length < 2) {
                     return 'Enter a business name';
                   }
                   return null;
@@ -195,7 +492,9 @@ class _AuthSheetState extends State<_AuthSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Phone (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Phone (optional)',
+                ),
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
               ),
@@ -206,8 +505,8 @@ class _AuthSheetState extends State<_AuthSheet> {
               decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
                   return 'Enter an email';
                 }
                 return null;
@@ -219,23 +518,24 @@ class _AuthSheetState extends State<_AuthSheet> {
               decoration: InputDecoration(
                 labelText: 'Password',
                 suffixIcon: IconButton(
-                  tooltip: _obscurePassword
-                      ? 'Show password'
-                      : 'Hide password',
+                  tooltip:
+                      _obscurePassword ? 'Show password' : 'Hide password',
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    _obscurePassword
+                        ? Icons.visibility
+                        : Icons.visibility_off,
                   ),
                 ),
               ),
               obscureText: _obscurePassword,
               textInputAction: TextInputAction.done,
-              validator: (v) {
-                if (v == null || v.length < 6) {
+              validator: (value) {
+                if (value == null || value.length < 6) {
                   return 'Minimum 6 characters';
                 }
                 return null;
@@ -293,25 +593,4 @@ class _AuthSheetState extends State<_AuthSheet> {
       );
     }
   }
-}
-
-class _PatternPainter extends CustomPainter {
-  _PatternPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final width = size.width;
-    final height = size.height;
-
-    canvas.drawCircle(Offset(width * 0.2, height * 0.2), 120, paint);
-    canvas.drawCircle(Offset(width * 0.85, height * 0.3), 90, paint);
-    canvas.drawCircle(Offset(width * 0.7, height * 0.8), 140, paint);
-    canvas.drawCircle(Offset(width * 0.1, height * 0.75), 100, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

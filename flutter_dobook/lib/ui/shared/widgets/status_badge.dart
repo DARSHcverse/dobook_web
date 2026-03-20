@@ -1,5 +1,6 @@
 import 'package:dobook/app/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.status});
@@ -9,65 +10,62 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<StatusColors>();
-    final scheme = Theme.of(context).colorScheme;
-    final resolved = _resolve(colors, scheme);
+    final resolved = _resolve(colors);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: resolved.background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
-        resolved.label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: resolved.foreground,
-              fontWeight: FontWeight.w700,
-            ),
+        resolved.label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+          color: resolved.foreground,
+        ),
       ),
     );
   }
 
-  StatusColorsResolved _resolve(
-    StatusColors? colors,
-    ColorScheme scheme,
-  ) {
+  StatusColorsResolved _resolve(StatusColors? colors) {
     final value = status.trim().toLowerCase();
     if (value == 'cancelled') {
       return StatusColorsResolved(
         label: 'Cancelled',
-        background: colors?.cancelledBg ?? scheme.errorContainer,
-        foreground: colors?.cancelledFg ?? scheme.error,
+        background: colors?.cancelledBg ??
+            const Color(0xFFFFDAD6).withValues(alpha: 0.5),
+        foreground: colors?.cancelledFg ?? const Color(0xFF93000A),
       );
     }
     if (value == 'completed') {
       return StatusColorsResolved(
         label: 'Completed',
-        background: colors?.completedBg ?? scheme.surfaceContainerHighest,
-        foreground: colors?.completedFg ?? scheme.onSurfaceVariant,
+        background: colors?.completedBg ?? const Color(0xFFE7E8E9),
+        foreground: colors?.completedFg ?? const Color(0xFF5D3F3F),
       );
     }
     if (value == 'pending') {
       return StatusColorsResolved(
         label: 'Pending',
-        background: colors?.pendingBg ?? scheme.tertiaryContainer,
-        foreground: colors?.pendingFg ?? scheme.tertiary,
+        background: colors?.pendingBg ?? const Color(0xFFFFF3CD),
+        foreground: colors?.pendingFg ?? const Color(0xFF856404),
       );
     }
     return StatusColorsResolved(
       label: 'Confirmed',
-      background: colors?.confirmedBg ?? scheme.secondaryContainer,
-      foreground: colors?.confirmedFg ?? scheme.secondary,
+      background: colors?.confirmedBg ??
+          const Color(0xFF91F2F4).withValues(alpha: 0.3),
+      foreground: colors?.confirmedFg ?? const Color(0xFF004F51),
     );
   }
 
   static Color accentColor(BuildContext context, String status) {
-    final colors = Theme.of(context).extension<StatusColors>();
-    final scheme = Theme.of(context).colorScheme;
     final value = status.trim().toLowerCase();
-    if (value == 'cancelled') return colors?.cancelledFg ?? scheme.error;
-    if (value == 'completed') return colors?.completedFg ?? scheme.onSurfaceVariant;
-    if (value == 'pending') return colors?.pendingFg ?? scheme.tertiary;
-    return colors?.confirmedFg ?? scheme.secondary;
+    if (value == 'confirmed') return const Color(0xFF008486);
+    if (value == 'cancelled') return const Color(0xFFBA1A1A);
+    return const Color(0xFF94A3B8);
   }
 }
 
@@ -101,14 +99,16 @@ class PillBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w700,
-            ),
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+          color: foreground,
+        ),
       ),
     );
   }
