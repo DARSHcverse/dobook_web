@@ -720,7 +720,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent
         data-testid="booking-detail-dialog"
-        className="max-w-lg max-h-[85vh] overflow-y-auto"
+        className="!rounded-2xl p-6 sm:p-7 !max-h-[90vh] !min-h-[72vh] overflow-y-auto sm:!max-w-[46rem] lg:!max-w-[54rem] xl:!max-w-[58rem]"
       >
         <DialogHeader>
           <DialogTitle>{currentBooking?.customer_name || 'Booking Details'}</DialogTitle>
