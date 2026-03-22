@@ -41,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -572,14 +572,6 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   }, [booking]);
 
   useEffect(() => {
-    if (!booking || typeof document === 'undefined') return undefined;
-    document.body.classList.add('overflow-hidden');
-    return () => {
-      document.body.classList.remove('overflow-hidden');
-    };
-  }, [booking]);
-
-  useEffect(() => {
     if (!booking) return;
     let cancelled = false;
     const run = async () => {
@@ -751,21 +743,15 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const detailValueClass = 'break-words text-[0.98rem] font-medium leading-6 text-foreground sm:text-right';
   const detailControlClass = 'h-10 w-full sm:w-[240px]';
 
-  if (!booking) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-      onClick={() => onClose?.()}
-    >
-      <div
+    <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent
         data-testid="booking-detail-dialog"
-        role="dialog"
-        aria-modal="true"
-        className="relative z-50 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto min-h-[75dvh] text-[clamp(0.94rem,0.9rem+0.2vw,1rem)] sm:max-w-[600px] sm:min-h-[640px] lg:max-w-[720px] dark:text-gray-100"
-        onClick={(e) => e.stopPropagation()}
+        showCloseButton={false}
+        className="w-[95vw] max-w-[95vw] gap-0 overflow-hidden rounded-[12px] border border-border/70 bg-background/98 p-0 text-[clamp(0.94rem,0.9rem+0.2vw,1rem)] shadow-2xl sm:max-w-[600px] lg:max-w-[720px] max-h-[90dvh] min-h-[75dvh] sm:min-h-[640px]"
       >
-        <div className="sticky top-0 border-b border-border/60 bg-white/95 px-5 py-4 backdrop-blur-sm dark:bg-gray-900/95 sm:px-6 sm:py-5 lg:px-7">
+        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+          <div className="border-b border-border/60 bg-background/95 px-5 py-4 backdrop-blur-sm sm:px-6 sm:py-5 lg:px-7">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <DialogTitle className="text-[clamp(1.25rem,1.1rem+0.6vw,1.65rem)] font-semibold leading-tight">
@@ -776,21 +762,22 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 </p>
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                className="h-11 w-11 shrink-0 rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-gray-800"
-                onClick={() => onClose?.()}
-              >
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close booking details</span>
-              </Button>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-lg"
+                  className="h-11 w-11 shrink-0 rounded-full"
+                >
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Close booking details</span>
+                </Button>
+              </DialogClose>
             </div>
-        </div>
+          </div>
 
-        {activeBooking && (
-          <div className="px-5 py-5 sm:px-6 sm:py-6 lg:px-7">
+          {activeBooking && (
+            <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6 lg:px-7">
               <div className="space-y-6 sm:space-y-8">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                   {!isEditing ? (
@@ -1305,9 +1292,10 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 </section>
               </div>
             </div>
-        )}
-      </div>
-    </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
