@@ -26,13 +26,11 @@ import {
   Search,
   Settings,
   Smartphone,
-  Star,
   Upload,
   User,
   UserCheck,
   Users,
   Users2,
-  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -78,22 +76,6 @@ const bookingStatusBadgeClass = (status) =>
     status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700",
     status === 'completed' && "border-gray-200 bg-gray-50 text-gray-600",
   );
-
-const isVipClient = (client) => Number(client?.total_bookings || 0) > 4;
-
-function VipBadge({ className = '' }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-800',
-        className,
-      )}
-    >
-      <Star className="h-3 w-3 fill-current" />
-      VIP
-    </span>
-  );
-}
 
 function BrandLogo({ size = 'md', className = '' }) {
   const [src, setSrc] = useState(DOBOOK_LOGO_PNG);
@@ -611,18 +593,16 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     { value: 'other', label: 'Other' },
   ];
 
-  const activeBooking = currentBooking || booking || null;
-  const bookingId = activeBooking?.id || null;
   const activeStaff = staffList.filter((member) => member?.is_active !== false);
-  const assignedStaff = staffList.find((member) => String(member?.id || '') === String(activeBooking?.staff_id || ''));
+  const assignedStaff = staffList.find((member) => String(member?.id || '') === String(currentBooking?.staff_id || ''));
   const staffOptions = assignedStaff && assignedStaff.is_active === false
     ? [...activeStaff, assignedStaff]
     : activeStaff;
 
   const updateBooking = async (updates, { successMessage } = {}) => {
-    if (!bookingId) return null;
+    if (!currentBooking?.id) return null;
     try {
-      const res = await axios.put(`${API}/bookings/${bookingId}`, updates);
+      const res = await axios.put(`${API}/bookings/${currentBooking.id}`, updates);
       const next = res?.data || null;
       if (next) setCurrentBooking(next);
       if (successMessage) toast.success(successMessage);
@@ -634,7 +614,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   };
 
   const handleEditSave = async () => {
-    if (!bookingId) return;
+    if (!currentBooking?.id) return;
     const updates = {
       booking_date: editData.booking_date || '',
       booking_time: editData.booking_time || '',
@@ -668,11 +648,11 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   };
 
   const handleSendInvoice = async () => {
-    if (!bookingId) return;
+    if (!currentBooking?.id) return;
     setSendingInvoice(true);
     try {
-      await axios.post(`${API}/bookings/${bookingId}/send-invoice`);
-      toast.success(`Invoice sent to ${activeBooking?.customer_email}`);
+      await axios.post(`${API}/bookings/${currentBooking.id}/send-invoice`);
+      toast.success(`Invoice sent to ${currentBooking.customer_email}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send invoice');
     } finally {
@@ -681,7 +661,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   };
 
   const handleAssignStaff = async () => {
-    if (!bookingId) return;
+    if (!currentBooking?.id) return;
     setAssigningStaff(true);
     const updates = {
       staff_id: staffSelection || null,
@@ -697,7 +677,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   };
 
   const handleRemoveStaff = async () => {
-    if (!bookingId) return;
+    if (!currentBooking?.id) return;
     setAssigningStaff(true);
     const next = await updateBooking({ staff_id: null }, { successMessage: 'Staff removed' });
     if (next) {
@@ -706,7 +686,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     setAssigningStaff(false);
   };
 
-  const lineItems = Array.isArray(activeBooking?.line_items) ? activeBooking.line_items : [];
+  const lineItems = Array.isArray(currentBooking?.line_items) ? currentBooking.line_items : [];
   const baseItem = lineItems.length ? lineItems[0] : null;
   const travelLabel = String(business?.travel_fee_label || 'Travel charge').trim().toLowerCase();
   const cbdLabel = String(business?.cbd_fee_label || 'CBD logistics').trim().toLowerCase();
@@ -731,569 +711,530 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
     return Number.isFinite(raw) ? raw : 0;
   };
 
-  const bookingStatus = String(activeBooking?.status || 'confirmed').toLowerCase();
-  const bookingReference =
-    activeBooking?.invoice_id || `BK-${String(activeBooking?.id || '').slice(0, 8).toUpperCase()}`;
-  const totalAmount = Number(activeBooking?.total_amount ?? bookingTotalAmount(activeBooking)).toFixed(2);
-  const sectionHeadingClass = 'text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground sm:text-[0.76rem]';
-  const detailGridClass = 'space-y-4 sm:space-y-5';
-  const detailRowClass = 'grid gap-2 border-b border-border/50 pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:items-start sm:gap-6';
-  const detailLabelClass = 'text-[0.94rem] leading-6 text-muted-foreground';
-  const detailValueWrapClass = 'min-w-0 sm:justify-self-end';
-  const detailValueClass = 'break-words text-[0.98rem] font-medium leading-6 text-foreground sm:text-right';
-  const detailControlClass = 'h-10 w-full sm:w-[240px]';
+  const bookingStatus = String(currentBooking?.status || 'confirmed').toLowerCase();
+  const invoiceNumber =
+    currentBooking?.invoice_id || `INV-${String(currentBooking?.id || '').slice(0, 8).toUpperCase()}`;
+  const totalAmount = Number(currentBooking?.total_amount ?? bookingTotalAmount(currentBooking)).toFixed(2);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent
         data-testid="booking-detail-dialog"
-        showCloseButton={false}
-        className="w-[95vw] max-w-[95vw] gap-0 overflow-hidden rounded-[12px] border border-border/70 bg-background/98 p-0 text-[clamp(0.94rem,0.9rem+0.2vw,1rem)] shadow-2xl sm:max-w-[600px] lg:max-w-[720px] max-h-[90dvh] min-h-[75dvh] sm:min-h-[640px]"
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
       >
-        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-          <div className="border-b border-border/60 bg-background/95 px-5 py-4 backdrop-blur-sm sm:px-6 sm:py-5 lg:px-7">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <DialogTitle className="text-[clamp(1.25rem,1.1rem+0.6vw,1.65rem)] font-semibold leading-tight">
-                  {activeBooking?.customer_name || 'Booking Details'}
-                </DialogTitle>
-                <p className="mt-1 text-[clamp(0.85rem,0.82rem+0.15vw,0.95rem)] text-muted-foreground">
-                  Booking ID: {bookingReference}
-                </p>
-              </div>
+        <DialogHeader>
+          <DialogTitle>{currentBooking?.customer_name || 'Booking Details'}</DialogTitle>
+          <p className="text-sm text-muted-foreground">{invoiceNumber}</p>
+        </DialogHeader>
 
-              <DialogClose asChild>
+        {currentBooking && (
+          <div className="mt-6 space-y-6">
+            <div className="flex items-center justify-end gap-2 mt-4">
+              {!isEditing ? (
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon-lg"
-                  className="h-11 w-11 shrink-0 rounded-full"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
                 >
-                  <X className="h-5 w-5" />
-                  <span className="sr-only">Close booking details</span>
+                  Edit
                 </Button>
-              </DialogClose>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditData({
+                        booking_date: currentBooking?.booking_date || '',
+                        booking_time: currentBooking?.booking_time || '',
+                        booth_type: currentBooking?.booth_type || '',
+                        service_type: currentBooking?.service_type || '',
+                        price: currentBooking?.price ?? '',
+                        notes: currentBooking?.notes || '',
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={savingEdit}
+                    onClick={handleEditSave}
+                  >
+                    {savingEdit ? 'Saving…' : 'Save'}
+                  </Button>
+                </>
+              )}
             </div>
-          </div>
 
-          {activeBooking && (
-            <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6 lg:px-7">
-              <div className="space-y-6 sm:space-y-8">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                  {!isEditing ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      Edit
-                    </Button>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Booking Details
+              </p>
+              <div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Service</span>
+                  {isEditing ? (
+                    isPhotoBooth ? (
+                      <Select
+                        value={editData.booth_type || ''}
+                        onValueChange={(val) => setEditData((prev) => ({ ...prev, booth_type: val }))}
+                      >
+                        <SelectTrigger className="h-9 w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {boothTypes.map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={editData.service_type}
+                        onChange={(e) => setEditData((prev) => ({ ...prev, service_type: e.target.value }))}
+                        className="h-9 w-[200px]"
+                      />
+                    )
                   ) : (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        onClick={() => {
-                          setIsEditing(false);
-                          setEditData({
-                            booking_date: activeBooking?.booking_date || '',
-                            booking_time: activeBooking?.booking_time || '',
-                            booth_type: activeBooking?.booth_type || '',
-                            service_type: activeBooking?.service_type || '',
-                            price: activeBooking?.price ?? '',
-                            notes: activeBooking?.notes || '',
-                          });
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        className="w-full sm:w-auto"
-                        disabled={savingEdit}
-                        onClick={handleEditSave}
-                      >
-                        {savingEdit ? 'Saving…' : 'Save'}
-                      </Button>
-                    </>
+                    <span className="text-sm font-medium">{currentBooking.booth_type || currentBooking.service_type}</span>
                   )}
                 </div>
-
-                <section className="space-y-4">
-                  <p className={sectionHeadingClass}>Booking Details</p>
-                  <div className={detailGridClass}>
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Service</span>
-                      <div className={detailValueWrapClass}>
-                        {isEditing ? (
-                          isPhotoBooth ? (
-                            <Select
-                              value={editData.booth_type || ''}
-                              onValueChange={(val) => setEditData((prev) => ({ ...prev, booth_type: val }))}
-                            >
-                              <SelectTrigger className={detailControlClass}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {boothTypes.map((t) => (
-                                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input
-                              value={editData.service_type}
-                              onChange={(e) => setEditData((prev) => ({ ...prev, service_type: e.target.value }))}
-                              className={detailControlClass}
-                            />
-                          )
-                        ) : (
-                          <span className={detailValueClass}>{activeBooking.booth_type || activeBooking.service_type}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Date</span>
-                      <div className={detailValueWrapClass}>
-                        {isEditing ? (
-                          <Input
-                            type="date"
-                            value={editData.booking_date}
-                            onChange={(e) => setEditData((prev) => ({ ...prev, booking_date: e.target.value }))}
-                            className={detailControlClass}
-                          />
-                        ) : (
-                          <span className={detailValueClass}>{activeBooking.booking_date}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Time</span>
-                      <div className={detailValueWrapClass}>
-                        {isEditing ? (
-                          <Input
-                            type="time"
-                            value={editData.booking_time}
-                            onChange={(e) => setEditData((prev) => ({ ...prev, booking_time: e.target.value }))}
-                            className={detailControlClass}
-                          />
-                        ) : (
-                          <span className={detailValueClass}>{activeBooking.booking_time}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Price</span>
-                      <div className={detailValueWrapClass}>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={editData.price}
-                            onChange={(e) => setEditData((prev) => ({ ...prev, price: e.target.value }))}
-                            className={detailControlClass}
-                          />
-                        ) : (
-                          <span className={`${detailValueClass} text-primary`}>
-                            ${bookingTotalAmount(activeBooking).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Duration</span>
-                      <div className={detailValueWrapClass}>
-                        <span className={detailValueClass}>
-                          {Math.round((Number(activeBooking.duration_minutes) || 60) / 60 * 10) / 10} hours
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Status</span>
-                      <div className={`${detailValueWrapClass} flex items-center sm:justify-end`}>
-                        <Badge variant="outline" className={bookingStatusBadgeClass(bookingStatus)}>
-                          {bookingStatus}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Email</span>
-                      <div className={detailValueWrapClass}>
-                        <span className={`${detailValueClass} break-all`}>{activeBooking.customer_email}</span>
-                      </div>
-                    </div>
-
-                    {activeBooking.customer_phone ? (
-                      <div className={detailRowClass}>
-                        <span className={detailLabelClass}>Phone</span>
-                        <div className={detailValueWrapClass}>
-                          <span className={`${detailValueClass} break-all`}>{activeBooking.customer_phone}</span>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <section className="space-y-4 border-t border-border/60 pt-6">
-                  <p className={sectionHeadingClass}>Payment</p>
-                  <div className={detailGridClass}>
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Total</span>
-                      <div className={detailValueWrapClass}>
-                        <span className={`${detailValueClass} text-primary`}>${totalAmount}</span>
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Payment status</span>
-                      <div className={detailValueWrapClass}>
-                        <Select
-                          value={String(activeBooking?.payment_status || 'unpaid').toLowerCase()}
-                          onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
-                          disabled={savingPayment}
-                        >
-                          <SelectTrigger className={detailControlClass}>
-                            <SelectValue placeholder="Payment status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {paymentStatusOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Payment method</span>
-                      <div className={detailValueWrapClass}>
-                        <Select
-                          value={activeBooking?.payment_method ? String(activeBooking.payment_method).toLowerCase() : undefined}
-                          onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
-                          disabled={savingPayment}
-                        >
-                          <SelectTrigger className={detailControlClass}>
-                            <SelectValue placeholder="Payment method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {paymentMethodOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="space-y-4 border-t border-border/60 pt-6">
-                  <p className={sectionHeadingClass}>Staff</p>
-                  <div className={detailGridClass}>
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Assigned to</span>
-                      <div className={detailValueWrapClass}>
-                        <span className={detailValueClass}>{assignedStaff?.name || 'No staff assigned yet.'}</span>
-                      </div>
-                    </div>
-
-                    <div className={detailRowClass}>
-                      <span className={detailLabelClass}>Select staff</span>
-                      <div className={detailValueWrapClass}>
-                        <Select
-                          value={staffSelection || ''}
-                          onValueChange={(val) => setStaffSelection(val)}
-                          disabled={staffLoading}
-                        >
-                          <SelectTrigger className={detailControlClass}>
-                            <SelectValue placeholder="Select staff member (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {staffOptions.map((member) => (
-                              <SelectItem key={member.id} value={member.id}>
-                                {member.name} {member.email ? `(${member.email})` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      disabled={assigningStaff || staffLoading}
-                      onClick={handleAssignStaff}
-                    >
-                      {assigningStaff ? 'Saving...' : 'Assign'}
-                    </Button>
-                    {activeBooking?.staff_id ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full sm:w-auto"
-                        onClick={handleRemoveStaff}
-                        disabled={assigningStaff}
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  {staffLoading ? (
-                    <div className="text-xs text-muted-foreground">Loading staff members...</div>
-                  ) : staffOptions.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">No active staff members yet.</div>
-                  ) : null}
-
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Backdrop / Setup Details (optional)</Label>
-                    <Textarea
-                      value={backdropNotes}
-                      onChange={(e) => setBackdropNotes(e.target.value)}
-                      className="min-h-[120px] sm:min-h-[96px]"
-                      placeholder="e.g. White floral backdrop, gold frame, fairy lights"
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Date</span>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editData.booking_date}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, booking_date: e.target.value }))}
+                      className="h-9 w-[200px]"
                     />
+                  ) : (
+                    <span className="text-sm font-medium">{currentBooking.booking_date}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Time</span>
+                  {isEditing ? (
+                    <Input
+                      type="time"
+                      value={editData.booking_time}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, booking_time: e.target.value }))}
+                      className="h-9 w-[200px]"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">{currentBooking.booking_time}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Price</span>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editData.price}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, price: e.target.value }))}
+                      className="h-9 w-[200px]"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium text-primary">
+                      ${bookingTotalAmount(currentBooking).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Duration</span>
+                  <span className="text-sm font-medium">
+                    {Math.round((Number(currentBooking.duration_minutes) || 60) / 60 * 10) / 10} hours
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={bookingStatusBadgeClass(bookingStatus)}>
+                    {bookingStatus}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm font-medium">{currentBooking.customer_email}</span>
+                </div>
+                {currentBooking.customer_phone ? (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-muted-foreground">Phone</span>
+                    <span className="text-sm font-medium">{currentBooking.customer_phone}</span>
                   </div>
-                </section>
-
-                {(activeBooking.notes || isEditing) && (
-                  <section className="space-y-4 border-t border-border/60 pt-6">
-                    <p className={sectionHeadingClass}>Notes</p>
-                    {isEditing ? (
-                      <Textarea
-                        value={editData.notes}
-                        onChange={(e) => setEditData((prev) => ({ ...prev, notes: e.target.value }))}
-                        className="min-h-[120px] sm:min-h-[96px]"
-                      />
-                    ) : (
-                      <p className="text-[0.98rem] leading-7 text-foreground">{activeBooking.notes}</p>
-                    )}
-                  </section>
-                )}
-
-                <section className="space-y-4 border-t border-border/60 pt-6">
-                  <p className={sectionHeadingClass}>Charges</p>
-                  <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/15">
-                    <div className="divide-y divide-border/60">
-                      <div className="flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-muted-foreground">
-                          {baseItem?.description || activeBooking.booth_type || activeBooking.service_type || 'Service'}
-                        </span>
-                        <span className="font-medium">
-                          ${lineItemTotal(baseItem || {
-                            unit_price: activeBooking?.price || 0,
-                            qty: activeBooking?.quantity || 1,
-                            total: (Number(activeBooking?.price || 0) * Math.max(1, Number(activeBooking?.quantity || 1))),
-                          }).toFixed(2)}
-                        </span>
-                      </div>
-                      {travelItem ? (
-                        <div className="flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-                          <span className="text-muted-foreground">{travelItem.description || 'Travel fee'}</span>
-                          <span className="font-medium">${lineItemTotal(travelItem).toFixed(2)}</span>
-                        </div>
-                      ) : null}
-                      {cbdItem ? (
-                        <div className="flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-                          <span className="text-muted-foreground">{cbdItem.description || 'CBD logistics fee'}</span>
-                          <span className="font-medium">${lineItemTotal(cbdItem).toFixed(2)}</span>
-                        </div>
-                      ) : null}
-                      {addonItems.map((item, idx) => (
-                        <div key={`${item?.description || 'addon'}-${idx}`} className="flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-                          <span className="text-muted-foreground">{item?.description || 'Add-on'}</span>
-                          <span className="font-medium">${lineItemTotal(item).toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <div className="flex flex-col gap-1 p-4 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
-                        <span>Total amount</span>
-                        <span>${totalAmount}</span>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {activeBooking?.custom_fields && typeof activeBooking.custom_fields === 'object' && Object.keys(activeBooking.custom_fields).length ? (
-                  <section className="space-y-4 border-t border-border/60 pt-6">
-                    <p className={sectionHeadingClass}>Custom Fields</p>
-                    <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/15">
-                      <div className="divide-y divide-border/60">
-                        {Object.entries(activeBooking.custom_fields || {}).map(([k, v]) => {
-                          const key = String(k || '').trim();
-                          if (!key) return null;
-                          const def = (bookingFieldDefs || []).find((d) => String(d?.field_key || '').trim() === key);
-                          const label = String(def?.field_name || '')
-                            ? String(def.field_name)
-                            : key.replaceAll(/[_-]+/g, ' ').replaceAll(/\s+/g, ' ').trim();
-                          const isPrivate = Boolean(def?.is_private);
-                          const value =
-                            Array.isArray(v) ? `${v.filter(Boolean).length} file(s)` : (v === true ? 'Yes' : v === false ? 'No' : String(v ?? ''));
-                          return (
-                            <div key={key} className="p-4">
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="text-sm font-semibold">{label}</div>
-                                {isPrivate ? (
-                                  <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-                                    Private
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="mt-2 break-words text-sm text-muted-foreground">{value}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </section>
                 ) : null}
-
-                <section className="space-y-4 border-t border-border/60 pt-6">
-                  <p className={sectionHeadingClass}>Actions</p>
-                  <div className="space-y-2">
-                    <Button
-                      data-testid="download-invoice-btn"
-                      onClick={async () => {
-                        if (!bookingId) return;
-                        try {
-                          const res = await axios.get(`${API}/invoices/pdf/${bookingId}`, {
-                            responseType: 'blob',
-                          });
-                          const blob = res?.data;
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `${bookingReference}.pdf`;
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                          window.URL.revokeObjectURL(url);
-                          toast.success('Invoice downloaded!');
-                        } catch (e) {
-                          toast.error('Failed to generate invoice PDF');
-                        }
-                      }}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Download PDF
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={sendingInvoice}
-                      onClick={handleSendInvoice}
-                    >
-                      {sendingInvoice ? 'Sending…' : 'Send Invoice'}
-                    </Button>
-                    {String(activeBooking?.customer_email || '').trim() && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full"
-                        disabled={requestingReview}
-                        onClick={async () => {
-                          if (!bookingId) return;
-                          setRequestingReview(true);
-                          try {
-                            const res = await axios.post(
-                              `${API}/reviews/request`,
-                              { booking_id: bookingId },
-                            );
-                            const url = res?.data?.url;
-                            const skipped = Boolean(res?.data?.email?.skipped);
-                            if (skipped && url) {
-                              try {
-                                await navigator.clipboard.writeText(url);
-                                toast.success('Review link copied (email not sent)');
-                              } catch {
-                                toast.success('Review link created');
-                              }
-                            } else {
-                              toast.success('Review request sent');
-                            }
-                          } catch (e) {
-                            if (e?.response?.status === 409) {
-                              const url = e?.response?.data?.url;
-                              const skipped = Boolean(e?.response?.data?.email?.skipped);
-                              if (skipped && url) {
-                                try {
-                                  await navigator.clipboard.writeText(url);
-                                  toast.success('Review link copied (email not sent)');
-                                } catch {
-                                  toast.success('Review link created');
-                                }
-                              } else {
-                                toast.success('Review request already sent');
-                              }
-                              return;
-                            }
-                            toast.error(e.response?.data?.detail || 'Failed to request review');
-                          } finally {
-                            setRequestingReview(false);
-                          }
-                        }}
-                      >
-                        {requestingReview ? 'Sending…' : 'Request Review'}
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant={bookingStatus === 'cancelled' ? 'outline' : 'destructive'}
-                      className="w-full"
-                      disabled={updatingStatus}
-                      onClick={async () => {
-                        if (!bookingId) return;
-                        const isCancelled = bookingStatus === 'cancelled';
-                        const next = isCancelled ? 'confirmed' : 'cancelled';
-                        const ok = window.confirm(
-                          isCancelled
-                            ? 'Mark this booking as confirmed again?'
-                            : 'Mark this booking as cancelled?',
-                        );
-                        if (!ok) return;
-                        setUpdatingStatus(true);
-                        try {
-                          await axios.put(
-                            `${API}/bookings/${bookingId}`,
-                            { status: next },
-                          );
-                          toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
-                          onClose?.();
-                        } catch (e) {
-                          toast.error(e.response?.data?.detail || 'Failed to update booking');
-                        } finally {
-                          setUpdatingStatus(false);
-                        }
-                      }}
-                    >
-                      {bookingStatus === 'cancelled' ? 'Restore Booking' : 'Cancel Booking'}
-                    </Button>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Booking ID: {bookingReference}
-                  </div>
-                </section>
               </div>
             </div>
-          )}
-        </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Payment
+              </p>
+              <div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm font-medium text-primary">${totalAmount}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Payment status</span>
+                  <Select
+                    value={String(currentBooking?.payment_status || 'unpaid').toLowerCase()}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Payment status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentStatusOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Payment method</span>
+                  <Select
+                    value={currentBooking?.payment_method ? String(currentBooking.payment_method).toLowerCase() : undefined}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethodOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Staff
+              </p>
+              <div>
+                {assignedStaff ? (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">{assignedStaff.name}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">No staff assigned yet.</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Select staff</span>
+                  <Select
+                    value={staffSelection || ''}
+                    onValueChange={(val) => setStaffSelection(val)}
+                    disabled={staffLoading}
+                  >
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="Select staff member (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffOptions.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} {member.email ? `(${member.email})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={assigningStaff || staffLoading}
+                    onClick={handleAssignStaff}
+                  >
+                    {assigningStaff ? 'Saving...' : 'Assign'}
+                  </Button>
+                  {currentBooking?.staff_id ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleRemoveStaff}
+                      disabled={assigningStaff}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+                {staffLoading ? (
+                  <div className="text-xs text-muted-foreground mt-2">Loading staff members...</div>
+                ) : staffOptions.length === 0 ? (
+                  <div className="text-xs text-muted-foreground mt-2">No active staff members yet.</div>
+                ) : null}
+                <div className="grid gap-2 mb-4">
+                  <Label className="text-sm">Backdrop / Setup Details (optional)</Label>
+                  <Textarea
+                    value={backdropNotes}
+                    onChange={(e) => setBackdropNotes(e.target.value)}
+                    className="min-h-[96px]"
+                    placeholder="e.g. White floral backdrop, gold frame, fairy lights"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(currentBooking.notes || isEditing) && (
+              <>
+                <Separator className="my-4" />
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Notes
+                  </p>
+                  {isEditing ? (
+                    <Textarea
+                      value={editData.notes}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, notes: e.target.value }))}
+                      className="min-h-[96px]"
+                    />
+                  ) : (
+                    <p className="text-sm">{currentBooking.notes}</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Charges
+              </p>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="divide-y divide-border">
+                  <div className="flex items-center justify-between p-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {baseItem?.description || currentBooking.booth_type || currentBooking.service_type || 'Service'}
+                    </span>
+                    <span className="font-medium">
+                      ${lineItemTotal(baseItem || {
+                        unit_price: currentBooking?.price || 0,
+                        qty: currentBooking?.quantity || 1,
+                        total: (Number(currentBooking?.price || 0) * Math.max(1, Number(currentBooking?.quantity || 1))),
+                      }).toFixed(2)}
+                    </span>
+                  </div>
+                  {travelItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{travelItem.description || 'Travel fee'}</span>
+                      <span className="font-medium">${lineItemTotal(travelItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {cbdItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{cbdItem.description || 'CBD logistics fee'}</span>
+                      <span className="font-medium">${lineItemTotal(cbdItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {addonItems.map((item, idx) => (
+                    <div key={`${item?.description || 'addon'}-${idx}`} className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{item?.description || 'Add-on'}</span>
+                      <span className="font-medium">${lineItemTotal(item).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between p-3 text-sm font-semibold">
+                    <span>Total amount</span>
+                    <span>${totalAmount}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {currentBooking?.custom_fields && typeof currentBooking.custom_fields === "object" && Object.keys(currentBooking.custom_fields).length ? (
+              <>
+                <Separator className="my-4" />
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Custom Fields
+                  </p>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <div className="divide-y divide-border">
+                      {Object.entries(currentBooking.custom_fields || {}).map(([k, v]) => {
+                        const key = String(k || "").trim();
+                        if (!key) return null;
+                        const def = (bookingFieldDefs || []).find((d) => String(d?.field_key || "").trim() === key);
+                        const label = String(def?.field_name || "")
+                          ? String(def.field_name)
+                          : key.replaceAll(/[_-]+/g, " ").replaceAll(/\s+/g, " ").trim();
+                        const isPrivate = Boolean(def?.is_private);
+                        const value =
+                          Array.isArray(v) ? `${v.filter(Boolean).length} file(s)` : (v === true ? "Yes" : v === false ? "No" : String(v ?? ""));
+                        return (
+                          <div key={key} className="p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold">
+                                {label}
+                              </div>
+                              {isPrivate ? (
+                                <span className="text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                  Private
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground break-words">{value}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Actions
+              </p>
+              <div className="space-y-2">
+                <Button
+                  data-testid="download-invoice-btn"
+                  onClick={async () => {
+                    try {
+                      const res = await axios.get(`${API}/invoices/pdf/${currentBooking.id}`, {
+                        responseType: 'blob',
+                      });
+                      const blob = res?.data;
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${invoiceNumber}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                      toast.success('Invoice downloaded!');
+                    } catch (e) {
+                      toast.error('Failed to generate invoice PDF');
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={sendingInvoice}
+                  onClick={handleSendInvoice}
+                >
+                  {sendingInvoice ? 'Sending…' : 'Send Invoice'}
+                </Button>
+                {String(currentBooking?.customer_email || '').trim() && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={requestingReview}
+                    onClick={async () => {
+                      setRequestingReview(true);
+                      try {
+                        const res = await axios.post(
+                          `${API}/reviews/request`,
+                          { booking_id: currentBooking.id },
+                        );
+                        const url = res?.data?.url;
+                        const skipped = Boolean(res?.data?.email?.skipped);
+                        if (skipped && url) {
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            toast.success('Review link copied (email not sent)');
+                          } catch {
+                            toast.success('Review link created');
+                          }
+                        } else {
+                          toast.success('Review request sent');
+                        }
+                      } catch (e) {
+                        if (e?.response?.status === 409) {
+                          const url = e?.response?.data?.url;
+                          const skipped = Boolean(e?.response?.data?.email?.skipped);
+                          if (skipped && url) {
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              toast.success('Review link copied (email not sent)');
+                            } catch {
+                              toast.success('Review link created');
+                            }
+                          } else {
+                            toast.success('Review request already sent');
+                          }
+                          return;
+                        }
+                        toast.error(e.response?.data?.detail || 'Failed to request review');
+                      } finally {
+                        setRequestingReview(false);
+                      }
+                    }}
+                  >
+                    {requestingReview ? 'Sending…' : 'Request Review'}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant={bookingStatus === 'cancelled' ? 'outline' : 'destructive'}
+                  className="w-full"
+                  disabled={updatingStatus}
+                  onClick={async () => {
+                    const isCancelled = bookingStatus === 'cancelled';
+                    const next = isCancelled ? 'confirmed' : 'cancelled';
+                    const ok = window.confirm(
+                      isCancelled
+                        ? 'Mark this booking as confirmed again?'
+                        : 'Mark this booking as cancelled?',
+                    );
+                    if (!ok) return;
+                    setUpdatingStatus(true);
+                    try {
+                      await axios.put(
+                        `${API}/bookings/${currentBooking.id}`,
+                        { status: next },
+                      );
+                      toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
+                      onClose?.();
+                    } catch (e) {
+                      toast.error(e.response?.data?.detail || 'Failed to update booking');
+                    } finally {
+                      setUpdatingStatus(false);
+                    }
+                  }}
+                >
+                  {bookingStatus === 'cancelled' ? 'Restore Booking' : 'Cancel Booking'}
+                </Button>
+              </div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                Invoice: {invoiceNumber}
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -4531,50 +4472,48 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
 
   return (
     <>
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div>
-          <h2 className="text-[clamp(1.35rem,1.18rem+0.6vw,1.75rem)] font-semibold">All Bookings</h2>
-          <p className="text-[clamp(0.92rem,0.88rem+0.12vw,1rem)] text-muted-foreground">Manage your appointments</p>
+          <h2 className="text-xl font-semibold">All Bookings</h2>
+          <p className="text-sm text-muted-foreground">Manage your appointments</p>
         </div>
-        <Button type="button" onClick={openCreate} className="h-10 w-full gap-2 px-4 sm:w-auto">
+        <Button type="button" onClick={openCreate} className="h-10 px-4 gap-2">
           <Plus className="h-4 w-4" />
           Add booking
         </Button>
       </div>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search bookings..."
-          className="w-full sm:max-w-sm"
-        />
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search bookings..."
+        className="max-w-sm mb-4"
+      />
 
-        <div className="w-full sm:w-56">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue placeholder="Filter status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="upcoming">Upcoming</SelectItem>
-              <SelectItem value="past">Past</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex justify-end mb-4">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-10 w-full sm:w-56">
+            <SelectValue placeholder="Filter status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="upcoming">Upcoming</SelectItem>
+            <SelectItem value="past">Past</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Card data-testid="bookings-list-card" className="mt-6 overflow-hidden">
+      <Card data-testid="bookings-list-card" className="mt-6">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Customer</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Service</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Date</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Price</TableHead>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Status</TableHead>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Actions</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Service</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -4589,32 +4528,32 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                 const status = String(booking.status || 'confirmed').toLowerCase();
                 return (
                   <TableRow key={booking.id}>
-                    <TableCell className="px-4 py-4 align-top whitespace-normal">
-                      <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
-                      <div className="mt-1 break-all text-sm text-muted-foreground">
+                    <TableCell>
+                      <div className="font-medium">{booking.customer_name}</div>
+                      <div className="text-sm text-muted-foreground">
                         {booking.customer_email}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
-                    <TableCell className="hidden px-4 py-4 sm:table-cell">
+                    <TableCell>{booking.booth_type || booking.service_type}</TableCell>
+                    <TableCell>
                       <div className="font-medium">{booking.booking_date}</div>
                       <div className="text-sm text-muted-foreground">{booking.booking_time}</div>
                     </TableCell>
-                    <TableCell className="hidden px-4 py-4 text-primary font-medium sm:table-cell">
+                    <TableCell className="text-primary font-medium">
                       ${bookingTotalAmount(booking).toFixed(2)}
                     </TableCell>
-                    <TableCell className="px-4 py-4 align-top">
+                    <TableCell>
                       <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
                         {status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-4 py-4 align-top">
+                    <TableCell>
                       <Button
                         data-testid={`view-booking-${booking.id}`}
                         onClick={() => handleViewBooking(booking)}
                         size="sm"
                         variant="outline"
-                        className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                        className="rounded-full px-4 text-xs"
                       >
                         View Details
                       </Button>
@@ -5250,7 +5189,6 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
       const matches = !q || name.includes(q) || email.includes(q);
       if (!matches) return false;
       if (statusFilter === 'all') return true;
-      if (statusFilter === 'vip') return isVipClient(client);
       const lastDate = parseDateValue(client?.last_booking_date);
       const isActive = lastDate ? lastDate >= cutoff : false;
       return statusFilter === 'active' ? isActive : !isActive;
@@ -5450,7 +5388,6 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                 { id: 'all', label: 'All' },
                 { id: 'active', label: 'Active' },
                 { id: 'inactive', label: 'Inactive' },
-                { id: 'vip', label: 'VIP' },
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -5516,10 +5453,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                         className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors cursor-pointer"
                       >
                         <td className="py-3 px-4 font-medium">
-                          <div className="flex items-center gap-2">
-                            <span>{client.customer_name || client.customer_email}</span>
-                            {isVipClient(client) ? <VipBadge /> : null}
-                          </div>
+                          {client.customer_name || client.customer_email}
                         </td>
                         <td className="py-3 px-4 text-sm text-zinc-600">{client.customer_email}</td>
                         <td className="py-3 px-4 text-sm text-zinc-600">
@@ -5545,10 +5479,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold truncate">{client.customer_name || client.customer_email}</div>
-                          {isVipClient(client) ? <VipBadge className="shrink-0" /> : null}
-                        </div>
+                        <div className="font-semibold truncate">{client.customer_name || client.customer_email}</div>
                         <div className="text-xs text-zinc-500 truncate">{client.customer_email}</div>
                       </div>
                       <div className="text-sm font-semibold text-emerald-700">
@@ -5581,11 +5512,8 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
           ) : (
             <div className="space-y-6">
               <div>
-                <div className="flex items-center gap-2">
-                  <div className="text-xl font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                    {clientInfo.customer_name || clientInfo.customer_email || 'Client'}
-                  </div>
-                  {isVipClient(clientInfo) ? <VipBadge /> : null}
+                <div className="text-xl font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                  {clientInfo.customer_name || clientInfo.customer_email || 'Client'}
                 </div>
                 <div className="text-sm text-zinc-600">{clientInfo.customer_email || '—'}</div>
                 <div className="text-sm text-zinc-600">{clientInfo.customer_phone || '—'}</div>
