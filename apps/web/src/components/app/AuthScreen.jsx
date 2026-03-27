@@ -28,6 +28,11 @@ const BUSINESS_TYPE_TO_INDUSTRY = {
   home_services_trades: "tradie",
 };
 
+const INDUSTRY_TO_BUSINESS_TYPE = Object.entries(BUSINESS_TYPE_TO_INDUSTRY).reduce((acc, [businessType, industry]) => {
+  acc[industry] = businessType;
+  return acc;
+}, {});
+
 const BUSINESS_TYPE_ICON = {
   scissors: Scissors,
   stethoscope: Stethoscope,
@@ -35,6 +40,10 @@ const BUSINESS_TYPE_ICON = {
   "graduation-cap": GraduationCap,
   hammer: Hammer,
 };
+
+function businessTypeForIndustry(industry) {
+  return normalizeBusinessType(INDUSTRY_TO_BUSINESS_TYPE[String(industry || "").trim().toLowerCase()]) || null;
+}
 
 function LogoMark() {
   return (
@@ -88,9 +97,17 @@ export default function AuthScreen() {
     phone: "",
     subscription_plan: initialPlan,
     industry: initialIndustry,
-    business_type: initialBusinessType,
+    business_type: initialBusinessType || businessTypeForIndustry(initialIndustry) || "",
     signup_hp: "",
   });
+  const selectedIndustryBusinessType = useMemo(
+    () => businessTypeForIndustry(formData.industry),
+    [formData.industry],
+  );
+  const businessTypeChoices = useMemo(() => {
+    if (!selectedIndustryBusinessType) return [];
+    return BUSINESS_TYPES.filter((t) => t.id === selectedIndustryBusinessType);
+  }, [selectedIndustryBusinessType]);
 
   useEffect(() => {
     if (!forceSignup) return;
@@ -157,12 +174,15 @@ export default function AuthScreen() {
           toast.error("Password must be at least 6 characters");
           return;
         }
-        setSignupStep(2);
-        return;
+        if (selectedIndustryBusinessType) {
+          setFormData((prev) => ({ ...prev, business_type: selectedIndustryBusinessType }));
+          setSignupStep(2);
+          return;
+        }
       }
 
       if (!isLogin && signupStep === 2) {
-        const bt = normalizeBusinessType(formData.business_type);
+        const bt = normalizeBusinessType(formData.business_type || selectedIndustryBusinessType);
         if (!bt) {
           toast.error("Please choose a business type");
           return;
@@ -172,7 +192,10 @@ export default function AuthScreen() {
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const payload = isLogin
         ? { email: formData.email, password: formData.password }
-        : formData;
+        : {
+            ...formData,
+            business_type: normalizeBusinessType(formData.business_type || selectedIndustryBusinessType) || undefined,
+          };
 
       const response = await axios.post(`${API}${endpoint}`, payload, { withCredentials: true });
       if (response?.data?.business) {
@@ -395,7 +418,13 @@ export default function AuthScreen() {
                       <Label>Industry</Label>
                       <Select
                         value={formData.industry}
-                        onValueChange={(val) => setFormData({ ...formData, industry: val })}
+                        onValueChange={(val) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            industry: val,
+                            business_type: businessTypeForIndustry(val) || "",
+                          }))
+                        }
                       >
                         <SelectTrigger className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12">
                           <SelectValue placeholder="Select your industry" />
@@ -413,7 +442,7 @@ export default function AuthScreen() {
                     </div>
                   )}
 
-                  {!isLogin && signupStep === 2 && (
+                  {!isLogin && signupStep === 2 && businessTypeChoices.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <Label>What type of business are you?</Label>
@@ -427,7 +456,7 @@ export default function AuthScreen() {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {BUSINESS_TYPES.map((t) => {
+                        {businessTypeChoices.map((t) => {
                           const Icon = BUSINESS_TYPE_ICON[t.icon] || Briefcase;
                           const active = formData.business_type === t.id;
                           return (
@@ -435,9 +464,7 @@ export default function AuthScreen() {
                               key={t.id}
                               type="button"
                               onClick={() => {
-                                const mapped = BUSINESS_TYPE_TO_INDUSTRY[t.id];
-                                const shouldApply = formData.industry === "photobooth" && mapped;
-                                setFormData({ ...formData, business_type: t.id, industry: shouldApply ? mapped : formData.industry });
+                                setFormData({ ...formData, business_type: t.id, industry: BUSINESS_TYPE_TO_INDUSTRY[t.id] || formData.industry });
                               }}
                               className={`p-4 rounded-2xl border text-left transition-colors ${
                                 active
@@ -539,7 +566,9 @@ export default function AuthScreen() {
                       : isLogin
                         ? "Login"
                         : signupStep === 1
-                          ? "Continue"
+                          ? selectedIndustryBusinessType
+                            ? "Continue"
+                            : "Create account"
                           : "Create account"}
                   </Button>
                 </>
