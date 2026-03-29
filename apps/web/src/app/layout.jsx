@@ -3,6 +3,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/App.css";
 import ClientShell from "@/app/ClientShell";
 import SpeedInsightsClient from "@/components/app/SpeedInsightsClient";
+import { Analytics } from "@vercel/analytics/next";
 import ThemeModeSync from "@/components/app/ThemeModeSync";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
         </TooltipProvider>
         <ThemeModeSync />
         <SpeedInsightsClient />
+        <Analytics />
       </body>
     </html>
   );
