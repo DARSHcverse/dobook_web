@@ -1,10 +1,10 @@
 import "server-only";
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { ADMIN_COOKIE_NAME, ADMIN_TOKEN_TTL_SECONDS } from "@/lib/adminCookies";
 import { isOwnerEmail } from "@/lib/entitlements";
 
-export const ADMIN_COOKIE_NAME = "dobook_admin";
-export const ADMIN_TOKEN_TTL_SECONDS = 4 * 60 * 60;
+export { ADMIN_COOKIE_NAME, ADMIN_TOKEN_TTL_SECONDS } from "@/lib/adminCookies";
 
 function getAdminSecret() {
   return String(process.env.ADMIN_SECRET || "").trim();
