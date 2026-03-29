@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendEmailViaResend } from "@/lib/email";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isStripeEventsSchemaMissingError, stripeEventsSchemaDetail } from "@/lib/stripeEventsStore";
 import { hasStripeConfig, stripe } from "@/lib/stripeServer";
 import { isOwnerEmail } from "@/lib/entitlements";
 import {
@@ -152,13 +153,20 @@ async function applyBusinessUpdate(target, updates) {
 }
 
 async function stripeEventExists(stripeEventId) {
-  const { data } = await supabaseAdmin()
+  const { data, error } = await supabaseAdmin()
     .from("stripe_events")
     .select("id")
     .eq("stripe_event_id", stripeEventId)
     .maybeSingle();
 
-  return Boolean(data?.id);
+  if (error) {
+    if (isStripeEventsSchemaMissingError(error)) {
+      return { exists: false, schemaReady: false };
+    }
+    throw error;
+  }
+
+  return { exists: Boolean(data?.id), schemaReady: true };
 }
 
 function getPaymentIntentFailureReason(paymentIntent) {
@@ -337,7 +345,14 @@ async function saveStripeEvent(record) {
     .from("stripe_events")
     .upsert(record, { onConflict: "stripe_event_id" });
 
-  if (error) throw error;
+  if (error) {
+    if (isStripeEventsSchemaMissingError(error)) {
+      return { ok: false, schemaReady: false };
+    }
+    throw error;
+  }
+
+  return { ok: true, schemaReady: true };
 }
 
 async function sendFailedPaymentAlert({ business, record, failureReason }) {
@@ -420,16 +435,21 @@ export async function POST(request) {
   }
 
   try {
-    const alreadySaved = await stripeEventExists(event.id);
+    const eventState = await stripeEventExists(event.id);
     const { business, failureReason, subscriptionForBusinessUpdate, record } = await buildStripeEventRecord(event);
 
     if (subscriptionForBusinessUpdate && business) {
       await applyBusinessUpdate(business, updateFromStripeSubscription(subscriptionForBusinessUpdate));
     }
 
-    await saveStripeEvent(record);
+    const saveResult = eventState.schemaReady ? await saveStripeEvent(record) : { ok: false, schemaReady: false };
 
-    if (!alreadySaved && (event.type === "payment_intent.payment_failed" || event.type === "invoice.payment_failed")) {
+    if (!saveResult.schemaReady) {
+      console.warn(stripeEventsSchemaDetail());
+      return ok();
+    }
+
+    if (!eventState.exists && (event.type === "payment_intent.payment_failed" || event.type === "invoice.payment_failed")) {
       await sendFailedPaymentAlert({
         business,
         record,

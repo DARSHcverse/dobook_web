@@ -99,6 +99,8 @@ export default function PaymentsTab({ active }) {
     activeSubscriptions: 0,
     breakdown: [],
   });
+  const [schemaReady, setSchemaReady] = useState(true);
+  const [schemaDetail, setSchemaDetail] = useState("");
 
   useEffect(() => {
     if (!active) return;
@@ -124,6 +126,8 @@ export default function PaymentsTab({ active }) {
 
         const data = await response.json();
         if (!cancelled) {
+          setSchemaReady(data?.schemaReady !== false);
+          setSchemaDetail(String(data?.detail || ""));
           setPayments(Array.isArray(data?.payments) ? data.payments : []);
         }
       } catch (error) {
@@ -162,6 +166,13 @@ export default function PaymentsTab({ active }) {
 
         const data = await response.json();
         if (!cancelled) {
+          if (data?.schemaReady === false) {
+            setSchemaReady(false);
+            setSchemaDetail(String(data?.detail || ""));
+          } else if (data?.schemaReady === true) {
+            setSchemaReady(true);
+            setSchemaDetail("");
+          }
           setStats({
             monthlyRevenue: Number(data?.monthlyRevenue || 0),
             totalPaid: Number(data?.totalPaid || 0),
@@ -256,6 +267,17 @@ export default function PaymentsTab({ active }) {
             icon={CreditCard}
           />
         </div>
+
+        {!schemaReady ? (
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="pt-5 pb-5">
+              <p className="text-sm font-medium text-amber-900">Payments schema not ready</p>
+              <p className="text-sm text-amber-800 mt-1">
+                {schemaDetail || "Apply the latest Supabase migration before using the Payments tab."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           {STATUS_FILTERS.map((filter) => {

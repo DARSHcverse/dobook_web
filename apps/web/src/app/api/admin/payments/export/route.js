@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/adminAuth";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { listStripeEventsWithBusinesses } from "@/lib/stripeEventsStore";
 import { escapeCsvCell, serializeStripeEventRow } from "@/lib/stripePayments";
 
 export async function GET(request) {
@@ -8,16 +8,8 @@ export async function GET(request) {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;
 
-    const { data, error } = await supabaseAdmin()
-      .from("stripe_events")
-      .select(
-        "id,business_id,stripe_event_id,event_type,amount,currency,status,description,stripe_customer_id,stripe_subscription_id,period_start,period_end,created_at,businesses(business_name,email)",
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    const payments = (data || []).map(serializeStripeEventRow);
+    const { schemaReady, detail, events } = await listStripeEventsWithBusinesses();
+    const payments = (events || []).map(serializeStripeEventRow);
     const headers = [
       "Business Name",
       "Business Email",
@@ -59,6 +51,8 @@ export async function GET(request) {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": 'attachment; filename="dobook-payments.csv"',
         "Cache-Control": "no-store",
+        "X-DoBook-Payments-Schema": schemaReady ? "ready" : "missing",
+        "X-DoBook-Payments-Detail": schemaReady ? "" : detail,
       },
     });
   } catch (error) {
