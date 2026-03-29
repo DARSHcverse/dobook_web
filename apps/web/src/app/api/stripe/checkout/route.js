@@ -73,6 +73,7 @@ export async function POST(request) {
   const session = await client.checkout.sessions.create({
     mode: "subscription",
     customer: customer.id,
+    client_reference_id: String(business?.id || ""),
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
     success_url: `${baseUrl}/dashboard?upgraded=1`,
@@ -80,6 +81,12 @@ export async function POST(request) {
     metadata: {
       business_id: String(business?.id || ""),
       plan: "pro",
+    },
+    subscription_data: {
+      metadata: {
+        business_id: String(business?.id || ""),
+        plan: "pro",
+      },
     },
   });
 

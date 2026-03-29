@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import PaymentsTab from "./PaymentsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -602,6 +603,7 @@ export default function AdminPanel() {
   const openTicketsCount = Number(stats.openTickets || 0);
   const navItems = [
     { value: "businesses", label: "Businesses", icon: Building2 },
+    { value: "payments", label: "Payments", icon: CreditCard },
     { value: "reviews", label: "Reviews", icon: Star },
     {
       value: "support",
@@ -1067,6 +1069,8 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
         </div>
+
+        <PaymentsTab active={activeTab === "payments"} />
 
         <div className={cn("mt-8", activeTab === "reviews" ? "block" : "hidden")}>
             <Card>
