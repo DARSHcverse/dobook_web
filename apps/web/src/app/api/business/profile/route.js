@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
+import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
 
 export async function GET(request) {
   const auth = await requireSession(request);
@@ -28,6 +29,15 @@ export async function PUT(request) {
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
     return allowed.has(raw) ? raw : "photobooth";
   };
+  const normalizeReminderTimes = (value) => {
+    const allowed = new Set([1, 2, 4, 12, 24, 48, 72, 168]);
+    const list = Array.isArray(value) ? value : [];
+    const cleaned = list
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && allowed.has(v));
+    const unique = Array.from(new Set(cleaned));
+    return unique.slice(0, 3);
+  };
   const allowed = [
     "business_name",
     "phone",
@@ -55,12 +65,30 @@ export async function PUT(request) {
     "public_postcode",
     "public_photos",
     "public_website",
+    "public_services",
+    "onboarding_tour_completed_at",
+    "reminders_enabled",
+    "reminder_times",
+    "reminder_custom_message",
+    "reminder_include_payment_link",
+    "reminder_include_booking_details",
+    "confirmation_email_enabled",
   ];
 
   if (auth.mode === "supabase") {
     const updates = {};
     for (const key of allowed) {
       if (!(key in body)) continue;
+      if (key === "onboarding_tour_completed_at") {
+        const raw = body.onboarding_tour_completed_at;
+        if (raw === null || raw === "") {
+          updates.onboarding_tour_completed_at = null;
+        } else {
+          const value = String(raw || "").trim();
+          updates.onboarding_tour_completed_at = value ? value : null;
+        }
+        continue;
+      }
       if (key === "industry") {
         updates.industry = normalizeIndustry(body.industry);
         continue;
@@ -107,6 +135,52 @@ export async function PUT(request) {
           : [];
         continue;
       }
+      if (key === "public_services") {
+        updates.public_services = Array.isArray(body.public_services)
+          ? body.public_services
+            .map((s) => ({
+              name: String(s?.name || "").trim().slice(0, 80),
+              description: String(s?.description || "").trim().slice(0, 400),
+              unit: String(s?.unit || "").trim().slice(0, 40),
+              price:
+                s?.price === null || s?.price === undefined || s?.price === ""
+                  ? null
+                  : (() => {
+                      const n = Number(s.price);
+                      return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+                    })(),
+            }))
+            .filter((s) => s.name)
+            .slice(0, 25)
+          : [];
+        continue;
+      }
+      if (key === "reminders_enabled") {
+        const subStatus = String(auth.business?.subscription_status || "").trim().toLowerCase();
+        const proActive = hasProAccess(auth.business) && (isOwnerBusiness(auth.business) || subStatus === "active");
+        updates.reminders_enabled = proActive ? asBool(body.reminders_enabled) : false;
+        continue;
+      }
+      if (key === "reminder_times") {
+        updates.reminder_times = normalizeReminderTimes(body.reminder_times);
+        continue;
+      }
+      if (key === "reminder_custom_message") {
+        updates.reminder_custom_message = String(body.reminder_custom_message || "").slice(0, 300);
+        continue;
+      }
+      if (key === "reminder_include_payment_link") {
+        updates.reminder_include_payment_link = asBool(body.reminder_include_payment_link);
+        continue;
+      }
+      if (key === "reminder_include_booking_details") {
+        updates.reminder_include_booking_details = asBool(body.reminder_include_booking_details);
+        continue;
+      }
+      if (key === "confirmation_email_enabled") {
+        updates.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
+        continue;
+      }
       if (key === "booth_types") {
         updates.booth_types = Array.isArray(body.booth_types)
           ? body.booth_types.map((v) => String(v || "").trim()).filter(Boolean)
@@ -142,6 +216,16 @@ export async function PUT(request) {
 
   for (const key of allowed) {
     if (!(key in body)) continue;
+    if (key === "onboarding_tour_completed_at") {
+      const raw = body.onboarding_tour_completed_at;
+      if (raw === null || raw === "") {
+        auth.business.onboarding_tour_completed_at = null;
+      } else {
+        const value = String(raw || "").trim();
+        auth.business.onboarding_tour_completed_at = value ? value : null;
+      }
+      continue;
+    }
     if (key === "industry") {
       auth.business.industry = normalizeIndustry(body.industry);
       continue;
@@ -183,6 +267,52 @@ export async function PUT(request) {
       auth.business.public_photos = Array.isArray(body.public_photos)
         ? body.public_photos.map((v) => String(v || "").trim()).filter(Boolean).slice(0, 8)
         : [];
+      continue;
+    }
+    if (key === "public_services") {
+      auth.business.public_services = Array.isArray(body.public_services)
+        ? body.public_services
+          .map((s) => ({
+            name: String(s?.name || "").trim().slice(0, 80),
+            description: String(s?.description || "").trim().slice(0, 400),
+            unit: String(s?.unit || "").trim().slice(0, 40),
+            price:
+              s?.price === null || s?.price === undefined || s?.price === ""
+                ? null
+                : (() => {
+                    const n = Number(s.price);
+                    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+                  })(),
+          }))
+          .filter((s) => s.name)
+          .slice(0, 25)
+        : [];
+      continue;
+    }
+    if (key === "reminders_enabled") {
+      const subStatus = String(auth.business?.subscription_status || "").trim().toLowerCase();
+      const proActive = hasProAccess(auth.business) && (isOwnerBusiness(auth.business) || subStatus === "active");
+      auth.business.reminders_enabled = proActive ? asBool(body.reminders_enabled) : false;
+      continue;
+    }
+    if (key === "reminder_times") {
+      auth.business.reminder_times = normalizeReminderTimes(body.reminder_times);
+      continue;
+    }
+    if (key === "reminder_custom_message") {
+      auth.business.reminder_custom_message = String(body.reminder_custom_message || "").slice(0, 300);
+      continue;
+    }
+    if (key === "reminder_include_payment_link") {
+      auth.business.reminder_include_payment_link = asBool(body.reminder_include_payment_link);
+      continue;
+    }
+    if (key === "reminder_include_booking_details") {
+      auth.business.reminder_include_booking_details = asBool(body.reminder_include_booking_details);
+      continue;
+    }
+    if (key === "confirmation_email_enabled") {
+      auth.business.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
       continue;
     }
     if (key === "booth_types") {

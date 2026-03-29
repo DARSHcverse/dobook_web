@@ -30,10 +30,40 @@ export async function POST(request) {
   const baseUrl = appBaseUrlFromRequest(request);
   const client = stripe();
 
-  const portal = await client.billingPortal.sessions.create({
+  const body = await request.json().catch(() => ({}));
+  const flow = String(body?.flow || "").trim().toLowerCase();
+
+  const baseParams = {
     customer: customerId,
     return_url: `${baseUrl}/dashboard?billing=1`,
-  });
+  };
+
+  const subscriptionId =
+    String(body?.subscription_id || auth.business?.stripe_subscription_id || "").trim();
+
+  const params =
+    flow === "cancel" && subscriptionId
+      ? {
+          ...baseParams,
+          flow_data: {
+            type: "subscription_cancel",
+            subscription_cancel: { subscription: subscriptionId },
+          },
+        }
+      : baseParams;
+
+  let portal;
+  try {
+    portal = await client.billingPortal.sessions.create(params);
+  } catch (err) {
+    // If the Stripe account doesn't have the cancellation flow enabled (or the API shape differs),
+    // fall back to the normal portal so the user can still cancel from there.
+    if (flow === "cancel") {
+      portal = await client.billingPortal.sessions.create(baseParams);
+    } else {
+      throw err;
+    }
+  }
 
   return NextResponse.json({ url: portal.url });
 }

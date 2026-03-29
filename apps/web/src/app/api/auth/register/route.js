@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { readDb, writeDb, sanitizeBusiness } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendBusinessWelcomeEmail } from "@/lib/bookingMailer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
+import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
+import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
+import { rateLimit } from "@/app/api/_utils/rateLimit";
+
+export const runtime = "nodejs";
 
 export async function POST(request) {
-  const body = await request.json();
+  const limited = await rateLimit({
+    request,
+    keyPrefix: "auth:register",
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limited.ok) {
+    const res = NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    res.headers.set("Retry-After", String(limited.retryAfter || 3600));
+    return res;
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const honeypot = String(body?.signup_hp || "").trim();
+  if (honeypot) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
   const businessName = String(body?.business_name || "").trim();
@@ -16,10 +37,11 @@ export async function POST(request) {
   const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
   const requested_plan = String(body?.subscription_plan || "free").trim().toLowerCase();
   const allowedPlans = new Set(["free", "pro"]);
+
   if (!allowedPlans.has(requested_plan)) {
     return NextResponse.json({ detail: "Invalid subscription_plan" }, { status: 400 });
   }
-  // Prevent bypassing Stripe by signing up directly as "pro", but allow website-owner access.
+
   const owner = isOwnerEmail(email);
   const subscription_plan = owner ? "pro" : "free";
   const subscription_status = owner ? "active" : "inactive";
@@ -30,6 +52,7 @@ export async function POST(request) {
     const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
     return allowed.has(raw) ? raw : "photobooth";
   };
+  const business_type = normalizeBusinessType(body?.business_type);
   const industry = normalizeIndustry(body?.industry);
 
   const defaultBoothTypesForIndustry = (ind) => {
@@ -58,96 +81,27 @@ export async function POST(request) {
     );
   }
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
+  const sb = supabaseAdmin();
 
-    const { data: existing, error: existingError } = await sb
-      .from("businesses")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-    if (existingError) {
-      return NextResponse.json({ detail: existingError.message }, { status: 500 });
-    }
-    if (existing) {
-      return NextResponse.json({ detail: "Email already registered" }, { status: 400 });
-    }
+  const { data: existing, error: existingError } = await sb
+    .from("businesses")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
 
-    const id = randomUUID();
-    const password_hash = await bcrypt.hash(password, 10);
-
-    const business = {
-      id,
-      business_name: businessName,
-      email,
-      phone,
-      business_address: "",
-      abn: "",
-      logo_url: "",
-      bank_name: "",
-      account_name: "",
-      bsb: "",
-      account_number: "",
-      payment_link: "",
-      industry,
-      booth_types: defaultBoothTypesForIndustry(industry),
-      booking_custom_fields: [],
-      account_role,
-      subscription_plan,
-      subscription_status,
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      stripe_price_id: null,
-      subscription_current_period_end: null,
-      booking_count: 0,
-      invoice_seq: 0,
-      password_hash,
-      created_at: new Date().toISOString(),
-    };
-
-    const token = randomUUID();
-    const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { error: businessInsertError } = await sb.from("businesses").insert(business);
-    if (businessInsertError) {
-      if (String(businessInsertError.message || "").toLowerCase().includes("row-level security")) {
-        return NextResponse.json(
-          {
-            detail:
-              "Supabase RLS blocked creating the business. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
-          },
-          { status: 500 },
-        );
-      }
-      return NextResponse.json({ detail: businessInsertError.message }, { status: 400 });
-    }
-
-    const { error: sessionInsertError } = await sb.from("sessions").insert({
-      token,
-      business_id: id,
-      created_at: new Date().toISOString(),
-      expires_at,
-    });
-    if (sessionInsertError) {
-      return NextResponse.json({ detail: sessionInsertError.message }, { status: 500 });
-    }
-
-    try {
-      await sendBusinessWelcomeEmail({ business });
-    } catch {
-      // ignore email failures
-    }
-
-    return NextResponse.json({ token, business: sanitizeBusiness(business) });
+  if (existingError) {
+    return NextResponse.json({ detail: existingError.message }, { status: 500 });
   }
-
-  const db = readDb();
-  if (db.businesses.some((b) => b.email.toLowerCase() === email)) {
+  if (existing) {
     return NextResponse.json({ detail: "Email already registered" }, { status: 400 });
   }
 
   const id = randomUUID();
   const password_hash = await bcrypt.hash(password, 10);
+
+  const seed = business_type ? deriveBusinessSeedFromType({ businessType: business_type }) : null;
+  const seededBoothTypes =
+    Array.isArray(seed?.booth_types) && seed.booth_types.length ? seed.booth_types : defaultBoothTypesForIndustry(industry);
 
   const business = {
     id,
@@ -163,8 +117,20 @@ export async function POST(request) {
     account_number: "",
     payment_link: "",
     industry,
-    booth_types: defaultBoothTypesForIndustry(industry),
-    booking_custom_fields: [],
+    business_type: seed?.business_type || null,
+    booth_types: seededBoothTypes,
+    booking_custom_fields: Array.isArray(seed?.booking_custom_fields) ? seed.booking_custom_fields : [],
+    buffer_mins: Number(seed?.buffer_mins || 0),
+    advance_booking_hrs: Number(seed?.advance_booking_hrs || 0),
+    reminder_timing_hrs: Array.isArray(seed?.reminder_timing_hrs) ? seed.reminder_timing_hrs : [],
+    reminders_enabled: String(subscription_plan || "free").trim().toLowerCase() === "pro",
+    reminder_times: Array.isArray(seed?.reminder_timing_hrs) && seed.reminder_timing_hrs.length ? seed.reminder_timing_hrs : [48, 2],
+    reminder_custom_message: "",
+    reminder_include_payment_link: false,
+    reminder_include_booking_details: true,
+    confirmation_email_enabled: true,
+    allow_recurring: Boolean(seed?.allow_recurring),
+    require_deposit: Boolean(seed?.require_deposit),
     account_role,
     subscription_plan,
     subscription_status,
@@ -176,18 +142,44 @@ export async function POST(request) {
     invoice_seq: 0,
     password_hash,
     created_at: new Date().toISOString(),
+    onboarding_tour_completed_at: null,
   };
 
   const token = randomUUID();
-  db.businesses.push(business);
-  db.sessions.push({
-    token,
-    businessId: id,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-  });
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expires_at = expiresAt.toISOString();
 
-  writeDb(db);
+  const { error: businessInsertError } = await sb.from("businesses").insert(business);
+  if (businessInsertError) {
+    if (String(businessInsertError.message || "").toLowerCase().includes("row-level security")) {
+      return NextResponse.json(
+        {
+          detail:
+            "Supabase RLS blocked creating the business. Make sure your server uses the service_role key: set SUPABASE_SERVICE_ROLE_KEY (or SUBABASE_API_KEY) to the service_role key, not the anon key.",
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ detail: businessInsertError.message }, { status: 400 });
+  }
+
+  const { error: sessionInsertError } = await sb.from("sessions").insert({
+    token,
+    business_id: id,
+    created_at: new Date().toISOString(),
+    expires_at,
+  });
+  if (sessionInsertError) {
+    return NextResponse.json({ detail: sessionInsertError.message }, { status: 500 });
+  }
+
+  try {
+    if (business_type) {
+      await seedBusinessTypeDefaultsOnSignup({ sb, businessId: id, businessType: business_type });
+    }
+  } catch {
+    // ignore seeding failures (business can apply from Settings later)
+  }
 
   try {
     await sendBusinessWelcomeEmail({ business });
@@ -195,5 +187,19 @@ export async function POST(request) {
     // ignore email failures
   }
 
-  return NextResponse.json({ token, business: sanitizeBusiness(business) });
+  try {
+    await sendOwnerNewSignupEmail({ business, requestedPlan: requested_plan });
+  } catch {
+    // ignore email failures
+  }
+
+  const response = NextResponse.json({ business: sanitizeBusiness(business) });
+  response.cookies.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    expires: expiresAt,
+    path: "/",
+  });
+  return response;
 }

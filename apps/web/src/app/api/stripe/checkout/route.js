@@ -42,6 +42,7 @@ export async function POST(request) {
   const plan = String(body?.plan || "pro").trim().toLowerCase();
   if (plan !== "pro") return badRequest("Only the pro plan is supported");
 
+  // STRIPE_PRICE_PRO_AUD should be the Stripe Price ID for the Pro plan ($20 AUD/month).
   const priceId = process.env.STRIPE_PRICE_PRO_AUD?.trim();
   if (!priceId) {
     return NextResponse.json(
@@ -72,6 +73,7 @@ export async function POST(request) {
   const session = await client.checkout.sessions.create({
     mode: "subscription",
     customer: customer.id,
+    client_reference_id: String(business?.id || ""),
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
     success_url: `${baseUrl}/dashboard?upgraded=1`,
@@ -79,6 +81,12 @@ export async function POST(request) {
     metadata: {
       business_id: String(business?.id || ""),
       plan: "pro",
+    },
+    subscription_data: {
+      metadata: {
+        business_id: String(business?.id || ""),
+        plan: "pro",
+      },
     },
   });
 

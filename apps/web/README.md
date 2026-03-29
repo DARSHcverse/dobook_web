@@ -35,6 +35,13 @@ No separate backend is required. The app uses same-origin `/api/*` routes and pe
 
 Note for Vercel: the filesystem is ephemeral, so `localdb.json` won’t persist reliably in production. Use an external store (DB/KV) for real deployments.
 
+### Email (Resend)
+
+- `RESEND_API_KEY`: required to send emails
+- `RESEND_FROM`: optional sender (defaults to `DoBook <onboarding@resend.dev>`)
+- `RESEND_ACCOUNT_EMAIL`: recommended for Resend test mode (lets you email a non-`@resend.dev` inbox when using `onboarding@resend.dev`)
+- `SIGNUP_NOTIFY_EMAILS` (or `SIGNUP_NOTIFY_EMAIL`): where to send “new signup” notifications (falls back to `SUPPORT_EMAIL`, then `OWNER_EMAILS`, then `RESEND_ACCOUNT_EMAIL`)
+
 ## Routes
 
 - `/` landing page + auth dialog

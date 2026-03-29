@@ -4,33 +4,46 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import '@/App.css';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import {
+  ArrowUpDown,
   BarChart3,
   Bell,
   Calendar,
+  CalendarDays,
   Clock,
+  Code,
   CreditCard,
   FileText,
-  Home,
+  Globe,
+  LayoutDashboard,
   Link2,
   List,
   LogOut,
   MapPin,
   MessageSquare,
   Plus,
+  Search,
   Settings,
   Smartphone,
+  Star,
   Upload,
+  User,
+  UserCheck,
   Users,
+  Users2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as BigCalendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { addDays, addMinutes, addMonths, addWeeks, format, getDay, parse, parseISO, startOfWeek } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
@@ -38,14 +51,48 @@ import jsPDF from 'jspdf';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
+import { PRO_PRICE_AUD } from '@/lib/pricing';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import BusinessTour from '@/components/tour/BusinessTour';
+import ThemeModeToggle from "@/components/app/ThemeModeToggle";
+import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard';
+import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
+import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
+import { cn } from '@/lib/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 const API = `${API_BASE}/api`;
+axios.defaults.withCredentials = true;
 
 const DOBOOK_LOGO_PNG = '/brand/dobook-logo.png';
 const DOBOOK_LOGO_SVG = '/brand/dobook-logo.svg';
+
+const bookingStatusBadgeClass = (status) =>
+  cn(
+    "rounded-full px-3 py-0.5 text-xs font-medium capitalize",
+    status === 'confirmed' && "border-green-200 bg-green-50 text-green-700",
+    status === 'cancelled' && "border-red-200 bg-red-50 text-red-700",
+    status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700",
+    status === 'completed' && "border-gray-200 bg-gray-50 text-gray-600",
+  );
+
+const isVipClient = (client) => Number(client?.total_bookings || 0) > 4;
+
+function VipBadge({ className = '' }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-800',
+        className,
+      )}
+    >
+      <Star className="h-3 w-3 fill-current" />
+      VIP
+    </span>
+  );
+}
 
 function BrandLogo({ size = 'md', className = '' }) {
   const [src, setSrc] = useState(DOBOOK_LOGO_PNG);
@@ -183,10 +230,16 @@ function bookingToEvent(booking) {
 
   const booth = booking?.booth_type || booking?.service_type || 'Booking';
   const customer = booking?.customer_name || 'Customer';
+  const staffName =
+    booking?.staff?.name
+    || booking?.staff_name
+    || booking?.assigned_staff_name
+    || '';
+  const staffSuffix = staffName ? ` (${staffName})` : '';
   const isCancelled = String(booking?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
   return {
     id: booking.id,
-    title: `${customer} - ${booth}${isCancelled ? ' (Cancelled)' : ''}`,
+    title: `${customer} - ${booth}${staffSuffix}${isCancelled ? ' (Cancelled)' : ''}`,
     start,
     end,
     resource: booking,
@@ -464,124 +517,685 @@ async function downloadInvoicePdf({ booking, business, template }) {
 const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [requestingReview, setRequestingReview] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [bookingFieldDefs, setBookingFieldDefs] = useState([]);
+  const [currentBooking, setCurrentBooking] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    booking_date: '',
+    booking_time: '',
+    booth_type: '',
+    service_type: '',
+    price: '',
+    notes: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [sendingInvoice, setSendingInvoice] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [assigningStaff, setAssigningStaff] = useState(false);
+  const [staffSelection, setStaffSelection] = useState('');
+  const [backdropNotes, setBackdropNotes] = useState('');
+
+  useEffect(() => {
+    setCurrentBooking(booking || null);
+    setIsEditing(false);
+    setEditData({
+      booking_date: booking?.booking_date || '',
+      booking_time: booking?.booking_time || '',
+      booth_type: booking?.booth_type || '',
+      service_type: booking?.service_type || '',
+      price: booking?.price ?? '',
+      notes: booking?.notes || '',
+    });
+    setStaffSelection(booking?.staff_id || '');
+    setBackdropNotes(booking?.backdrop_notes || '');
+  }, [booking]);
+
+  useEffect(() => {
+    if (!booking) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await axios.get(`${API}/business/booking-form-fields`);
+        if (cancelled) return;
+        setBookingFieldDefs(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setBookingFieldDefs([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
+
+  useEffect(() => {
+    if (!booking) return;
+    let cancelled = false;
+    const run = async () => {
+      setStaffLoading(true);
+      try {
+        const res = await axios.get(`${API}/staff`);
+        if (cancelled) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.staff) ? res.data.staff : [];
+        setStaffList(list);
+      } catch {
+        if (!cancelled) setStaffList([]);
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
+
+  const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
+    ? business.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+
+  const paymentStatusOptions = [
+    { value: 'unpaid', label: 'Unpaid' },
+    { value: 'deposit_paid', label: 'Deposit Paid' },
+    { value: 'paid_in_full', label: 'Paid in Full' },
+  ];
+
+  const paymentMethodOptions = [
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cash', label: 'Cash' },
+    { value: 'online', label: 'Online' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const activeStaff = staffList.filter((member) => member?.is_active !== false);
+  const assignedStaff = staffList.find((member) => String(member?.id || '') === String(currentBooking?.staff_id || ''));
+  const staffOptions = assignedStaff && assignedStaff.is_active === false
+    ? [...activeStaff, assignedStaff]
+    : activeStaff;
+
+  const updateBooking = async (updates, { successMessage } = {}) => {
+    if (!currentBooking?.id) return null;
+    try {
+      const res = await axios.put(`${API}/bookings/${currentBooking.id}`, updates);
+      const next = res?.data || null;
+      if (next) setCurrentBooking(next);
+      if (successMessage) toast.success(successMessage);
+      return next;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update booking');
+      return null;
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!currentBooking?.id) return;
+    const updates = {
+      booking_date: editData.booking_date || '',
+      booking_time: editData.booking_time || '',
+      price: editData.price === '' ? '' : Number(editData.price || 0),
+      notes: editData.notes || '',
+      ...(isPhotoBooth
+        ? { booth_type: editData.booth_type || '' }
+        : { service_type: editData.service_type || '' }),
+    };
+
+    setSavingEdit(true);
+    const next = await updateBooking(updates, { successMessage: 'Booking updated' });
+    if (next) {
+      setIsEditing(false);
+      setEditData({
+        booking_date: next?.booking_date || '',
+        booking_time: next?.booking_time || '',
+        booth_type: next?.booth_type || '',
+        service_type: next?.service_type || '',
+        price: next?.price ?? '',
+        notes: next?.notes || '',
+      });
+    }
+    setSavingEdit(false);
+  };
+
+  const handlePaymentUpdate = async (updates) => {
+    setSavingPayment(true);
+    await updateBooking(updates);
+    setSavingPayment(false);
+  };
+
+  const handleSendInvoice = async () => {
+    if (!currentBooking?.id) return;
+    setSendingInvoice(true);
+    try {
+      await axios.post(`${API}/bookings/${currentBooking.id}/send-invoice`);
+      toast.success(`Invoice sent to ${currentBooking.customer_email}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to send invoice');
+    } finally {
+      setSendingInvoice(false);
+    }
+  };
+
+  const handleAssignStaff = async () => {
+    if (!currentBooking?.id) return;
+    setAssigningStaff(true);
+    const updates = {
+      staff_id: staffSelection || null,
+      backdrop_notes: backdropNotes || '',
+    };
+    const successMessage = staffSelection ? 'Staff assigned' : 'Staff updated';
+    const next = await updateBooking(updates, { successMessage });
+    if (next) {
+      setStaffSelection(next?.staff_id || '');
+      setBackdropNotes(next?.backdrop_notes || '');
+    }
+    setAssigningStaff(false);
+  };
+
+  const handleRemoveStaff = async () => {
+    if (!currentBooking?.id) return;
+    setAssigningStaff(true);
+    const next = await updateBooking({ staff_id: null }, { successMessage: 'Staff removed' });
+    if (next) {
+      setStaffSelection('');
+    }
+    setAssigningStaff(false);
+  };
+
+  const lineItems = Array.isArray(currentBooking?.line_items) ? currentBooking.line_items : [];
+  const baseItem = lineItems.length ? lineItems[0] : null;
+  const travelLabel = String(business?.travel_fee_label || 'Travel charge').trim().toLowerCase();
+  const cbdLabel = String(business?.cbd_fee_label || 'CBD logistics').trim().toLowerCase();
+  const travelItem = lineItems.find((item, idx) =>
+    idx !== 0 && String(item?.description || '').toLowerCase().includes(travelLabel),
+  );
+  const cbdItem = lineItems.find((item, idx) =>
+    idx !== 0 && String(item?.description || '').toLowerCase().includes(cbdLabel),
+  );
+  const addonItems = lineItems.filter((item, idx) =>
+    item && idx !== 0 && item !== travelItem && item !== cbdItem,
+  );
+
+  const lineItemTotal = (item) => {
+    if (!item) return 0;
+    const raw =
+      item?.total !== undefined && item?.total !== null
+        ? Number(item.total)
+        : item?.amount !== undefined && item?.amount !== null
+          ? Number(item.amount)
+          : Number(item?.unit_price || 0) * Math.max(1, Number(item?.qty || 1));
+    return Number.isFinite(raw) ? raw : 0;
+  };
+
+  const bookingStatus = String(currentBooking?.status || 'confirmed').toLowerCase();
+  const invoiceNumber =
+    currentBooking?.invoice_id || `INV-${String(currentBooking?.id || '').slice(0, 8).toUpperCase()}`;
+  const totalAmount = Number(currentBooking?.total_amount ?? bookingTotalAmount(currentBooking)).toFixed(2);
 
   return (
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
-      <DialogContent data-testid="booking-detail-dialog" className="sm:max-w-2xl">
+      <DialogContent
+        data-testid="booking-detail-dialog"
+        className="!rounded-2xl p-5 sm:p-7 !max-h-[90vh] !min-h-[72vh] overflow-y-auto sm:!max-w-[46rem] lg:!max-w-[54rem] xl:!max-w-[58rem]"
+      >
         <DialogHeader>
-          <DialogTitle style={{fontFamily: 'Manrope'}}>Booking Details</DialogTitle>
-          <DialogDescription>Complete booking information</DialogDescription>
+          <DialogTitle>{currentBooking?.customer_name || 'Booking Details'}</DialogTitle>
+          <p className="text-sm text-muted-foreground">{invoiceNumber}</p>
         </DialogHeader>
 
-        {booking && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-zinc-600">Customer Name</Label>
-                <p className="font-semibold">{booking.customer_name}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Email</Label>
-                <p className="font-semibold">{booking.customer_email}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Booth Type</Label>
-                <p className="font-semibold">{booking.booth_type || booking.service_type}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Price</Label>
-                <p className="font-semibold text-emerald-600">${bookingTotalAmount(booking).toFixed(2)}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Date</Label>
-                <p className="font-semibold">{booking.booking_date}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Time</Label>
-                <p className="font-semibold">{booking.booking_time}</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Duration</Label>
-                <p className="font-semibold">{Math.round((Number(booking.duration_minutes) || 60) / 60 * 10) / 10} hours</p>
-              </div>
-              <div>
-                <Label className="text-zinc-600">Status</Label>
-                <span
-                  className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                    String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-emerald-100 text-emerald-700'
-                  }`}
+        {currentBooking && (
+          <div className="mt-4 space-y-6 sm:mt-6">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              {!isEditing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => setIsEditing(true)}
                 >
-                  {booking.status || 'confirmed'}
-                </span>
-              </div>
-            </div>
-
-            {booking.notes && (
-              <div>
-                <Label className="text-zinc-600">Notes</Label>
-                <p className="mt-1 text-sm">{booking.notes}</p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-zinc-600">Invoice</Label>
-                <div className="flex items-center gap-2">
+                  Edit
+                </Button>
+              ) : (
+                <>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={updatingStatus}
-                    className={`h-9 ${String(booking.status || '').toLowerCase() === 'cancelled' ? '' : 'border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800'}`}
-                    onClick={async () => {
-                      const isCancelled = String(booking.status || 'confirmed').toLowerCase() === 'cancelled';
-                      const next = isCancelled ? 'confirmed' : 'cancelled';
-                      const ok = window.confirm(
-                        isCancelled
-                          ? 'Mark this booking as confirmed again?'
-                          : 'Mark this booking as cancelled?',
-                      );
-                      if (!ok) return;
-                      setUpdatingStatus(true);
-                      try {
-                        const token = localStorage.getItem('dobook_token');
-                        await axios.put(
-                          `${API}/bookings/${booking.id}`,
-                          { status: next },
-                          { headers: { Authorization: `Bearer ${token}` } },
-                        );
-                        toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
-                        onClose?.();
-                      } catch (e) {
-                        toast.error(e.response?.data?.detail || 'Failed to update booking');
-                      } finally {
-                        setUpdatingStatus(false);
-                      }
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditData({
+                        booking_date: currentBooking?.booking_date || '',
+                        booking_time: currentBooking?.booking_time || '',
+                        booth_type: currentBooking?.booth_type || '',
+                        service_type: currentBooking?.service_type || '',
+                        price: currentBooking?.price ?? '',
+                        notes: currentBooking?.notes || '',
+                      });
                     }}
                   >
-                    {String(booking.status || 'confirmed').toLowerCase() === 'cancelled' ? 'Restore' : 'Cancel'}
+                    Cancel
                   </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    disabled={savingEdit}
+                    onClick={handleEditSave}
+                  >
+                    {savingEdit ? 'Saving…' : 'Save'}
+                  </Button>
+                </>
+              )}
+            </div>
 
-                  {String(booking?.customer_email || '').trim() && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Booking Details
+              </p>
+              <div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Service</span>
+                  {isEditing ? (
+                    isPhotoBooth ? (
+                      <Select
+                        value={editData.booth_type || ''}
+                        onValueChange={(val) => setEditData((prev) => ({ ...prev, booth_type: val }))}
+                      >
+                        <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {boothTypes.map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={editData.service_type}
+                        onChange={(e) => setEditData((prev) => ({ ...prev, service_type: e.target.value }))}
+                        className="h-9 w-full sm:w-[220px]"
+                      />
+                    )
+                  ) : (
+                    <span className="text-sm font-medium">{currentBooking.booth_type || currentBooking.service_type}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Date</span>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editData.booking_date}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, booking_date: e.target.value }))}
+                      className="h-9 w-full sm:w-[220px]"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">{currentBooking.booking_date}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Time</span>
+                  {isEditing ? (
+                    <Input
+                      type="time"
+                      value={editData.booking_time}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, booking_time: e.target.value }))}
+                      className="h-9 w-full sm:w-[220px]"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">{currentBooking.booking_time}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Price</span>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editData.price}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, price: e.target.value }))}
+                      className="h-9 w-full sm:w-[220px]"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium text-primary">
+                      ${bookingTotalAmount(currentBooking).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Duration</span>
+                  <span className="text-sm font-medium">
+                    {Math.round((Number(currentBooking.duration_minutes) || 60) / 60 * 10) / 10} hours
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={bookingStatusBadgeClass(bookingStatus)}>
+                    {bookingStatus}
+                  </Badge>
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm font-medium">{currentBooking.customer_email}</span>
+                </div>
+                {currentBooking.customer_phone ? (
+                  <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm text-muted-foreground">Phone</span>
+                    <span className="text-sm font-medium">{currentBooking.customer_phone}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Payment
+              </p>
+              <div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm font-medium text-primary">${totalAmount}</span>
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Payment status</span>
+                  <Select
+                    value={String(currentBooking?.payment_status || 'unpaid').toLowerCase()}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_status: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                      <SelectValue placeholder="Payment status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentStatusOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Payment method</span>
+                  <Select
+                    value={currentBooking?.payment_method ? String(currentBooking.payment_method).toLowerCase() : undefined}
+                    onValueChange={(val) => handlePaymentUpdate({ payment_method: val })}
+                    disabled={savingPayment}
+                  >
+                    <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                      <SelectValue placeholder="Payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethodOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Staff
+              </p>
+              <div>
+                {assignedStaff ? (
+                  <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">{assignedStaff.name}</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm text-muted-foreground">Assigned to</span>
+                    <span className="text-sm font-medium text-foreground">No staff assigned yet.</span>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Select staff</span>
+                  <Select
+                    value={staffSelection || ''}
+                    onValueChange={(val) => setStaffSelection(val)}
+                    disabled={staffLoading}
+                  >
+                    <SelectTrigger className="h-9 w-full sm:w-[220px]">
+                      <SelectValue placeholder="Select staff member (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffOptions.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} {member.email ? `(${member.email})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={assigningStaff || staffLoading}
+                    onClick={handleAssignStaff}
+                  >
+                    {assigningStaff ? 'Saving...' : 'Assign'}
+                  </Button>
+                  {currentBooking?.staff_id ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      disabled={requestingReview}
-                      onClick={async () => {
-                        setRequestingReview(true);
-                        try {
-                          const token = localStorage.getItem('dobook_token');
-                          const res = await axios.post(
-                            `${API}/reviews/request`,
-                            { booking_id: booking.id },
-                            { headers: { Authorization: `Bearer ${token}` } },
-                          );
-                          const url = res?.data?.url;
-                          const skipped = Boolean(res?.data?.email?.skipped);
+                      variant="ghost"
+                      onClick={handleRemoveStaff}
+                      disabled={assigningStaff}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+                {staffLoading ? (
+                  <div className="text-xs text-muted-foreground mt-2">Loading staff members...</div>
+                ) : staffOptions.length === 0 ? (
+                  <div className="text-xs text-muted-foreground mt-2">No active staff members yet.</div>
+                ) : null}
+                <div className="grid gap-2 mb-4">
+                  <Label className="text-sm">Backdrop / Setup Details (optional)</Label>
+                  <Textarea
+                    value={backdropNotes}
+                    onChange={(e) => setBackdropNotes(e.target.value)}
+                    className="min-h-[96px]"
+                    placeholder="e.g. White floral backdrop, gold frame, fairy lights"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(currentBooking.notes || isEditing) && (
+              <>
+                <Separator className="my-4" />
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Notes
+                  </p>
+                  {isEditing ? (
+                    <Textarea
+                      value={editData.notes}
+                      onChange={(e) => setEditData((prev) => ({ ...prev, notes: e.target.value }))}
+                      className="min-h-[96px]"
+                    />
+                  ) : (
+                    <p className="text-sm">{currentBooking.notes}</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Charges
+              </p>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="divide-y divide-border">
+                  <div className="flex items-center justify-between p-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {baseItem?.description || currentBooking.booth_type || currentBooking.service_type || 'Service'}
+                    </span>
+                    <span className="font-medium">
+                      ${lineItemTotal(baseItem || {
+                        unit_price: currentBooking?.price || 0,
+                        qty: currentBooking?.quantity || 1,
+                        total: (Number(currentBooking?.price || 0) * Math.max(1, Number(currentBooking?.quantity || 1))),
+                      }).toFixed(2)}
+                    </span>
+                  </div>
+                  {travelItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{travelItem.description || 'Travel fee'}</span>
+                      <span className="font-medium">${lineItemTotal(travelItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {cbdItem ? (
+                    <div className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{cbdItem.description || 'CBD logistics fee'}</span>
+                      <span className="font-medium">${lineItemTotal(cbdItem).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {addonItems.map((item, idx) => (
+                    <div key={`${item?.description || 'addon'}-${idx}`} className="flex items-center justify-between p-3 text-sm">
+                      <span className="text-muted-foreground">{item?.description || 'Add-on'}</span>
+                      <span className="font-medium">${lineItemTotal(item).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between p-3 text-sm font-semibold">
+                    <span>Total amount</span>
+                    <span>${totalAmount}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {currentBooking?.custom_fields && typeof currentBooking.custom_fields === "object" && Object.keys(currentBooking.custom_fields).length ? (
+              <>
+                <Separator className="my-4" />
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Custom Fields
+                  </p>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <div className="divide-y divide-border">
+                      {Object.entries(currentBooking.custom_fields || {}).map(([k, v]) => {
+                        const key = String(k || "").trim();
+                        if (!key) return null;
+                        const def = (bookingFieldDefs || []).find((d) => String(d?.field_key || "").trim() === key);
+                        const label = String(def?.field_name || "")
+                          ? String(def.field_name)
+                          : key.replaceAll(/[_-]+/g, " ").replaceAll(/\s+/g, " ").trim();
+                        const isPrivate = Boolean(def?.is_private);
+                        const value =
+                          Array.isArray(v) ? `${v.filter(Boolean).length} file(s)` : (v === true ? "Yes" : v === false ? "No" : String(v ?? ""));
+                        return (
+                          <div key={key} className="p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold">
+                                {label}
+                              </div>
+                              {isPrivate ? (
+                                <span className="text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                  Private
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground break-words">{value}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                Actions
+              </p>
+              <div className="space-y-2">
+                <Button
+                  data-testid="download-invoice-btn"
+                  onClick={async () => {
+                    try {
+                      const res = await axios.get(`${API}/invoices/pdf/${currentBooking.id}`, {
+                        responseType: 'blob',
+                      });
+                      const blob = res?.data;
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${invoiceNumber}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                      toast.success('Invoice downloaded!');
+                    } catch (e) {
+                      toast.error('Failed to generate invoice PDF');
+                    }
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={sendingInvoice}
+                  onClick={handleSendInvoice}
+                >
+                  {sendingInvoice ? 'Sending…' : 'Send Invoice'}
+                </Button>
+                {String(currentBooking?.customer_email || '').trim() && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={requestingReview}
+                    onClick={async () => {
+                      setRequestingReview(true);
+                      try {
+                        const res = await axios.post(
+                          `${API}/reviews/request`,
+                          { booking_id: currentBooking.id },
+                        );
+                        const url = res?.data?.url;
+                        const skipped = Boolean(res?.data?.email?.skipped);
+                        if (skipped && url) {
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            toast.success('Review link copied (email not sent)');
+                          } catch {
+                            toast.success('Review link created');
+                          }
+                        } else {
+                          toast.success('Review request sent');
+                        }
+                      } catch (e) {
+                        if (e?.response?.status === 409) {
+                          const url = e?.response?.data?.url;
+                          const skipped = Boolean(e?.response?.data?.email?.skipped);
                           if (skipped && url) {
                             try {
                               await navigator.clipboard.writeText(url);
@@ -590,58 +1204,53 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                               toast.success('Review link created');
                             }
                           } else {
-                            toast.success('Review request sent');
+                            toast.success('Review request already sent');
                           }
-                        } catch (e) {
-                          toast.error(e.response?.data?.detail || 'Failed to request review');
-                        } finally {
-                          setRequestingReview(false);
+                          return;
                         }
-                      }}
-                    >
-                      {requestingReview ? 'Sending…' : 'Request review'}
-                    </Button>
-                  )}
-
-                  <Button
-                    data-testid="download-invoice-btn"
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('dobook_token');
-                        if (!token) throw new Error('Not logged in');
-                        const res = await axios.get(`${API}/invoices/pdf/${booking.id}`, {
-                          headers: { Authorization: `Bearer ${token}` },
-                          responseType: 'blob',
-                        });
-                        const blob = res?.data;
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}.pdf`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(url);
-                        toast.success('Invoice downloaded!');
-                      } catch (e) {
-                        toast.error('Failed to generate invoice PDF');
+                        toast.error(e.response?.data?.detail || 'Failed to request review');
+                      } finally {
+                        setRequestingReview(false);
                       }
                     }}
-                    size="sm"
-                    className="h-9 bg-rose-600 hover:bg-rose-700"
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Download PDF
+                    {requestingReview ? 'Sending…' : 'Request Review'}
                   </Button>
-                </div>
+                )}
+                <Button
+                  type="button"
+                  variant={bookingStatus === 'cancelled' ? 'outline' : 'destructive'}
+                  className="w-full"
+                  disabled={updatingStatus}
+                  onClick={async () => {
+                    const isCancelled = bookingStatus === 'cancelled';
+                    const next = isCancelled ? 'confirmed' : 'cancelled';
+                    const ok = window.confirm(
+                      isCancelled
+                        ? 'Mark this booking as confirmed again?'
+                        : 'Mark this booking as cancelled?',
+                    );
+                    if (!ok) return;
+                    setUpdatingStatus(true);
+                    try {
+                      await axios.put(
+                        `${API}/bookings/${currentBooking.id}`,
+                        { status: next },
+                      );
+                      toast.success(isCancelled ? 'Booking restored' : 'Booking cancelled');
+                      onClose?.();
+                    } catch (e) {
+                      toast.error(e.response?.data?.detail || 'Failed to update booking');
+                    } finally {
+                      setUpdatingStatus(false);
+                    }
+                  }}
+                >
+                  {bookingStatus === 'cancelled' ? 'Restore Booking' : 'Cancel Booking'}
+                </Button>
               </div>
-              <div className="p-4 bg-zinc-50 rounded-lg">
-                <p className="text-sm text-zinc-600">
-                  Invoice: {booking.invoice_id || `INV-${String(booking?.id || '').slice(0, 8).toUpperCase()}`}
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Generated locally (no backend required)
-                </p>
+              <div className="mt-3 text-xs text-muted-foreground">
+                Invoice: {invoiceNumber}
               </div>
             </div>
           </div>
@@ -657,12 +1266,54 @@ const LandingPage = ({
   heroAccent = 'for Businesses',
   heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
   getStartedHref = '/auth',
-  startFreeHref = '/auth?plan=free',
+  startFreeHref = '/auth?mode=signup&plan=free',
   customerHref = '/discover',
 } = {}) => {
   const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState({ authed: false, business: null });
   const [heroPreviewTab, setHeroPreviewTab] = useState('bookings');
   const [productPreviewTab, setProductPreviewTab] = useState('bookings');
+  const [platformReviews, setPlatformReviews] = useState([]);
+
+  const isAuthed = authReady && Boolean(session?.authed);
+  const businessName = String(session?.business?.business_name || session?.business?.email || '').trim();
+  const avatarUrl = String(session?.business?.logo_url || '').trim();
+
+  const initials = useMemo(() => {
+    const value = String(businessName || '').trim();
+    if (!value) return 'DB';
+    const parts = value.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] || '';
+    const b = parts.length > 1 ? parts[1]?.[0] || '' : parts[0]?.[1] || '';
+    const out = `${a}${b}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return out || 'DB';
+  }, [businessName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        if (cancelled) return;
+        if (!res.ok) {
+          setSession({ authed: false, business: null });
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        setSession({ authed: true, business: data?.business || null });
+      } catch {
+        if (!cancelled) setSession({ authed: false, business: null });
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const uiPreviewTabs = [
     { id: 'bookings', label: 'Bookings' },
@@ -677,11 +1328,25 @@ const LandingPage = ({
         : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
     }`;
 
-  const pillClass = (tone) => {
-    if (tone === 'success') return 'bg-emerald-50 text-emerald-700';
-    if (tone === 'danger') return 'bg-rose-50 text-rose-700';
-    return 'bg-zinc-100 text-zinc-700';
-  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await fetch(`${API}/public/platform-reviews`, { method: 'GET' });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+        setPlatformReviews(Array.isArray(json) ? json : []);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function UiPreviewContent({ tab }) {
     const normalizedTab = new Set(['bookings', 'calendar', 'invoices']).has(tab) ? tab : 'bookings';
@@ -761,9 +1426,12 @@ const LandingPage = ({
                   </div>
                   <div className="flex items-center text-[11px] text-zinc-600">{row.date}</div>
                   <div className="flex items-center">
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${pillClass(row.tone)}`}>
-                      {row.status}
-                    </span>
+                    <Badge
+                      variant="outline"
+                      className={bookingStatusBadgeClass(String(row.status || 'confirmed').toLowerCase())}
+                    >
+                      {String(row.status || 'confirmed').toLowerCase()}
+                    </Badge>
                   </div>
                 </div>
               ))}
@@ -879,17 +1547,25 @@ const LandingPage = ({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <style>{`html{scroll-behavior:smooth} @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}`}</style>
-      <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/85 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/85 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3">
           <a
-            href="#top"
+            href="/"
             className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
             aria-label="DoBook home"
+            onClick={(e) => {
+              if (typeof window !== 'undefined' && window.location.pathname === '/') {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+              }
+              e.preventDefault();
+              router.push('/');
+            }}
           >
             <img
               src={DOBOOK_LOGO_PNG}
@@ -902,83 +1578,144 @@ const LandingPage = ({
             />
           </a>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-zinc-700" aria-label="Primary">
-            <a className="hover:text-zinc-900" href="#features">Features</a>
-            <a className="hover:text-zinc-900" href="#how">How it works</a>
-            <a className="hover:text-zinc-900" href="#pricing">Pricing</a>
-            <a className="hover:text-zinc-900" href="#faq">FAQ</a>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-zinc-700 dark:text-zinc-200" aria-label="Primary">
+            <a className="hover:text-zinc-900 dark:hover:text-white" href="#features">Features</a>
+            <a className="hover:text-zinc-900 dark:hover:text-white" href="#how">How it works</a>
+            <a className="hover:text-zinc-900 dark:hover:text-white" href="#pricing">Pricing</a>
+            <a className="hover:text-zinc-900 dark:hover:text-white" href="#faq">FAQ</a>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
+            <ThemeModeToggle
+              showLabel={false}
+              className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+            />
             <Button
               type="button"
               variant="ghost"
               onClick={() => router.push(customerHref)}
-              className="h-11 px-4 rounded-full text-zinc-700 hover:bg-zinc-50"
+              className="h-11 px-4 rounded-lg text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
             >
               Find services
             </Button>
-            <Button
-              data-testid="login-btn"
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/auth")}
-              className="h-11 px-5 rounded-full border-zinc-200"
-            >
-              Login
-            </Button>
-            <Button
-              data-testid="get-started-btn"
-              type="button"
-              onClick={() => router.push(startFreeHref)}
-              className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-            >
-              Start Free (Business)
-            </Button>
+
+            {authReady ? (
+              isAuthed ? (
+                <>
+                  <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5">
+                    <Avatar className="h-9 w-9">
+                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={businessName || 'DoBook profile'} /> : null}
+                      <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="max-w-[14rem]">
+                      <div className="text-xs font-semibold text-zinc-900 truncate" style={{ fontFamily: 'Manrope' }}>
+                        {businessName || 'Your account'}
+                      </div>
+                      <div className="text-[11px] text-zinc-500">Logged in</div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => router.push('/dashboard')}
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                  >
+                    Open dashboard
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    data-testid="login-btn"
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(getStartedHref)}
+                    className="h-11 px-5 rounded-lg border-zinc-200"
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    data-testid="get-started-btn"
+                    type="button"
+                    onClick={() => router.push(startFreeHref)}
+                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                  >
+                    Start Free (Business)
+                  </Button>
+                </>
+              )
+            ) : null}
           </div>
 
-          <details className="md:hidden relative">
-            <summary className="list-none">
-              <span className="sr-only">Open menu</span>
-              <Button type="button" variant="outline" className="h-11 rounded-full border-zinc-200">
-                <List className="h-4 w-4 mr-2" />
-                Menu
-              </Button>
-            </summary>
-            <div className="absolute right-0 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-zinc-200 bg-white shadow-lg p-3">
-              <div className="grid gap-1">
-                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#features">
-                  Features
-                </a>
-                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#how">
-                  How it works
-                </a>
-                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#pricing">
-                  Pricing
-                </a>
-                <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50" href="#faq">
-                  FAQ
-                </a>
+          <div className="md:hidden flex items-center gap-2">
+            <ThemeModeToggle
+              showLabel={false}
+              className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+            />
+            <details className="relative">
+              <summary className="list-none cursor-pointer">
+                <span className="sr-only">Open menu</span>
+                <div className="inline-flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 dark:border-zinc-800/60 dark:bg-zinc-950/30 dark:text-zinc-200 dark:hover:bg-zinc-800/50">
+                  <List className="h-4 w-4" />
+                  Menu
+                </div>
+              </summary>
+              <div className="absolute right-0 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-zinc-200 bg-white shadow-lg p-3 dark:border-zinc-800/60 dark:bg-zinc-950">
+                <div className="grid gap-1">
+                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#features">
+                    Features
+                  </a>
+                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#how">
+                    How it works
+                  </a>
+                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#pricing">
+                    Pricing
+                  </a>
+                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#faq">
+                    FAQ
+                  </a>
+                </div>
+                <div className="mt-2 grid gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+                    onClick={() => router.push(customerHref)}
+                  >
+                    Find services near me
+                  </Button>
+                  {authReady ? (
+                    isAuthed ? (
+                      <Button
+                        type="button"
+                        className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                        onClick={() => router.push('/dashboard')}
+                      >
+                        Open dashboard
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+                          onClick={() => router.push(getStartedHref)}
+                        >
+                          Business login
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                          onClick={() => router.push(startFreeHref)}
+                        >
+                          Start Free (Business)
+                        </Button>
+                      </>
+                    )
+                  ) : null}
+                </div>
               </div>
-              <div className="mt-2 grid gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 rounded-full border-zinc-200"
-                  onClick={() => router.push(customerHref)}
-                >
-                  Find services near me
-                </Button>
-                <Button
-                  type="button"
-                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                  onClick={() => router.push(startFreeHref)}
-                >
-                  Start Free (Business)
-                </Button>
-              </div>
-            </div>
-          </details>
+            </details>
+          </div>
         </div>
       </header>
 
@@ -1010,17 +1747,17 @@ const LandingPage = ({
               <Button
                 data-testid="hero-get-started-btn"
                 type="button"
-                onClick={() => router.push(startFreeHref)}
-                className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+                className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
-                Start Free (Business)
+                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
               <Button
                 data-testid="hero-customer-btn"
                 type="button"
                 variant="outline"
                 onClick={() => router.push(customerHref)}
-                className="h-14 px-10 rounded-full border-zinc-200"
+                className="h-14 px-10 rounded-xl border-zinc-200"
               >
                 Find services near me
               </Button>
@@ -1099,69 +1836,7 @@ const LandingPage = ({
       </section>
 
       {/* Social Proof */}
-      <section id="social-proof" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                Social proof that moves the needle
-              </h2>
-              <p className="mt-2 text-zinc-600 max-w-2xl" style={{ fontFamily: 'Inter' }}>
-                Realistic results from teams using DoBook as their online booking system and service business scheduling hub.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “We replaced two tools and a spreadsheet. Clients book themselves, reminders go out, and invoices look professional.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Mia R.</div>
-                    <div className="text-xs text-zinc-500">Salon owner · 4 staff</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Salons</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “SMS reminders cut our no‑shows fast. Patients love picking times online—our front desk finally has breathing room.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Dr. Sam K.</div>
-                    <div className="text-xs text-zinc-500">Clinic manager</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Wellness</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
-              <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-zinc-700" style={{ fontFamily: 'Inter' }}>
-                  “I send one link and everything’s handled: booking, confirmation, payment, invoice. I look more professional instantly.”
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-900">Jordan P.</div>
-                    <div className="text-xs text-zinc-500">Coach · Solo business</div>
-                  </div>
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">Consulting</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Logos section intentionally omitted until real customer logos are available. */}
-        </div>
-      </section>
+      {/* Social proof section removed */}
 
       {/* Features Section */}
       <section id="who-for" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
@@ -1373,7 +2048,7 @@ const LandingPage = ({
                     />
                   </div>
                 </div>
-                <Button type="submit" className="mt-3 h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold">
+                <Button type="submit" className="mt-3 h-11 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold">
                   Search
                 </Button>
               </form>
@@ -1395,7 +2070,7 @@ const LandingPage = ({
                         <div className="truncate text-sm font-semibold text-zinc-900">{r.name}</div>
                         <div className="mt-1 text-xs text-zinc-500">{r.meta}</div>
                       </div>
-                      <Button type="button" className="h-10 rounded-full bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
+                      <Button type="button" className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
                         View
                       </Button>
                     </div>
@@ -1435,10 +2110,10 @@ const LandingPage = ({
               </ul>
               <Button
                 type="button"
-                onClick={() => router.push(startFreeHref)}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
+                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
               >
-                Start Free (Business)
+                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
               </Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>No credit card required.</div>
             </CardContent>
@@ -1449,7 +2124,7 @@ const LandingPage = ({
             <CardHeader className="space-y-2">
               <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
               <CardDescription style={{ fontFamily: 'Inter' }}>
-                <span className="text-3xl font-bold text-zinc-900">$30</span>{' '}
+                <span className="text-3xl font-bold text-zinc-900">${PRO_PRICE_AUD}</span>{' '}
                 <span className="text-sm font-medium text-zinc-600">AUD/month</span>
               </CardDescription>
             </CardHeader>
@@ -1463,14 +2138,59 @@ const LandingPage = ({
               </ul>
               <Button
                 type="button"
-                onClick={() => router.push("/auth?plan=pro")}
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-full font-semibold text-white"
+                onClick={() => router.push(isAuthed ? '/dashboard' : '/auth?plan=pro')}
+                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
               >
-                Choose Pro
+                {isAuthed ? 'Open dashboard' : 'Choose Pro'}
               </Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime.</div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* Reviews */}
+      <section id="reviews" className="border-t border-zinc-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              What businesses say
+            </h2>
+            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              Reviews from businesses using DoBook.
+            </p>
+          </div>
+
+          {Array.isArray(platformReviews) && platformReviews.length ? (
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {platformReviews.slice(0, 6).map((r) => (
+                <Card key={r.id} className="bg-zinc-50 border border-zinc-200 shadow-sm rounded-3xl">
+                  <CardContent className="p-6 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold text-zinc-900 truncate" style={{ fontFamily: 'Manrope' }}>
+                        {r.business_name || 'Business'}
+                      </div>
+                      <div className="text-sm text-zinc-700" aria-label={`Rating ${r.rating || 0} out of 5`}>
+                        {'★'.repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}
+                      </div>
+                    </div>
+                    <div className="text-sm text-zinc-700 leading-6 whitespace-pre-line" style={{ fontFamily: 'Inter' }}>
+                      {r.comment}
+                    </div>
+                    {r.created_at ? (
+                      <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-10 rounded-3xl border border-zinc-200 bg-zinc-50 p-8 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              No published reviews yet.
+            </div>
+          )}
         </div>
       </section>
 
@@ -1519,16 +2239,16 @@ const LandingPage = ({
             <Button
               data-testid="cta-get-started-btn"
               type="button"
-              onClick={() => router.push(startFreeHref)}
-              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-full font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
+              onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
             >
-              Start Free (Business)
+              {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push(customerHref)}
-              className="h-14 px-10 rounded-full border-white/30 text-white hover:bg-white/10"
+              className="h-14 px-10 rounded-xl border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white"
             >
               Find services near me
             </Button>
@@ -1541,7 +2261,12 @@ const LandingPage = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+                onClick={() => router.push('/')}
+                aria-label="Go to DoBook home"
+              >
                 <img
                   src={DOBOOK_LOGO_PNG}
                   alt="DoBook"
@@ -1552,7 +2277,7 @@ const LandingPage = ({
                   }}
                 />
                 <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>DoBook</div>
-              </div>
+              </button>
               <p className="mt-3 text-sm text-zinc-600 max-w-md" style={{ fontFamily: 'Inter' }}>
                 DoBook is an all‑in‑one online booking system for service businesses—appointment scheduling software with client management, invoices, reminders, and payments.
               </p>
@@ -1600,10 +2325,10 @@ const LandingPage = ({
                 </div>
                 <Button
                   type="button"
-                  onClick={() => router.push(startFreeHref)}
-                  className="h-11 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                  onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+                  className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                 >
-                  Start Free (Business)
+                  {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
                 </Button>
               </div>
             </div>
@@ -1627,9 +2352,12 @@ const Dashboard = () => {
   const searchParams = useSearchParams();
   const [business, setBusiness] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [bookingPrefill, setBookingPrefill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasRefreshed, setHasRefreshed] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     const storedBusiness = localStorage.getItem('dobook_business');
@@ -1649,29 +2377,31 @@ const Dashboard = () => {
 
   const refreshBusiness = async () => {
     try {
-      const token = localStorage.getItem('dobook_token');
-      if (!token) return;
-      const response = await axios.get(`${API}/business/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(`${API}/business/profile`);
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       setBusiness(response.data);
     } catch {
       // ignore
+    } finally {
+      setHasRefreshed(true);
     }
   };
 
+  useEffect(() => {
+    if (!hasRefreshed) return;
+    const businessId = business?.id ? String(business.id) : '';
+    if (!businessId) return;
+    const completed = business?.onboarding_tour_completed_at;
+    const seen = localStorage.getItem(`dobook_tour_seen_${businessId}`);
+    const createdAt = business?.created_at ? new Date(business.created_at).getTime() : Number.NaN;
+    const ageMs = Number.isFinite(createdAt) ? Date.now() - createdAt : Number.NaN;
+    const isNewBusiness = Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 14 * 24 * 60 * 60 * 1000;
+    if (isNewBusiness && !completed && !seen) setTourOpen(true);
+  }, [business?.id, business?.created_at, business?.onboarding_tour_completed_at, hasRefreshed]);
+
   const loadBookings = async () => {
     try {
-      const token = localStorage.getItem('dobook_token');
-      if (!token) {
-        setBookings([]);
-        setLoading(false);
-        return;
-      }
-      const response = await axios.get(`${API}/bookings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API}/bookings`);
       const list = Array.isArray(response.data) ? response.data : [];
       const normalized = list.map((b) => ({
         ...b,
@@ -1695,8 +2425,8 @@ const Dashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('dobook_token');
     localStorage.removeItem('dobook_business');
+    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     router.push('/');
     toast.success('Logged out successfully');
   };
@@ -1746,10 +2476,15 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-zinc-50" data-testid="dashboard">
-      <Toaster position="top-center" richColors />
+      <BusinessTour
+        business={business}
+        open={tourOpen}
+        onOpenChange={setTourOpen}
+        onBusinessUpdated={(updated) => setBusiness(updated)}
+      />
 
       {/* Mobile Top Bar */}
-      <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur">
+      <div className="md:hidden sticky top-0 z-40 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/30">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
@@ -1766,7 +2501,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 rounded-full border-zinc-200"
+              className="h-10 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={() => setMobileMenuOpen(true)}
             >
               <List className="h-4 w-4 mr-2" />
@@ -1775,7 +2510,7 @@ const Dashboard = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-10 w-10 p-0 rounded-full border-zinc-200"
+              className="h-10 w-10 p-0 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
               onClick={handleLogout}
               aria-label="Logout"
             >
@@ -1786,81 +2521,177 @@ const Dashboard = () => {
       </div>
       
       {/* Sidebar */}
-      <div className="hidden md:block fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 p-6">
+      <div className="hidden md:block fixed left-0 top-0 h-full w-[240px] bg-white border-r border-border p-6">
         <div className="flex items-center gap-3 mb-8">
           <BrandLogo size="md" />
         </div>
 
-        <nav className="space-y-2">
-          <button
+        <nav className="space-y-1">
+          <Button
             data-testid="overview-tab"
+            variant="ghost"
             onClick={() => setActiveTab('overview')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'overview'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Home className="h-5 w-5" />
-            <span className="font-medium">Overview</span>
-          </button>
+            <LayoutDashboard className="h-5 w-5" />
+            <span>Overview</span>
+          </Button>
 
-          <button
+          <Button
             data-testid="bookings-tab"
+            data-tour="nav-bookings"
+            variant="ghost"
             onClick={() => setActiveTab('bookings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-          >
-            <Users className="h-5 w-5" />
-            <span className="font-medium">Bookings</span>
-          </button>
-
-          <button
-            data-testid="calendar-view-tab"
-            onClick={() => setActiveTab('calendar')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'bookings'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Calendar className="h-5 w-5" />
-            <span className="font-medium">Calendar View</span>
-          </button>
+            <span>Bookings</span>
+          </Button>
 
-          <button
+          <Button
+            data-testid="staff-tab"
+            variant="ghost"
+            onClick={() => setActiveTab('staff')}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'staff'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <UserCheck className="h-5 w-5" />
+            <span>Staff</span>
+          </Button>
+
+          <Button
+            data-testid="clients-tab"
+            variant="ghost"
+            onClick={() => setActiveTab('clients')}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'clients'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Users className="h-5 w-5" />
+            <span>Clients</span>
+          </Button>
+
+          <Button
+            data-testid="calendar-view-tab"
+            data-tour="nav-calendar"
+            variant="ghost"
+            onClick={() => setActiveTab('calendar')}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'calendar'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <CalendarDays className="h-5 w-5" />
+            <span>Calendar View</span>
+          </Button>
+
+          <Button
             data-testid="invoice-templates-tab"
+            data-tour="nav-invoices"
+            variant="ghost"
             onClick={() => setActiveTab('invoices')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'invoices'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <FileText className="h-5 w-5" />
-            <span className="font-medium">Invoice Templates</span>
-          </button>
+            <span>Invoice Templates</span>
+          </Button>
 
-          <button
+          <Button
             data-testid="pdf-upload-tab"
+            variant="ghost"
             onClick={() => setActiveTab('pdf')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'pdf'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Upload className="h-5 w-5" />
-            <span className="font-medium">PDF Upload</span>
-          </button>
+            <span>PDF Upload</span>
+          </Button>
 
-          <button
+          <Button
             data-testid="widget-tab"
+            data-tour="nav-widget"
+            variant="ghost"
             onClick={() => setActiveTab('widget')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'widget'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Embed Widget</span>
-          </button>
+            <Code className="h-5 w-5" />
+            <span>Embed Widget</span>
+          </Button>
 
-          <button
+          <Button
             data-testid="account-settings-tab"
+            data-tour="nav-settings"
+            variant="ghost"
             onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'settings'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Settings className="h-5 w-5" />
-            <span className="font-medium">Account Settings</span>
-          </button>
+            <span>Account Settings</span>
+          </Button>
+
+          <Button
+            data-testid="public-profile-tab"
+            data-tour="nav-public_profile"
+            variant="ghost"
+            onClick={() => setActiveTab('public_profile')}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'public_profile'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Globe className="h-5 w-5" />
+            <span>Public Profile</span>
+          </Button>
         </nav>
 
-        <div className="absolute bottom-6 left-6 right-6">
-          <Button
-            data-testid="logout-btn"
-            onClick={handleLogout}
-            variant="outline"
+	        <div className="absolute bottom-6 left-6 right-6">
+	          <ThemeModeToggle
+	            className="w-full mb-3 flex items-center justify-start gap-2 border-zinc-200 rounded-lg"
+	          />
+	          <Button
+	            data-testid="logout-btn"
+	            onClick={handleLogout}
+	            variant="outline"
             className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
           >
             <LogOut className="h-4 w-4" />
@@ -1869,119 +2700,226 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+	      {/* Mobile Menu */}
+	      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }}>Menu</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-2">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Home className="h-5 w-5" />
-              <span className="font-medium">Overview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Users className="h-5 w-5" />
-              <span className="font-medium">Bookings</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'calendar' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Calendar className="h-5 w-5" />
-              <span className="font-medium">Calendar View</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('invoices'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'invoices' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <FileText className="h-5 w-5" />
-              <span className="font-medium">Invoice Templates</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('pdf'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'pdf' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Upload className="h-5 w-5" />
-              <span className="font-medium">PDF Upload</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'widget' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="font-medium">Embed Widget</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-rose-50 text-rose-600' : 'hover:bg-zinc-50'}`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="font-medium">Account Settings</span>
-            </button>
-          </div>
-          <div className="pt-2">
             <Button
               type="button"
-              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
-              variant="outline"
-              className="w-full flex items-center gap-2 border-zinc-200 rounded-lg"
+              variant="ghost"
+              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'overview'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <LogOut className="h-4 w-4" />
-              Logout
+              <LayoutDashboard className="h-5 w-5" />
+              <span>Overview</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('bookings'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'bookings'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Calendar className="h-5 w-5" />
+              <span>Bookings</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('staff'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'staff'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <UserCheck className="h-5 w-5" />
+              <span>Staff</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('clients'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'clients'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Users className="h-5 w-5" />
+              <span>Clients</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('calendar'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'calendar'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <CalendarDays className="h-5 w-5" />
+              <span>Calendar View</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('invoices'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'invoices'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <FileText className="h-5 w-5" />
+              <span>Invoice Templates</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('pdf'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'pdf'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Upload className="h-5 w-5" />
+              <span>PDF Upload</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'widget'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Code className="h-5 w-5" />
+              <span>Embed Widget</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'settings'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Settings className="h-5 w-5" />
+              <span>Account Settings</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('public_profile'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'public_profile'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Globe className="h-5 w-5" />
+              <span>Public Profile</span>
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+	          <div className="pt-2">
+	            <Button
+	              type="button"
+	              onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+	              variant="outline"
+	              className="w-full flex items-center gap-2 border-zinc-200 rounded-lg dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
+	            >
+	              <LogOut className="h-4 w-4" />
+	              Logout
+	            </Button>
+	          </div>
+	        </DialogContent>
+	      </Dialog>
 
-      {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white">
+	      {/* Mobile Bottom Nav */}
+	      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/30">
         <div className="grid grid-cols-5 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
             aria-current={activeTab === 'overview' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'overview' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors",
+              activeTab === 'overview'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Home className="h-5 w-5" />
+            <LayoutDashboard className="h-5 w-5" />
             <span className="text-[11px] font-medium">Home</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('bookings')}
+            data-tour="nav-bookings"
             aria-current={activeTab === 'bookings' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'bookings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors",
+              activeTab === 'bookings'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Users className="h-5 w-5" />
+            <Calendar className="h-5 w-5" />
             <span className="text-[11px] font-medium">Bookings</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('calendar')}
+            data-tour="nav-calendar"
             aria-current={activeTab === 'calendar' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'calendar' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors",
+              activeTab === 'calendar'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <Calendar className="h-5 w-5" />
+            <CalendarDays className="h-5 w-5" />
             <span className="text-[11px] font-medium">Calendar</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
+            data-tour="nav-settings"
             aria-current={activeTab === 'settings' ? 'page' : undefined}
-            className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${activeTab === 'settings' ? 'text-rose-600 bg-rose-50' : 'text-zinc-600 hover:bg-zinc-50'}`}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors",
+              activeTab === 'settings'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Settings className="h-5 w-5" />
             <span className="text-[11px] font-medium">Settings</span>
@@ -1989,24 +2927,24 @@ const Dashboard = () => {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-zinc-600 hover:bg-zinc-50 transition-colors"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="More"
           >
-            <List className="h-5 w-5" />
-            <span className="text-[11px] font-medium">More</span>
-          </button>
-        </div>
-      </div>
+	            <List className="h-5 w-5" />
+	            <span className="text-[11px] font-medium">More</span>
+	          </button>
+	        </div>
+	      </div>
 
       {/* Main Content */}
-      <div className="md:ml-64 p-4 md:p-8 pb-28 md:pb-8">
+      <div className="md:ml-[240px] p-4 md:p-8 pb-28 md:pb-8">
         {/* Header */}
         <div className="mb-6 md:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{fontFamily: 'Manrope'}}>
               {business?.business_name}
             </h1>
-            <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>{business?.email}</p>
+            <p className="text-muted-foreground" style={{fontFamily: 'Inter'}}>{business?.email}</p>
           </div>
           
           {/* Circular Profile Button */}
@@ -2037,41 +2975,38 @@ const Dashboard = () => {
         {/* Content based on active tab */}
         {activeTab === 'overview' && (
           <div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card data-testid="total-bookings-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardDescription style={{fontFamily: 'Inter'}}>Total Bookings</CardDescription>
-                  <CardTitle className="text-3xl font-bold" style={{fontFamily: 'Manrope'}}>{stats.totalBookings}</CardTitle>
-                </CardHeader>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Card data-testid="total-bookings-card">
+                <CardContent className="pt-6">
+                  <div className="text-3xl font-bold text-primary">{stats.totalBookings}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Total Bookings</div>
+                </CardContent>
               </Card>
 
-              <Card data-testid="upcoming-bookings-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardDescription style={{fontFamily: 'Inter'}}>Upcoming</CardDescription>
-                  <CardTitle className="text-3xl font-bold text-emerald-600" style={{fontFamily: 'Manrope'}}>{stats.upcomingBookings}</CardTitle>
-                </CardHeader>
+              <Card data-testid="upcoming-bookings-card">
+                <CardContent className="pt-6">
+                  <div className="text-3xl font-bold text-primary">{stats.upcomingBookings}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Upcoming Bookings</div>
+                </CardContent>
               </Card>
 
-              <Card data-testid="revenue-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-                <CardHeader>
-                  <CardDescription style={{fontFamily: 'Inter'}}>Total Revenue</CardDescription>
-                  <CardTitle className="text-3xl font-bold text-emerald-600" style={{fontFamily: 'Manrope'}}>${stats.revenue.toFixed(2)}</CardTitle>
-                </CardHeader>
+              <Card data-testid="revenue-card">
+                <CardContent className="pt-6">
+                  <div className="text-3xl font-bold text-primary">${stats.revenue.toFixed(2)}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Revenue</div>
+                </CardContent>
               </Card>
             </div>
 
-            <Card data-testid="monthly-trends-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-8">
-              <CardHeader>
-                <CardTitle style={{fontFamily: 'Manrope'}}>Monthly Trends</CardTitle>
-                <CardDescription style={{fontFamily: 'Inter'}}>Bookings and revenue for the last 6 months</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <Card data-testid="monthly-trends-card" className="mb-6">
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-4">Monthly Trends</h3>
                 {monthlyTrends.every((m) => m.bookings === 0 && m.revenue === 0) ? (
-                  <p className="text-zinc-500 text-center py-10">No booking data yet</p>
+                  <p className="text-muted-foreground text-center py-10">No booking data yet</p>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="border border-zinc-200 rounded-xl p-4">
-                      <p className="text-sm font-semibold mb-3" style={{fontFamily: 'Manrope'}}>Bookings</p>
+                    <div className="border border-border rounded-xl p-4">
+                      <p className="text-sm font-semibold mb-3">Bookings</p>
                       <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={monthlyTrends}>
@@ -2088,8 +3023,8 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    <div className="border border-zinc-200 rounded-xl p-4">
-                      <p className="text-sm font-semibold mb-3" style={{fontFamily: 'Manrope'}}>Revenue</p>
+                    <div className="border border-border rounded-xl p-4">
+                      <p className="text-sm font-semibold mb-3">Revenue</p>
                       <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={monthlyTrends}>
@@ -2110,24 +3045,22 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <Card data-testid="recent-bookings-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-              <CardHeader>
-                <CardTitle style={{fontFamily: 'Manrope'}}>Recent Bookings</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card data-testid="recent-bookings-card">
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-4">Recent Bookings</h3>
                 {activeBookings.length === 0 ? (
-                  <p className="text-zinc-500 text-center py-8">No bookings yet</p>
+                  <p className="text-muted-foreground text-center py-8">No bookings yet</p>
                 ) : (
                   <div className="space-y-4">
                     {activeBookings.slice(0, 5).map((booking) => (
-                      <div key={booking.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
+                      <div key={booking.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                         <div>
                           <p className="font-semibold">{booking.customer_name}</p>
-                          <p className="text-sm text-zinc-600">{booking.service_type}</p>
+                          <p className="text-sm text-muted-foreground">{booking.service_type}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium">{booking.booking_date}</p>
-                          <p className="text-sm text-zinc-600">{booking.booking_time}</p>
+                          <p className="text-sm text-muted-foreground">{booking.booking_time}</p>
                         </div>
                       </div>
                     ))}
@@ -2138,10 +3071,42 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeTab === 'bookings' && <BookingsTab business={business} bookings={bookings} onRefresh={loadBookings} />}
+        {activeTab === 'bookings' && (
+          <BookingsTab
+            business={business}
+            bookings={bookings}
+            onRefresh={loadBookings}
+            prefillBooking={bookingPrefill}
+            onPrefillApplied={() => setBookingPrefill(null)}
+          />
+        )}
+        {activeTab === 'staff' && (
+          <StaffTab />
+        )}
+        {activeTab === 'clients' && (
+          <ClientsTab
+            bookings={bookings}
+            onNewBooking={(client) => {
+              setBookingPrefill({
+                customer_name: client?.customer_name || '',
+                customer_email: client?.customer_email || '',
+                customer_phone: client?.customer_phone || '',
+              });
+              setActiveTab('bookings');
+            }}
+          />
+        )}
         {activeTab === 'calendar' && <CalendarViewTab business={business} bookings={bookings} onRefresh={loadBookings} />}
         {activeTab === 'invoices' && business && <InvoiceTemplatesTab businessId={business.id} />}
-        {activeTab === 'settings' && business && <AccountSettingsTab business={business} bookings={bookings} onUpdate={(updated) => setBusiness(updated)} />}
+        {activeTab === 'settings' && business && (
+          <AccountSettingsTab
+            business={business}
+            bookings={bookings}
+            onUpdate={(updated) => setBusiness(updated)}
+            onStartTour={() => setTourOpen(true)}
+          />
+        )}
+        {activeTab === 'public_profile' && business && <PublicProfileTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
         {activeTab === 'widget' && business && <WidgetTab businessId={business.id} />}
       </div>
@@ -2150,7 +3115,7 @@ const Dashboard = () => {
 };
 
 // ============= Account Settings Tab =============
-const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
+const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => {} }) => {
   const router = useRouter();
   const [formData, setFormData] = useState({
     business_name: business?.business_name || '',
@@ -2163,6 +3128,19 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     bsb: business?.bsb || '',
     account_number: business?.account_number || '',
     payment_link: business?.payment_link || '',
+    reminders_enabled: business?.reminders_enabled !== undefined ? Boolean(business.reminders_enabled) : true,
+    reminder_times: Array.isArray(business?.reminder_times) && business.reminder_times.length
+      ? business.reminder_times
+      : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]),
+    reminder_custom_message: business?.reminder_custom_message || '',
+    reminder_include_payment_link:
+      business?.reminder_include_payment_link !== undefined
+        ? Boolean(business.reminder_include_payment_link)
+        : Boolean(String(business?.payment_link || '').trim()),
+    reminder_include_booking_details:
+      business?.reminder_include_booking_details !== undefined ? Boolean(business.reminder_include_booking_details) : true,
+    confirmation_email_enabled:
+      business?.confirmation_email_enabled !== undefined ? Boolean(business.confirmation_email_enabled) : true,
     travel_fee_enabled: Boolean(business?.travel_fee_enabled),
     travel_fee_label: business?.travel_fee_label || 'Travel fee',
     travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
@@ -2171,11 +3149,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
     cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
     cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
-    public_enabled: Boolean(business?.public_enabled),
-    public_description: business?.public_description || '',
-    public_postcode: business?.public_postcode || '',
-    public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
-    public_website: business?.public_website || '',
     industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
     booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
@@ -2188,9 +3161,46 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [billingLoading, setBillingLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSending, setSupportSending] = useState(false);
+  const [platformReviewRating, setPlatformReviewRating] = useState('5');
+  const [platformReviewComment, setPlatformReviewComment] = useState('');
+  const [platformReviewSubmitting, setPlatformReviewSubmitting] = useState(false);
+  const [platformReviewChecked, setPlatformReviewChecked] = useState(false);
+  const [platformReviewHasReview, setPlatformReviewHasReview] = useState(false);
+  const [reminderRows, setReminderRows] = useState([]);
+
+  const reminderOptions = [
+    { value: 1, label: '1 hour before' },
+    { value: 2, label: '2 hours before' },
+    { value: 4, label: '4 hours before' },
+    { value: 12, label: '12 hours before' },
+    { value: 24, label: '24 hours before' },
+    { value: 48, label: '48 hours before' },
+    { value: 72, label: '72 hours before' },
+    { value: 168, label: '1 week before' },
+  ];
+
+  const normalizeReminderTimes = (times) => {
+    const allowed = new Set(reminderOptions.map((opt) => opt.value));
+    const list = Array.isArray(times) ? times : [];
+    const cleaned = list
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && allowed.has(v));
+    return Array.from(new Set(cleaned)).slice(0, 3);
+  };
+
+  const buildReminderRows = (times) => {
+    const normalized = normalizeReminderTimes(times);
+    const base = normalized.length ? normalized : [48, 2];
+    return base.slice(0, 3).map((hours, idx) => ({
+      id: `${hours}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      hours,
+      enabled: true,
+    }));
+  };
 
   useEffect(() => {
     if (business) {
@@ -2205,6 +3215,19 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         bsb: business.bsb || '',
         account_number: business.account_number || '',
         payment_link: business.payment_link || '',
+        reminders_enabled: business?.reminders_enabled !== undefined ? Boolean(business.reminders_enabled) : true,
+        reminder_times: Array.isArray(business?.reminder_times) && business.reminder_times.length
+          ? business.reminder_times
+          : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]),
+        reminder_custom_message: business?.reminder_custom_message || '',
+        reminder_include_payment_link:
+          business?.reminder_include_payment_link !== undefined
+            ? Boolean(business.reminder_include_payment_link)
+            : Boolean(String(business?.payment_link || '').trim()),
+        reminder_include_booking_details:
+          business?.reminder_include_booking_details !== undefined ? Boolean(business.reminder_include_booking_details) : true,
+        confirmation_email_enabled:
+          business?.confirmation_email_enabled !== undefined ? Boolean(business.confirmation_email_enabled) : true,
         travel_fee_enabled: Boolean(business?.travel_fee_enabled),
         travel_fee_label: business?.travel_fee_label || 'Travel fee',
         travel_fee_amount: business?.travel_fee_amount !== undefined && business?.travel_fee_amount !== null ? String(business.travel_fee_amount) : '0',
@@ -2213,15 +3236,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         cbd_fee_enabled: Boolean(business?.cbd_fee_enabled),
         cbd_fee_label: business?.cbd_fee_label || 'CBD logistics',
         cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
-        public_enabled: Boolean(business?.public_enabled),
-        public_description: business?.public_description || '',
-        public_postcode: business?.public_postcode || '',
-        public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
-        public_website: business?.public_website || '',
         industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
         booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
       });
+      const reminderTimes = Array.isArray(business?.reminder_times) && business.reminder_times.length
+        ? business.reminder_times
+        : (Array.isArray(business?.reminder_timing_hrs) && business.reminder_timing_hrs.length ? business.reminder_timing_hrs : [48, 2]);
+      setReminderRows(buildReminderRows(reminderTimes));
       setSubscriptionInfo({
         plan: business.subscription_plan || 'free',
         booking_count: business.booking_count || 0
@@ -2229,10 +3251,40 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     }
   }, [business]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setPlatformReviewChecked(false);
+    setPlatformReviewHasReview(false);
+
+    if (!business?.id) {
+      setPlatformReviewChecked(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    axios.get(`${API}/business/platform-reviews`)
+      .then((res) => {
+        if (cancelled) return;
+        setPlatformReviewHasReview(Boolean(res.data?.hasReview));
+        setPlatformReviewChecked(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPlatformReviewHasReview(false);
+        setPlatformReviewChecked(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [business?.id]);
+
   const isOwner = String(business?.account_role || '').trim().toLowerCase() === 'owner';
   const plan = String(subscriptionInfo?.plan || business?.subscription_plan || 'free');
   const effectivePlan = isOwner ? 'pro' : plan;
   const subscriptionStatus = String(business?.subscription_status || 'inactive');
+  const hasReminderAccess = isOwner || (effectivePlan === 'pro' && subscriptionStatus === 'active');
   const bookingsThisMonth = useMemo(() => {
     const list = Array.isArray(bookings) ? bookings : [];
     const now = new Date();
@@ -2253,7 +3305,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 
     setUploadingLogo(true);
     try {
-      const token = localStorage.getItem('dobook_token');
       const formDataUpload = new FormData();
       const type = String(file.type || '').toLowerCase();
       let uploadFile = file;
@@ -2287,7 +3338,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 
       const response = await axios.post(`${API}/business/upload-logo`, formDataUpload, {
         headers: { 
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
@@ -2307,10 +3357,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async ({ successMessage } = {}) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
       const slugKey = (label) =>
         String(label || '')
           .trim()
@@ -2322,6 +3371,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       const booth_types = Array.isArray(formData.booth_types)
         ? formData.booth_types.map((t) => String(t || '').trim()).filter(Boolean)
         : [];
+
+      const reminder_times = normalizeReminderTimes(reminderRows.map((r) => (r.enabled ? r.hours : null)));
+      const reminders_enabled = hasReminderAccess ? Boolean(formData.reminders_enabled && reminder_times.length) : false;
 
       const defsRaw = Array.isArray(formData.booking_custom_fields) ? formData.booking_custom_fields : [];
       const used = new Set();
@@ -2342,19 +3394,27 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
           return { key, label: f.label, type: f.type };
         });
 
-      const payload = { ...formData, booth_types, booking_custom_fields };
+      const payload = {
+        ...formData,
+        booth_types,
+        booking_custom_fields,
+        reminders_enabled,
+        reminder_times,
+        reminder_custom_message: String(formData.reminder_custom_message || '').slice(0, 300),
+        reminder_include_payment_link: Boolean(formData.reminder_include_payment_link),
+        reminder_include_booking_details: Boolean(formData.reminder_include_booking_details),
+        confirmation_email_enabled: Boolean(formData.confirmation_email_enabled),
+      };
       payload.travel_fee_amount = Number(formData.travel_fee_amount || 0);
       payload.travel_fee_free_km = Math.max(0, Math.floor(Number(formData.travel_fee_free_km || 40)));
       payload.travel_fee_rate_per_km = Number(formData.travel_fee_rate_per_km || 0);
       payload.cbd_fee_amount = Number(formData.cbd_fee_amount || 0);
 
-      const response = await axios.put(`${API}/business/profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.put(`${API}/business/profile`, payload);
       
       localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
       onUpdate(response.data);
-      toast.success('Account settings updated!');
+      toast.success(successMessage || 'Account settings updated!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to update settings');
     } finally {
@@ -2365,12 +3425,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const handleUpgrade = async () => {
     setBillingLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.post(
-        `${API}/stripe/checkout`,
-        { plan: 'pro' },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.post(`${API}/stripe/checkout`, { plan: 'pro' });
       const url = response?.data?.url;
       if (!url) throw new Error('Missing checkout URL');
       window.location.href = url;
@@ -2384,12 +3439,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   const handleManageBilling = async () => {
     setBillingLoading(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.post(
-        `${API}/stripe/portal`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.post(`${API}/stripe/portal`, {});
       const url = response?.data?.url;
       if (!url) throw new Error('Missing portal URL');
       window.location.href = url;
@@ -2400,16 +3450,27 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
     }
   };
 
+  const handleCancelSubscription = async () => {
+    setBillingLoading(true);
+    try {
+      const response = await axios.post(`${API}/stripe/portal`, { flow: 'cancel' });
+      const url = response?.data?.url;
+      if (!url) throw new Error('Missing portal URL');
+      window.location.href = url;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to open subscription cancellation');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const token = localStorage.getItem('dobook_token');
-      await axios.delete(`${API}/business/delete`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${API}/business/delete`);
 
-      localStorage.removeItem('dobook_token');
       localStorage.removeItem('dobook_business');
+      fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
       toast.success('Account deleted');
       router.push('/');
       return true;
@@ -2443,13 +3504,18 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
   return (
     <div className="space-y-6">
       {/* Subscription Info Card */}
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
-          <CardDescription>Current plan and usage</CardDescription>
+      <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl mb-6">
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle style={{fontFamily: 'Manrope'}}>Subscription Plan</CardTitle>
+            <CardDescription>Current plan and usage</CardDescription>
+          </div>
+          <Button type="button" variant="outline" className="h-9 rounded-lg border-zinc-200" onClick={onStartTour}>
+            Tour guide
+          </Button>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-lg">
+        <CardContent className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-zinc-50 rounded-lg">
             <div>
               <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
               <p className="text-sm text-zinc-600 mt-1">
@@ -2465,55 +3531,93 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
             </div>
             {effectivePlan === 'free' && (
               <Button 
-                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-lg"
+                className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 rounded-xl w-full sm:w-auto"
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
-                {billingLoading ? 'Redirecting…' : 'Upgrade to Pro - $30 AUD/month'}
+                {billingLoading ? 'Redirecting…' : `Upgrade to Pro - $${PRO_PRICE_AUD} AUD/month`}
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (
-              <Button
-                variant="outline"
-                className="h-10 px-6 rounded-lg border-zinc-200"
-                onClick={handleManageBilling}
-                disabled={billingLoading}
-              >
-                {billingLoading ? 'Opening…' : 'Manage billing'}
-              </Button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="h-10 px-6 rounded-lg border-zinc-200 w-full sm:w-auto"
+                  onClick={handleManageBilling}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Opening…' : 'Manage billing'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 px-6 rounded-lg border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 w-full sm:w-auto"
+                  onClick={() => setCancelDialogOpen(true)}
+                  disabled={billingLoading}
+                >
+                  Cancel subscription
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
 
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel subscription</DialogTitle>
+            <DialogDescription>
+              You’ll be taken to Stripe to cancel your plan. Your access typically stays active until the end of the current
+              billing period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={billingLoading}>
+              Keep subscription
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setCancelDialogOpen(false);
+                handleCancelSubscription();
+              }}
+              disabled={billingLoading}
+            >
+              Continue to Stripe
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Business Information */}
-      <Card data-testid="business-info-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card data-testid="business-info-card" className="mb-6">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Business Information</CardTitle>
+          <CardTitle>Business Information</CardTitle>
           <CardDescription>Update your business details</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Logo Upload Section */}
-          <div className="flex items-center gap-6 p-4 bg-zinc-50 rounded-lg">
+          <div className="flex items-center gap-6 rounded-lg border border-border p-4">
             <div className="relative">
               {formData.logo_url ? (
-                <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                  <img 
-                    src={formData.logo_url} 
-                    alt="Business Logo" 
+                <div className="h-24 w-24 rounded-full overflow-hidden border border-border shadow-sm">
+                  <img
+                    src={formData.logo_url}
+                    alt="Business Logo"
                     className="h-full w-full object-cover"
                   />
                 </div>
               ) : (
-                <div className="h-24 w-24 rounded-full bg-rose-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
+                <div className="h-24 w-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-bold border border-border shadow-sm">
                   {getInitials(formData.business_name || 'B')}
                 </div>
               )}
-              <label 
+              <label
                 htmlFor="logo-upload"
-                className="absolute bottom-0 right-0 h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-md cursor-pointer hover:bg-zinc-50 transition-colors border-2 border-zinc-200"
+                className="absolute bottom-0 right-0 h-8 w-8 bg-background rounded-full flex items-center justify-center shadow-md cursor-pointer hover:bg-muted transition-colors border border-border"
               >
-                <Upload className="h-4 w-4 text-zinc-600" />
+                <Upload className="h-4 w-4 text-muted-foreground" />
               </label>
               <input
                 id="logo-upload"
@@ -2526,43 +3630,41 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
             </div>
             <div>
               <p className="font-semibold mb-1">Business Logo</p>
-              <p className="text-sm text-zinc-600 mb-2">
+              <p className="text-sm text-muted-foreground mb-2">
                 {uploadingLogo ? 'Uploading...' : 'Click the upload icon to change your logo'}
               </p>
-              <p className="text-xs text-zinc-500">Recommended: Square image, at least 200x200px</p>
+              <p className="text-xs text-muted-foreground">Recommended: Square image, at least 200x200px</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="business_name">Business Name *</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid gap-2 mb-4">
+              <Label htmlFor="business_name">Business Name</Label>
               <Input
                 id="business_name"
                 data-testid="business-name-input"
                 value={formData.business_name}
                 onChange={(e) => setFormData({...formData, business_name: e.target.value})}
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="phone">Phone</Label>
               <Input
                 id="phone"
                 data-testid="phone-input"
                 value={formData.phone}
                 onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label>Industry</Label>
               <Select
                 value={String(formData.industry || 'photobooth')}
                 onValueChange={(val) => setFormData({ ...formData, industry: val })}
               >
-                <SelectTrigger className="bg-zinc-50 mt-2 h-11">
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2577,18 +3679,18 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               </Select>
             </div>
 
-            <div className="col-span-2">
+            <div className="md:col-span-2 grid gap-2 mb-4">
               <Label htmlFor="business_address">Business Address</Label>
               <AddressAutocomplete
                 value={formData.business_address}
                 onChange={(val) => setFormData({ ...formData, business_address: val })}
                 placeholder="Start typing your address…"
-                className="bg-zinc-50 mt-2"
+                className="bg-background"
                 inputProps={{ id: "business_address", "data-testid": "address-input" }}
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="abn">ABN (Australian Business Number)</Label>
               <Input
                 id="abn"
@@ -2596,7 +3698,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 value={formData.abn}
                 onChange={(e) => setFormData({...formData, abn: e.target.value})}
                 placeholder="XX XXX XXX XXX"
-                className="bg-zinc-50 mt-2"
               />
             </div>
           </div>
@@ -2604,14 +3705,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
       </Card>
 
       {/* Payment Details */}
-      <Card data-testid="payment-details-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card data-testid="payment-details-card" className="mb-6">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Payment Details</CardTitle>
+          <CardTitle>Payment Details</CardTitle>
           <CardDescription>Bank details for invoice payments</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="bank_name">Bank Name</Label>
               <Input
                 id="bank_name"
@@ -2619,22 +3720,20 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 value={formData.bank_name}
                 onChange={(e) => setFormData({...formData, bank_name: e.target.value})}
                 placeholder="Commonwealth Bank"
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="account_name">Account Name</Label>
               <Input
                 id="account_name"
                 data-testid="account-name-input"
                 value={formData.account_name}
                 onChange={(e) => setFormData({...formData, account_name: e.target.value})}
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="bsb">BSB</Label>
               <Input
                 id="bsb"
@@ -2643,22 +3742,20 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 onChange={(e) => setFormData({...formData, bsb: e.target.value})}
                 placeholder="XXX-XXX"
                 maxLength={7}
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="account_number">Account Number</Label>
               <Input
                 id="account_number"
                 data-testid="account-number-input"
                 value={formData.account_number}
                 onChange={(e) => setFormData({...formData, account_number: e.target.value})}
-                className="bg-zinc-50 mt-2"
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="md:col-span-2 grid gap-2 mb-4">
               <Label htmlFor="payment_link">Payment Link (Optional)</Label>
               <Input
                 id="payment_link"
@@ -2666,144 +3763,14 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 value={formData.payment_link}
                 onChange={(e) => setFormData({...formData, payment_link: e.target.value})}
                 placeholder="https://yourwebsite.com/pay"
-                className="bg-zinc-50 mt-2"
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Public Profile */}
-      <Card data-testid="public-profile-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Public Profile</CardTitle>
-          <CardDescription>
-            Let customers discover you on DoBook. Only your public details are shown (never bank details).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={Boolean(formData.public_enabled)}
-              onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
-            />
-            <div>
-              <div className="font-semibold">Show my business on the directory</div>
-              <div className="text-xs text-zinc-500">Customers can find you via “Find services”.</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="public_postcode">Postcode (optional)</Label>
-              <Input
-                id="public_postcode"
-                value={formData.public_postcode || ''}
-                onChange={(e) => setFormData({ ...formData, public_postcode: e.target.value })}
-                placeholder="e.g. 3000"
-                className="bg-zinc-50 mt-2"
-                inputMode="numeric"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="public_website">Website (optional)</Label>
-              <Input
-                id="public_website"
-                value={formData.public_website || ''}
-                onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
-                placeholder="https://yourwebsite.com"
-                className="bg-zinc-50 mt-2"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="public_description">Business description</Label>
-            <Textarea
-              id="public_description"
-              value={formData.public_description || ''}
-              onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
-              placeholder="Tell customers what you do, what’s included, and what areas you service…"
-              className="bg-zinc-50 mt-2"
-              rows={5}
-            />
-            <p className="text-xs text-zinc-500 mt-2">Max 2000 characters.</p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="font-semibold">Photos</div>
-                <div className="text-xs text-zinc-500">Add up to 8 photo URLs (or data URLs).</div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    public_photos: [...(Array.isArray(formData.public_photos) ? formData.public_photos : []), ""].slice(
-                      0,
-                      8,
-                    ),
-                  })
-                }
-              >
-                Add photo
-              </Button>
-            </div>
-
-            {(Array.isArray(formData.public_photos) ? formData.public_photos : []).length === 0 ? (
-              <div className="text-sm text-zinc-500">No photos yet.</div>
-            ) : (
-              <div className="space-y-3">
-                {(formData.public_photos || []).map((url, idx) => (
-                  <div key={`photo-${idx}`} className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden flex-shrink-0">
-                      {String(url || "").trim() ? (
-                        <img
-                          src={String(url)}
-                          alt={`Photo ${idx + 1}`}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                    </div>
-                    <Input
-                      value={url}
-                      onChange={(e) => {
-                        const next = [...(formData.public_photos || [])];
-                        next[idx] = e.target.value;
-                        setFormData({ ...formData, public_photos: next });
-                      }}
-                      placeholder="https://... (image url)"
-                      className="bg-zinc-50"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10"
-                      onClick={() => {
-                        const next = (formData.public_photos || []).filter((_, i) => i !== idx);
-                        setFormData({ ...formData, public_photos: next });
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Additional Charges */}
-      <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Additional Charges</CardTitle>
           <CardDescription>
@@ -2820,17 +3787,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               <div className="font-semibold">Travel charge</div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_label">Label</Label>
                 <Input
                   id="travel_fee_label"
                   value={formData.travel_fee_label}
                   onChange={(e) => setFormData({ ...formData, travel_fee_label: e.target.value })}
                   placeholder="Travel fee"
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_free_km">Free distance (km)</Label>
                 <Input
                   id="travel_fee_free_km"
@@ -2839,10 +3806,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                   step="1"
                   value={formData.travel_fee_free_km}
                   onChange={(e) => setFormData({ ...formData, travel_fee_free_km: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 grid gap-2 mb-4">
                 <Label htmlFor="travel_fee_rate_per_km">Rate ($/km) (over free distance)</Label>
                 <Input
                   id="travel_fee_rate_per_km"
@@ -2851,7 +3818,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                   step="0.01"
                   value={formData.travel_fee_rate_per_km}
                   onChange={(e) => setFormData({ ...formData, travel_fee_rate_per_km: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
             </div>
@@ -2870,17 +3837,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
               <div className="font-semibold">CBD logistics charge</div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="cbd_fee_label">Label</Label>
                 <Input
                   id="cbd_fee_label"
                   value={formData.cbd_fee_label}
                   onChange={(e) => setFormData({ ...formData, cbd_fee_label: e.target.value })}
                   placeholder="CBD logistics"
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
-              <div>
+              <div className="grid gap-2 mb-4">
                 <Label htmlFor="cbd_fee_amount">Amount ($)</Label>
                 <Input
                   id="cbd_fee_amount"
@@ -2889,19 +3856,212 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                   step="0.01"
                   value={formData.cbd_fee_amount}
                   onChange={(e) => setFormData({ ...formData, cbd_fee_amount: e.target.value })}
-                  className="bg-zinc-50 mt-2"
+                  className="bg-zinc-50"
                 />
               </div>
             </div>
-            <p className="text-xs text-zinc-500 mt-3">
-              Enable this if you sometimes need extra logistics for city/CBD events.
-            </p>
-          </div>
+	            <p className="text-xs text-zinc-500 mt-3">
+	              If enabled, this charge is applied automatically when the booking address postcode is <strong>3000</strong>.
+	            </p>
+	          </div>
         </CardContent>
       </Card>
 
+      {/* Reminder Settings */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Reminder Settings</CardTitle>
+          <CardDescription>Automate emails to reduce no-shows</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">Send automatic booking reminders</div>
+                <div className="text-xs text-muted-foreground">
+                  Reminders are sent based on your selected timing.
+                </div>
+              </div>
+              <Switch
+                checked={hasReminderAccess ? Boolean(formData.reminders_enabled) : false}
+                onCheckedChange={(v) => {
+                  if (!hasReminderAccess) return;
+                  setFormData({ ...formData, reminders_enabled: Boolean(v) });
+                }}
+                disabled={!hasReminderAccess}
+              />
+            </div>
+            {!hasReminderAccess && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-zinc-500">
+                <span>Upgrade to Pro to enable reminders.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9"
+                  onClick={handleUpgrade}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Redirecting…' : 'Upgrade to Pro'}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-zinc-900">Reminder timing</div>
+            <div className="space-y-2">
+              {reminderRows.map((row, idx) => (
+                <div key={row.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 p-3">
+                  <Checkbox
+                    checked={row.enabled}
+                    onCheckedChange={(v) => {
+                      if (!hasReminderAccess) return;
+                      setReminderRows((prev) =>
+                        prev.map((r) => (r.id === row.id ? { ...r, enabled: Boolean(v) } : r)),
+                      );
+                    }}
+                    disabled={!hasReminderAccess}
+                  />
+                  <Select
+                    value={String(row.hours)}
+                    onValueChange={(val) => {
+                      if (!hasReminderAccess) return;
+                      const nextHours = Number(val);
+                      setReminderRows((prev) =>
+                        prev.map((r) => (r.id === row.id ? { ...r, hours: nextHours } : r)),
+                      );
+                    }}
+                    disabled={!hasReminderAccess}
+                  >
+                    <SelectTrigger className="h-10 bg-zinc-50 min-w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reminderOptions.map((opt) => {
+                        const alreadyUsed = reminderRows.some((r) => r.hours === opt.value && r.id !== row.id);
+                        return (
+                          <SelectItem key={opt.value} value={String(opt.value)} disabled={alreadyUsed}>
+                            {opt.label}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {reminderRows.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9"
+                      onClick={() => {
+                        if (!hasReminderAccess) return;
+                        setReminderRows((prev) => prev.filter((r) => r.id !== row.id));
+                      }}
+                      disabled={!hasReminderAccess}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => {
+                if (!hasReminderAccess) return;
+                setReminderRows((prev) => {
+                  if (prev.length >= 3) return prev;
+                  const used = new Set(prev.map((r) => r.hours));
+                  const next = reminderOptions.find((opt) => !used.has(opt.value)) || reminderOptions[0];
+                  return [
+                    ...prev,
+                    {
+                      id: `${next.value}-${Math.random().toString(36).slice(2, 6)}`,
+                      hours: next.value,
+                      enabled: true,
+                    },
+                  ];
+                });
+              }}
+              disabled={!hasReminderAccess || reminderRows.length >= 3}
+            >
+              Add another reminder
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="text-sm font-semibold text-zinc-900">Reminder email content</div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.reminder_include_booking_details)}
+                onCheckedChange={(v) => setFormData({ ...formData, reminder_include_booking_details: Boolean(v) })}
+                disabled={!hasReminderAccess}
+              />
+              <span className="text-sm text-zinc-700">Include booking details in reminder</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.reminder_include_payment_link)}
+                onCheckedChange={(v) => setFormData({ ...formData, reminder_include_payment_link: Boolean(v) })}
+                disabled={!hasReminderAccess}
+              />
+              <span className="text-sm text-zinc-700">Include payment link in reminder</span>
+            </div>
+            {!String(formData.payment_link || '').trim() && (
+              <div className="text-xs text-zinc-500">
+                Add a payment link in Payment Details to show a pay button in reminders.
+              </div>
+            )}
+            <div className="grid gap-2 mb-4">
+              <Label htmlFor="reminder_message">Add a personal message to reminders (optional)</Label>
+              <Textarea
+                id="reminder_message"
+                value={formData.reminder_custom_message}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 300);
+                  setFormData({ ...formData, reminder_custom_message: value });
+                }}
+                placeholder="e.g. Please bring a valid ID to your appointment"
+                className="bg-zinc-50 min-h-[96px]"
+                maxLength={300}
+                disabled={!hasReminderAccess}
+              />
+              <div className="mt-1 text-xs text-zinc-500">
+                {String(formData.reminder_custom_message || '').length}/300 characters
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">Send booking confirmation email to customer</div>
+                <div className="text-xs text-muted-foreground">Sent immediately when a booking is created.</div>
+              </div>
+              <Switch
+                checked={Boolean(formData.confirmation_email_enabled)}
+                onCheckedChange={(v) => setFormData({ ...formData, confirmation_email_enabled: Boolean(v) })}
+              />
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={() => handleSave({ successMessage: 'Reminder settings saved!' })}
+            disabled={loading}
+            className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl"
+          >
+            {loading ? 'Saving…' : 'Save Reminder Settings'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
+      <BusinessBookingSettingsCard />
+
       {/* Booking Editor Configuration */}
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Booking Editor</CardTitle>
           <CardDescription>Customize booth types and extra fields</CardDescription>
@@ -3018,35 +4178,116 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         data-testid="save-settings-btn"
         onClick={handleSave}
         disabled={loading}
-        className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+        className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl"
       >
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
 
-      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      {platformReviewChecked && !platformReviewHasReview && (
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
+          <CardHeader>
+            <CardTitle style={{fontFamily: 'Manrope'}}>Review DoBook</CardTitle>
+            <CardDescription>Share feedback about DoBook.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid gap-2 mb-4">
+                <Label>Rating</Label>
+                <Select value={String(platformReviewRating)} onValueChange={(v) => setPlatformReviewRating(String(v))}>
+                  <SelectTrigger className="bg-zinc-50 h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="1">1</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 grid gap-2 mb-4">
+                <Label htmlFor="platform_review_comment">Comment</Label>
+                <Textarea
+                  id="platform_review_comment"
+                  value={platformReviewComment}
+                  onChange={(e) => setPlatformReviewComment(e.target.value)}
+                  placeholder="What did you like or want improved?"
+                  className="bg-zinc-50 min-h-[120px]"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={async () => {
+                  const rating = Number.parseInt(String(platformReviewRating || '0'), 10);
+                  const comment = String(platformReviewComment || '').trim();
+                  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+                    toast.error('Please choose a rating from 1 to 5.');
+                    return;
+                  }
+                  if (!comment || comment.length < 10) {
+                    toast.error('Please write at least 10 characters.');
+                    return;
+                  }
+                  setPlatformReviewSubmitting(true);
+                  try {
+                    await axios.post(
+                      `${API}/business/platform-reviews`,
+                      { rating, comment },
+                    );
+                    toast.success('Thanks! Your review was submitted for approval.');
+                    setPlatformReviewRating('5');
+                    setPlatformReviewComment('');
+                    setPlatformReviewHasReview(true);
+                    setPlatformReviewChecked(true);
+                  } catch (error) {
+                    if (error?.response?.status === 409) {
+                      toast.success('Thanks! We already have your review.');
+                      setPlatformReviewHasReview(true);
+                      setPlatformReviewChecked(true);
+                      return;
+                    }
+                    toast.error(error.response?.data?.detail || 'Failed to submit review');
+                  } finally {
+                    setPlatformReviewSubmitting(false);
+                  }
+                }}
+                disabled={platformReviewSubmitting}
+                className="h-10 px-6 bg-zinc-900 hover:bg-zinc-800 rounded-lg"
+              >
+                {platformReviewSubmitting ? 'Submitting…' : 'Submit review'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Contact support</CardTitle>
           <CardDescription>Reach us if you’re having an issue with the software</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
+        <CardContent className="space-y-6">
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="support_subject">Subject</Label>
             <Input
               id="support_subject"
               value={supportSubject}
               onChange={(e) => setSupportSubject(e.target.value)}
               placeholder="What can we help with?"
-              className="bg-zinc-50 mt-2"
+              className="bg-zinc-50"
             />
           </div>
-          <div>
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="support_message">Message</Label>
             <Textarea
               id="support_message"
               value={supportMessage}
               onChange={(e) => setSupportMessage(e.target.value)}
               placeholder="Describe the issue, and include steps to reproduce if possible."
-              className="bg-zinc-50 mt-2 min-h-[120px]"
+              className="bg-zinc-50 min-h-[120px]"
             />
           </div>
           <div className="flex justify-end">
@@ -3061,11 +4302,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
                 }
                 setSupportSending(true);
                 try {
-                  const token = localStorage.getItem('dobook_token');
                   await axios.post(
                     `${API}/support/contact`,
                     { subject, message },
-                    { headers: { Authorization: `Bearer ${token}` } },
                   );
                   toast.success('Message sent. We’ll get back to you soon.');
                   setSupportSubject('');
@@ -3085,26 +4324,24 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
         </CardContent>
       </Card>
 
-      <Card className="border border-red-200 bg-red-50/40 shadow-sm rounded-xl">
+      <Card className="border-destructive mb-6">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Danger zone</CardTitle>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
           <CardDescription>
             Delete your account and all associated data. This action cannot be undone.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-between gap-6">
-          <div className="text-sm text-zinc-700">
+        <CardContent className="space-y-6">
+          <div className="text-sm text-muted-foreground">
             If you delete your account, your bookings, templates, and business data may be lost permanently.
           </div>
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant="destructive"
             disabled={deleting}
-            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
             onClick={() => setDeleteDialogOpen(true)}
           >
-            Delete account
+            Delete Account
           </Button>
         </CardContent>
       </Card>
@@ -3125,32 +4362,32 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="delete-reason">Why are you leaving us? (optional)</Label>
               <Textarea
                 id="delete-reason"
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
                 placeholder="Your feedback helps us improve."
-                className="mt-2 bg-zinc-50"
+                className="bg-zinc-50"
               />
             </div>
 
-            <div>
+            <div className="grid gap-2 mb-4">
               <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
               <Input
                 id="delete-confirm"
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="mt-2 bg-zinc-50"
+                className="bg-zinc-50"
               />
               <p className="mt-2 text-xs text-zinc-500">
                 This will permanently delete your account and data (bookings, templates, and business settings).
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-2 mt-4">
               <Button type="button" variant="outline" onClick={closeDeleteDialog} disabled={deleting}>
                 Cancel
               </Button>
@@ -3174,10 +4411,12 @@ const AccountSettingsTab = ({ business, bookings, onUpdate }) => {
 };
 
 // ============= Bookings Tab =============
-const BookingsTab = ({ business, bookings, onRefresh }) => {
+const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillApplied }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
 
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
@@ -3206,97 +4445,147 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
     setSelectedBooking(booking);
   };
 
-  const openCreate = () => {
-    setCreateData((prev) => ({
-      ...prev,
-      service_type: isPhotoBooth
-        ? 'Photo Booth'
-        : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
-      booth_type: isPhotoBooth ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || '')) : '',
-      package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
-      duration_minutes: isPhotoBooth ? (Number(prev.duration_minutes) || 120) : (Number(prev.duration_minutes) || 60),
-    }));
+  const openCreate = (overrides = {}) => {
+    setCreateData((prev) => {
+      const next = { ...prev, ...overrides };
+      return {
+        ...next,
+        service_type: isPhotoBooth
+          ? 'Photo Booth'
+          : (boothTypes.includes(next.service_type) ? next.service_type : (boothTypes[0] || 'Service')),
+        booth_type: isPhotoBooth ? (boothTypes.includes(next.booth_type) ? next.booth_type : (boothTypes[0] || '')) : '',
+        package_duration: isPhotoBooth ? (next.package_duration || '2 Hours') : '',
+        duration_minutes: isPhotoBooth ? (Number(next.duration_minutes) || 120) : (Number(next.duration_minutes) || 60),
+      };
+    });
     setCreateOpen(true);
   };
 
+  const filteredBookings = useMemo(() => {
+    const q = String(search || '').trim().toLowerCase();
+    const nowTs = Date.now();
+    return bookings.filter((booking) => {
+      const name = String(booking?.customer_name || '').toLowerCase();
+      const email = String(booking?.customer_email || '').toLowerCase();
+      if (q && !name.includes(q) && !email.includes(q)) return false;
+      const status = String(booking?.status || 'confirmed').toLowerCase();
+      if (statusFilter === 'cancelled') return status === 'cancelled';
+      if (statusFilter === 'upcoming') {
+        if (status === 'cancelled') return false;
+        const ts = bookingDateTime(booking, 'start')?.getTime?.() ?? 0;
+        return ts >= nowTs;
+      }
+      if (statusFilter === 'past') {
+        if (status === 'cancelled') return false;
+        const ts = bookingDateTime(booking, 'start')?.getTime?.() ?? 0;
+        return ts < nowTs;
+      }
+      return true;
+    });
+  }, [bookings, search, statusFilter]);
+
+  useEffect(() => {
+    if (!prefillBooking) return;
+    openCreate(prefillBooking);
+    onPrefillApplied?.();
+  }, [prefillBooking]);
+
   return (
     <>
-      <Card data-testid="bookings-list-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle style={{fontFamily: 'Manrope'}}>All Bookings</CardTitle>
-              <CardDescription>Manage your appointments</CardDescription>
-            </div>
-            <Button
-              type="button"
-              onClick={openCreate}
-              className="h-10 px-4 bg-rose-600 hover:bg-rose-700 rounded-lg"
-            >
-              <Plus className="h-4 w-4" />
-              Add booking
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {bookings.length === 0 ? (
-            <p className="text-zinc-500 text-center py-8">No bookings found</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-zinc-200">
-                    <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                    <th className="text-left py-3 px-4 font-semibold">Service</th>
-                    <th className="text-left py-3 px-4 font-semibold">Date</th>
-                    <th className="text-left py-3 px-4 font-semibold">Time</th>
-                    <th className="text-left py-3 px-4 font-semibold">Price</th>
-                    <th className="text-left py-3 px-4 font-semibold">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-medium">{booking.customer_name}</p>
-                          <p className="text-sm text-zinc-600">{booking.customer_email}</p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">{booking.booth_type || booking.service_type}</td>
-                      <td className="py-3 px-4">{booking.booking_date}</td>
-                      <td className="py-3 px-4">{booking.booking_time}</td>
-                      <td className="py-3 px-4">${bookingTotalAmount(booking).toFixed(2)}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                            String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}
-                        >
-                          {booking.status || 'confirmed'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          data-testid={`view-booking-${booking.id}`}
-                          onClick={() => handleViewBooking(booking)}
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-3 text-xs"
-                        >
-                          View Details
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[clamp(1.35rem,1.18rem+0.6vw,1.75rem)] font-semibold">All Bookings</h2>
+          <p className="text-[clamp(0.92rem,0.88rem+0.12vw,1rem)] text-muted-foreground">Manage your appointments</p>
+        </div>
+        <Button type="button" onClick={openCreate} className="h-10 w-full gap-2 px-4 sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Add booking
+        </Button>
+      </div>
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search bookings..."
+          className="w-full sm:max-w-sm"
+        />
+
+        <div className="w-full sm:w-56">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-10 w-full">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="upcoming">Upcoming</SelectItem>
+              <SelectItem value="past">Past</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Card data-testid="bookings-list-card" className="mt-6 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Customer</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Service</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Date</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Price</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Status</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredBookings.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  No bookings found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredBookings.map((booking) => {
+                const status = String(booking.status || 'confirmed').toLowerCase();
+                return (
+                  <TableRow key={booking.id}>
+                    <TableCell className="px-4 py-4 align-top whitespace-normal">
+                      <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
+                      <div className="mt-1 break-all text-sm text-muted-foreground">
+                        {booking.customer_email}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
+                    <TableCell className="hidden px-4 py-4 sm:table-cell">
+                      <div className="font-medium">{booking.booking_date}</div>
+                      <div className="text-sm text-muted-foreground">{booking.booking_time}</div>
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-4 text-primary font-medium sm:table-cell">
+                      ${bookingTotalAmount(booking).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 align-top">
+                      <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
+                        {status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 align-top">
+                      <Button
+                        data-testid={`view-booking-${booking.id}`}
+                        onClick={() => handleViewBooking(booking)}
+                        size="sm"
+                        variant="outline"
+                        className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                      >
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </Card>
 
       <Dialog open={createOpen} onOpenChange={(open) => setCreateOpen(open)}>
@@ -3537,6 +4826,849 @@ const BookingsTab = ({ business, bookings, onRefresh }) => {
   );
 };
 
+// ============= Staff Tab =============
+const StaffTab = () => {
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    is_active: true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [mutatingId, setMutatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+  const loadStaff = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/staff`);
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.staff) ? res.data.staff : [];
+      setStaff(list);
+    } catch {
+      toast.error('Failed to load staff');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
+
+  const openCreate = () => {
+    setEditingStaff(null);
+    setFormData({ name: '', email: '', phone: '', is_active: true });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (member) => {
+    setEditingStaff(member);
+    setFormData({
+      name: member?.name || '',
+      email: member?.email || '',
+      phone: member?.phone || '',
+      is_active: member?.is_active !== false,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    const name = String(formData.name || '').trim();
+    const email = String(formData.email || '').trim();
+    if (!name) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      toast.error('Valid email is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingStaff?.id) {
+        await axios.put(`${API}/staff/${editingStaff.id}`, {
+          name,
+          email,
+          phone: formData.phone || '',
+          is_active: Boolean(formData.is_active),
+        });
+        toast.success('Staff member updated');
+      } else {
+        await axios.post(`${API}/staff`, {
+          name,
+          email,
+          phone: formData.phone || '',
+          is_active: Boolean(formData.is_active),
+        });
+        toast.success('Staff member added');
+      }
+      setDialogOpen(false);
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save staff member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (member) => {
+    if (!member?.id) return;
+    const nextActive = !(member?.is_active !== false);
+    setMutatingId(member.id);
+    try {
+      await axios.put(`${API}/staff/${member.id}`, { is_active: nextActive });
+      toast.success(nextActive ? 'Staff member activated' : 'Staff member deactivated');
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update staff status');
+    } finally {
+      setMutatingId(null);
+    }
+  };
+
+  const handleDelete = async (member) => {
+    if (!member?.id) return;
+    const ok = window.confirm(`Delete ${member?.name || 'this staff member'}? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(member.id);
+    try {
+      await axios.delete(`${API}/staff/${member.id}`);
+      toast.success('Staff member deleted');
+      await loadStaff();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete staff member');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <>
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle style={{fontFamily: 'Manrope'}}>Staff</CardTitle>
+              <CardDescription>Manage your team members</CardDescription>
+            </div>
+            <Button
+              type="button"
+              onClick={openCreate}
+              className="h-10 px-4 bg-rose-600 hover:bg-rose-700 rounded-lg"
+            >
+              <Plus className="h-4 w-4" />
+              Add staff member
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">Loading staff...</p>
+          ) : staff.length === 0 ? (
+            <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">No staff yet. Add your first team member.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-800/60">
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Phone</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-zinc-700 dark:text-zinc-200">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.map((member) => {
+                    const active = member?.is_active !== false;
+                    return (
+                      <tr key={member.id} className="border-b border-zinc-100 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                        <td className="py-3 px-4 font-medium">{member?.name || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">{member?.email || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">{member?.phone || '-'}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
+                              active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                          >
+                            {active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full px-4 text-xs"
+                              onClick={() => openEdit(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full px-4 text-xs"
+                              onClick={() => toggleActive(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              {active ? 'Deactivate' : 'Activate'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="h-8 rounded-full px-4 text-xs"
+                              onClick={() => handleDelete(member)}
+                              disabled={mutatingId === member.id || deletingId === member.id}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              {editingStaff ? 'Edit staff member' : 'Add staff member'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingStaff ? 'Update staff details.' : 'Add a new team member.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="staff_name">Full Name *</Label>
+              <Input
+                id="staff_name"
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="staff_email">Email *</Label>
+              <Input
+                id="staff_email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="staff_phone">Phone (optional)</Label>
+              <Input
+                id="staff_phone"
+                type="tel"
+                inputMode="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                className="bg-zinc-50 mt-2"
+              />
+              <p className="text-xs text-zinc-500 mt-1">For future SMS notifications</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={Boolean(formData.is_active)}
+                onCheckedChange={(v) => setFormData((prev) => ({ ...prev, is_active: Boolean(v) }))}
+              />
+              <span className="text-sm text-zinc-700">Active</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+// ============= Clients Tab =============
+const ClientsTab = ({ bookings, onNewBooking }) => {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('last_booking_date');
+  const [sortDir, setSortDir] = useState('desc');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [requestingReview, setRequestingReview] = useState(false);
+
+  const sortDefaults = useMemo(
+    () => ({
+      name: 'asc',
+      total_bookings: 'desc',
+      total_spent: 'desc',
+      last_booking_date: 'desc',
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    setSortDir(sortDefaults[sortKey] || 'desc');
+  }, [sortKey, sortDefaults]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadClients = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`${API}/clients`);
+        const list = Array.isArray(res.data?.clients)
+          ? res.data.clients
+          : (Array.isArray(res.data) ? res.data : []);
+        if (!cancelled) setClients(list);
+      } catch (error) {
+        if (!cancelled) toast.error(error.response?.data?.detail || 'Failed to load clients');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadClients();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookings]);
+
+  const stats = useMemo(() => {
+    const totalClients = clients.length;
+    const repeatClients = clients.filter((c) => Number(c?.total_bookings || 0) > 1).length;
+    const revenue = clients.reduce((sum, c) => sum + Number(c?.total_spent || 0), 0);
+    return {
+      totalClients,
+      repeatClients,
+      revenue,
+    };
+  }, [clients]);
+
+  const parseDateValue = (value) => {
+    const s = String(value || '').trim();
+    if (!s) return null;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? parseISO(s) : new Date(s);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  const formatDate = (value) => {
+    const d = parseDateValue(value);
+    if (!d) return '—';
+    return format(d, 'MMM d, yyyy');
+  };
+
+  const dateToTs = (value) => {
+    const d = parseDateValue(value);
+    return d ? d.getTime() : 0;
+  };
+
+  const filteredClients = useMemo(() => {
+    const q = String(search || '').trim().toLowerCase();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setHours(0, 0, 0, 0);
+
+    return clients.filter((client) => {
+      const name = String(client?.customer_name || '').toLowerCase();
+      const email = String(client?.customer_email || '').toLowerCase();
+      const matches = !q || name.includes(q) || email.includes(q);
+      if (!matches) return false;
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'vip') return isVipClient(client);
+      const lastDate = parseDateValue(client?.last_booking_date);
+      const isActive = lastDate ? lastDate >= cutoff : false;
+      return statusFilter === 'active' ? isActive : !isActive;
+    });
+  }, [clients, search, statusFilter]);
+
+  const sortedClients = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredClients].sort((a, b) => {
+      if (sortKey === 'name') {
+        return (
+          dir *
+          String(a?.customer_name || a?.customer_email || '').localeCompare(
+            String(b?.customer_name || b?.customer_email || ''),
+            undefined,
+            { sensitivity: 'base' },
+          )
+        );
+      }
+      if (sortKey === 'total_bookings') {
+        return dir * (Number(a?.total_bookings || 0) - Number(b?.total_bookings || 0));
+      }
+      if (sortKey === 'total_spent') {
+        return dir * (Number(a?.total_spent || 0) - Number(b?.total_spent || 0));
+      }
+      return dir * (dateToTs(a?.last_booking_date) - dateToTs(b?.last_booking_date));
+    });
+  }, [filteredClients, sortDir, sortKey]);
+
+  const openClient = (client) => {
+    setSelectedClient(client);
+    setDrawerOpen(true);
+  };
+
+  useEffect(() => {
+    if (!drawerOpen || !selectedClient?.customer_email) return;
+    let cancelled = false;
+    const loadDetail = async () => {
+      setDetailLoading(true);
+      setDetail(null);
+      try {
+        const res = await axios.get(`${API}/clients/${encodeURIComponent(selectedClient.customer_email)}`);
+        if (cancelled) return;
+        setDetail(res.data || null);
+        setNotesValue(String(res.data?.notes || ''));
+      } catch (error) {
+        if (!cancelled) toast.error(error.response?.data?.detail || 'Failed to load client details');
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    };
+    loadDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [drawerOpen, selectedClient?.customer_email]);
+
+  useEffect(() => {
+    if (drawerOpen) return;
+    setSelectedClient(null);
+    setDetail(null);
+    setNotesValue('');
+  }, [drawerOpen]);
+
+  const handleSaveNotes = async () => {
+    if (!selectedClient?.customer_email) return;
+    setSavingNotes(true);
+    try {
+      const res = await axios.put(
+        `${API}/clients/${encodeURIComponent(selectedClient.customer_email)}/notes`,
+        { notes: notesValue },
+      );
+      setNotesValue(String(res.data?.notes ?? notesValue));
+      toast.success('Notes saved');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const handleSendReviewRequest = async () => {
+    const booking = detail?.bookings?.[0];
+    if (!booking?.id) return;
+    setRequestingReview(true);
+    try {
+      const res = await axios.post(`${API}/reviews/request`, { booking_id: booking.id });
+      const url = res?.data?.url;
+      const skipped = Boolean(res?.data?.email?.skipped);
+      if (skipped && url) {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success('Review link copied (email not sent)');
+        } catch {
+          toast.success('Review link created');
+        }
+      } else {
+        toast.success('Review request sent');
+      }
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        const url = error?.response?.data?.url;
+        const skipped = Boolean(error?.response?.data?.email?.skipped);
+        if (skipped && url) {
+          try {
+            await navigator.clipboard.writeText(url);
+            toast.success('Review link copied (email not sent)');
+          } catch {
+            toast.success('Review link created');
+          }
+        } else {
+          toast.success('Review request already sent');
+        }
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to request review');
+      }
+    } finally {
+      setRequestingReview(false);
+    }
+  };
+
+  const handleNewBooking = () => {
+    const clientInfo = detail?.client || selectedClient || {};
+    onNewBooking?.({
+      customer_name: clientInfo?.customer_name || '',
+      customer_email: clientInfo?.customer_email || '',
+      customer_phone: clientInfo?.customer_phone || '',
+    });
+    setDrawerOpen(false);
+  };
+
+  const clientInfo = detail?.client || selectedClient || {};
+  const recentBooking = detail?.bookings?.[0] || null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold mb-1" style={{ fontFamily: 'Manrope' }}>
+            Clients
+          </h2>
+          <p className="text-zinc-600" style={{ fontFamily: 'Inter' }}>
+            All customers who have booked with you
+          </p>
+        </div>
+        <div className="w-full sm:w-80">
+          <div className="relative">
+            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email"
+              className="pl-9 bg-white border-zinc-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Total Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold" style={{ fontFamily: 'Manrope' }}>
+              {stats.totalClients}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Repeat Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>
+              {stats.repeatClients}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardDescription style={{ fontFamily: 'Inter' }}>Total Revenue from Clients</CardDescription>
+            <CardTitle className="text-3xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>
+              ${stats.revenue.toFixed(2)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle style={{ fontFamily: 'Manrope' }}>Client List</CardTitle>
+            <CardDescription style={{ fontFamily: 'Inter' }}>
+              Sort and filter customers across your bookings
+            </CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex flex-wrap items-center gap-2 rounded-full bg-zinc-100 p-1">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'active', label: 'Active' },
+                { id: 'inactive', label: 'Inactive' },
+                { id: 'vip', label: 'VIP' },
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                    statusFilter === filter.id
+                      ? 'bg-white text-rose-600 shadow-sm'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <Select value={sortKey} onValueChange={setSortKey}>
+              <SelectTrigger className="h-10 w-full bg-white border-zinc-200 sm:min-w-[180px] sm:w-auto">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="total_bookings">Total bookings</SelectItem>
+                <SelectItem value="total_spent">Total spent</SelectItem>
+                <SelectItem value="last_booking_date">Last booking date</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full border-zinc-200 sm:w-10 sm:p-0"
+              onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              aria-label="Toggle sort direction"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-zinc-500 text-center py-8">Loading clients…</p>
+          ) : sortedClients.length === 0 ? (
+            <p className="text-zinc-500 text-center py-8">No clients found</p>
+          ) : (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-200">
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Customer</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Phone</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Total bookings</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Total spent</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">Last booking</th>
+                      <th className="text-left py-3 px-4 font-semibold text-zinc-700">First booking</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedClients.map((client) => (
+                      <tr
+                        key={client.customer_email}
+                        onClick={() => openClient(client)}
+                        className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors cursor-pointer"
+                      >
+                        <td className="py-3 px-4 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{client.customer_name || client.customer_email}</span>
+                            {isVipClient(client) ? <VipBadge /> : null}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-zinc-600">{client.customer_email}</td>
+                        <td className="py-3 px-4 text-sm text-zinc-600">
+                          {client.customer_phone || '—'}
+                        </td>
+                        <td className="py-3 px-4">{client.total_bookings || 0}</td>
+                        <td className="py-3 px-4">${Number(client.total_spent || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4">{formatDate(client.last_booking_date)}</td>
+                        <td className="py-3 px-4">{formatDate(client.first_booking_date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden space-y-3">
+                {sortedClients.map((client) => (
+                  <button
+                    key={client.customer_email}
+                    type="button"
+                    onClick={() => openClient(client)}
+                    className="w-full text-left rounded-xl border border-zinc-200 p-4 bg-white hover:bg-zinc-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold truncate">{client.customer_name || client.customer_email}</div>
+                          {isVipClient(client) ? <VipBadge className="shrink-0" /> : null}
+                        </div>
+                        <div className="text-xs text-zinc-500 truncate">{client.customer_email}</div>
+                      </div>
+                      <div className="text-sm font-semibold text-emerald-700">
+                        ${Number(client.total_spent || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-600">
+                      <div>Bookings: {client.total_bookings || 0}</div>
+                      <div>Last: {formatDate(client.last_booking_date)}</div>
+                      <div>First: {formatDate(client.first_booking_date)}</div>
+                      <div>Phone: {client.customer_phone || '—'}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl sm:ml-auto sm:mr-0 sm:h-[100dvh] sm:rounded-none sm:rounded-l-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Client Details</DialogTitle>
+            <DialogDescription>Booking history and internal notes</DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="py-10 text-center text-zinc-500">Loading client…</div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xl font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+                    {clientInfo.customer_name || clientInfo.customer_email || 'Client'}
+                  </div>
+                  {isVipClient(clientInfo) ? <VipBadge /> : null}
+                </div>
+                <div className="text-sm text-zinc-600">{clientInfo.customer_email || '—'}</div>
+                <div className="text-sm text-zinc-600">{clientInfo.customer_phone || '—'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Total bookings</div>
+                  <div className="text-2xl font-bold text-zinc-900">{clientInfo.total_bookings || 0}</div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Total revenue</div>
+                  <div className="text-2xl font-bold text-emerald-700">
+                    ${Number(clientInfo.total_spent || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">First booking</div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    {formatDate(clientInfo.first_booking_date)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">Last booking</div>
+                  <div className="text-lg font-semibold text-zinc-900">
+                    {formatDate(clientInfo.last_booking_date)}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-sm font-semibold text-zinc-900 mb-2" style={{ fontFamily: 'Manrope' }}>
+                  Booking history
+                </div>
+                {detail?.bookings?.length ? (
+                  <div className="space-y-2">
+                    {detail.bookings.map((booking) => {
+                      const status = String(booking.status || 'confirmed').toLowerCase();
+                      return (
+                        <div
+                          key={booking.id}
+                          className="rounded-lg border border-zinc-200 bg-white p-3 flex items-center justify-between gap-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-zinc-900">
+                              {formatDate(booking.booking_date)}
+                              {booking.booking_time ? ` • ${booking.booking_time}` : ''}
+                            </div>
+                            <div className="text-sm text-zinc-600 truncate">
+                              {booking.booth_type || booking.service_type || 'Service'}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-emerald-700">
+                              ${bookingTotalAmount(booking).toFixed(2)}
+                            </div>
+                            <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
+                              {status}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-zinc-500">No booking history available.</div>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="client_notes" className="text-zinc-700">Internal notes</Label>
+                <Textarea
+                  id="client_notes"
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  className="mt-2 bg-zinc-50 min-h-[120px]"
+                  placeholder="Add private notes about this client…"
+                />
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveNotes}
+                    disabled={savingNotes}
+                    className="h-9"
+                  >
+                    {savingNotes ? 'Saving…' : 'Save notes'}
+                  </Button>
+                  {detail?.notes_updated_at ? (
+                    <div className="text-xs text-zinc-500">
+                      Updated {formatDate(detail.notes_updated_at)}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full sm:w-auto"
+                  disabled={!recentBooking?.id || requestingReview}
+                  onClick={handleSendReviewRequest}
+                >
+                  {requestingReview ? 'Sending…' : 'Send review request'}
+                </Button>
+                <Button
+                  type="button"
+                  className="h-10 w-full bg-rose-600 hover:bg-rose-700 sm:w-auto"
+                  onClick={handleNewBooking}
+                >
+                  New booking
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 // ============= Calendar View Tab =============
 const CalendarViewTab = ({ business, bookings, onRefresh }) => {
   const [displayMode, setDisplayMode] = useState('calendar'); // calendar | list
@@ -3577,10 +5709,10 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
     <button
       type="button"
       onClick={() => setView(nextView)}
-      className={`h-10 px-5 rounded-full text-sm font-semibold transition-colors border ${
+      className={`h-9 px-3 rounded-full text-xs font-semibold transition-colors border flex-shrink-0 sm:h-10 sm:px-5 sm:text-sm ${
         view === nextView
           ? 'bg-rose-600 text-white border-rose-600'
-          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+          : 'bg-white text-zinc-700 border-zinc-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:text-white dark:hover:border-zinc-700/60'
       }`}
     >
       {label}
@@ -3589,7 +5721,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
   return (
     <Card data-testid="calendar-view-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-      <CardHeader className="flex flex-row items-start justify-between gap-6">
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle style={{fontFamily: 'Manrope'}}>Calendar View</CardTitle>
           <CardDescription style={{fontFamily: 'Inter'}}>
@@ -3597,14 +5729,14 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
           </CardDescription>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setDisplayMode('calendar')}
-            className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
+            className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-xs font-semibold transition-colors sm:h-11 sm:px-6 sm:text-sm ${
               displayMode === 'calendar'
                 ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
             }`}
           >
             <Calendar className="h-4 w-4" />
@@ -3613,10 +5745,10 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
           <button
             type="button"
             onClick={() => setDisplayMode('list')}
-            className={`h-11 px-6 rounded-lg border flex items-center gap-2 text-sm font-semibold transition-colors ${
+            className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-xs font-semibold transition-colors sm:h-11 sm:px-6 sm:text-sm ${
               displayMode === 'list'
                 ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-950/20 dark:text-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60'
             }`}
           >
             <List className="h-4 w-4" />
@@ -3627,43 +5759,43 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 
       <CardContent className="space-y-4">
         {!hasRealBookings && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800">
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-800 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200">
             Showing demo bookings for February 2026. Create a booking to see your real data here.
           </div>
         )}
 
         {displayMode === 'calendar' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => navigate('TODAY')}
-                  className="h-10 px-4 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-4 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Today
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('PREV')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-5 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('NEXT')}
-                  className="h-10 px-5 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-sm font-semibold"
+                  className="h-9 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-xs font-semibold sm:h-10 sm:px-5 sm:text-sm dark:bg-zinc-950/20 dark:border-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800/50 dark:hover:border-zinc-700/60 dark:hover:text-white"
                 >
                   Next
                 </button>
               </div>
 
-              <div className="text-base font-semibold text-zinc-800" style={{fontFamily: 'Manrope'}}>
+              <div className="text-sm font-semibold text-zinc-800 sm:text-base" style={{fontFamily: 'Manrope'}}>
                 {title}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 sm:overflow-visible sm:pb-0 sm:mx-0 sm:px-0">
                 {viewButton('Month', Views.MONTH)}
                 {viewButton('Week', Views.WEEK)}
                 {viewButton('Day', Views.DAY)}
@@ -3671,35 +5803,39 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
               </div>
             </div>
 
-            <div className="h-[700px]">
-              <BigCalendar
-                localizer={calendarLocalizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                toolbar={false}
-                date={date}
-                view={view}
-                onNavigate={(nextDate) => setDate(nextDate)}
-                onView={(nextView) => setView(nextView)}
-                onSelectEvent={(event) => setSelectedBooking(event.resource)}
-                eventPropGetter={(event) => {
-                  const isCancelled =
-                    String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
-                  if (!isCancelled) return {};
-                  return {
-                    style: {
-                      backgroundColor: '#fee2e2',
-                      borderColor: '#fecaca',
-                      color: '#b91c1c',
-                      textDecoration: 'line-through',
-                    },
-                  };
-                }}
-                popup
-                selectable
-                dayLayoutAlgorithm="no-overlap"
-              />
+            <div className="h-[520px] sm:h-[700px] overflow-x-auto">
+              <div className="min-w-[640px] sm:min-w-0 h-full">
+                <BigCalendar
+                  localizer={calendarLocalizer}
+                  events={events}
+                  startAccessor="start"
+                  endAccessor="end"
+                  toolbar={false}
+                  date={date}
+                  view={view}
+                  onNavigate={(nextDate) => setDate(nextDate)}
+                  onView={(nextView) => setView(nextView)}
+                  onSelectEvent={(event) => setSelectedBooking(event.resource)}
+                  eventPropGetter={(event) => {
+                    const isCancelled =
+                      String(event?.resource?.status || 'confirmed').trim().toLowerCase() === 'cancelled';
+                    if (!isCancelled) return {};
+                    const isDark =
+                      typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+                    return {
+                      style: {
+                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
+                        borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+                        color: isDark ? 'rgb(254, 202, 202)' : '#b91c1c',
+                        textDecoration: 'line-through',
+                      },
+                    };
+                  }}
+                  popup
+                  selectable
+                  dayLayoutAlgorithm="no-overlap"
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -3749,15 +5885,12 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
                     <div className="text-emerald-700 font-semibold">
                       ${bookingTotalAmount(booking).toFixed(2)}
                     </div>
-                    <span
-                      className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
-                        String(booking.status || 'confirmed').toLowerCase() === 'cancelled'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}
+                    <Badge
+                      variant="outline"
+                      className={bookingStatusBadgeClass(String(booking.status || 'confirmed').toLowerCase())}
                     >
-                      {booking.status || 'confirmed'}
-                    </span>
+                      {String(booking.status || 'confirmed').toLowerCase()}
+                    </Badge>
                   </div>
                 </div>
               </button>
@@ -3779,53 +5912,85 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 };
 
 // ============= Invoice Templates Tab =============
-const InvoiceTemplatesTab = ({ businessId }) => {
-  const [templates, setTemplates] = useState([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('Classic');
-  const [customColor, setCustomColor] = useState('#e11d48');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const allowedTemplateNames = ['Classic', 'Clean', 'Gradient', 'Navy', 'Elegant', 'Sidebar'];
+	const InvoiceTemplatesTab = ({ businessId }) => {
+	  const [templates, setTemplates] = useState([]);
+	  const [selectedTemplate, setSelectedTemplate] = useState('Classic');
+	  const [customColor, setCustomColor] = useState('#e11d48');
+	  const [logoUrl, setLogoUrl] = useState('');
+	  const [fontFamily, setFontFamily] = useState('helvetica');
+	  const [logoPosition, setLogoPosition] = useState('left');
+	  const [showAbn, setShowAbn] = useState(true);
+	  const [showDueDate, setShowDueDate] = useState(true);
+	  const [showNotes, setShowNotes] = useState(true);
+	  const [tableStyle, setTableStyle] = useState('minimal');
+	  const [footerText, setFooterText] = useState('');
+	  const [showPreview, setShowPreview] = useState(false);
+	  const allowedTemplateNames = ['Classic', 'Clean', 'Gradient', 'Navy', 'Elegant', 'Sidebar'];
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+	  useEffect(() => {
+	    loadTemplates();
+	  }, []);
 
-  const loadTemplates = async () => {
-    try {
-      const token = localStorage.getItem('dobook_token');
-      const response = await axios.get(`${API}/invoices/templates`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTemplates(response.data);
-      const active = Array.isArray(response.data) ? response.data[0] : null;
-      if (active) {
-        const nextName = allowedTemplateNames.includes(active.template_name) ? active.template_name : 'Classic';
-        setSelectedTemplate(nextName);
-        setCustomColor(active.primary_color || '#e11d48');
-        setLogoUrl(active.logo_url || '');
-      }
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-    }
-  };
+	  const resolveFontFamily = (tpl) => {
+	    const raw = String(tpl?.font_family || '').trim().toLowerCase();
+	    if (raw) return raw;
+	    const name = String(tpl?.template_name || 'Classic').trim();
+	    if (name === 'Elegant') return 'times';
+	    return 'helvetica';
+	  };
 
-  const handleSaveTemplate = async () => {
-    try {
-      const token = localStorage.getItem('dobook_token');
-      await axios.post(`${API}/invoices/templates`, {
-        template_name: selectedTemplate,
-        logo_url: logoUrl || null,
-        primary_color: customColor
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Invoice template saved and set as active!');
-      loadTemplates();
-    } catch (error) {
-      toast.error('Failed to save template');
-    }
-  };
+	  const resolveLogoPosition = (tpl) => {
+	    const raw = String(tpl?.logo_position || '').trim().toLowerCase();
+	    if (raw) return raw;
+	    const name = String(tpl?.template_name || 'Classic').trim();
+	    if (name === 'Elegant') return 'center';
+	    if (name === 'Sidebar') return 'left';
+	    return 'right';
+	  };
+
+	  const loadTemplates = async () => {
+	    try {
+	      const response = await axios.get(`${API}/invoices/templates`);
+	      setTemplates(response.data);
+	      const active = Array.isArray(response.data) ? response.data[0] : null;
+	      if (active) {
+	        const nextName = allowedTemplateNames.includes(active.template_name) ? active.template_name : 'Classic';
+	        setSelectedTemplate(nextName);
+	        setCustomColor(active.primary_color || '#e11d48');
+	        setLogoUrl(active.logo_url || '');
+	        setFontFamily(resolveFontFamily(active));
+	        setLogoPosition(resolveLogoPosition(active));
+	        setShowAbn(active.show_abn === undefined || active.show_abn === null ? true : Boolean(active.show_abn));
+	        setShowDueDate(active.show_due_date === undefined || active.show_due_date === null ? true : Boolean(active.show_due_date));
+	        setShowNotes(active.show_notes === undefined || active.show_notes === null ? true : Boolean(active.show_notes));
+	        setTableStyle(String(active.table_style || 'minimal').trim().toLowerCase() || 'minimal');
+	        setFooterText(String(active.footer_text || ''));
+	      }
+	    } catch (error) {
+	      console.error('Failed to load templates:', error);
+	    }
+	  };
+
+	  const handleSaveTemplate = async () => {
+	    try {
+	      await axios.post(`${API}/invoices/templates`, {
+	        template_name: selectedTemplate,
+	        logo_url: logoUrl || null,
+	        primary_color: customColor,
+	        font_family: fontFamily,
+	        logo_position: logoPosition,
+	        show_abn: Boolean(showAbn),
+	        show_due_date: Boolean(showDueDate),
+	        show_notes: Boolean(showNotes),
+	        table_style: tableStyle,
+	        footer_text: footerText || null,
+	      });
+	      toast.success('Invoice template saved and set as active!');
+	      loadTemplates();
+	    } catch (error) {
+	      toast.error('Failed to save template');
+	    }
+	  };
 
   const templatePreviews = {
     Classic: {
@@ -4226,11 +6391,11 @@ const InvoiceTemplatesTab = ({ businessId }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="primary-color">Primary Color</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
+	          <div className="grid grid-cols-2 gap-4">
+	            <div>
+	              <Label htmlFor="primary-color">Primary Color</Label>
+	              <div className="flex gap-2 mt-2">
+	                <Input
                   id="primary-color"
                   data-testid="template-color-input"
                   type="color"
@@ -4243,27 +6408,100 @@ const InvoiceTemplatesTab = ({ businessId }) => {
                   onChange={(e) => setCustomColor(e.target.value)}
                   placeholder="#e11d48"
                   className="bg-zinc-50"
-                />
-              </div>
-            </div>
+	                />
+	              </div>
+	            </div>
 
-            <div>
-              <Label htmlFor="logo-url">Logo URL (Optional)</Label>
-              <Input
+	            <div>
+	              <Label htmlFor="logo-url">Logo URL (Optional)</Label>
+	              <Input
                 id="logo-url"
                 data-testid="template-logo-input"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 placeholder="https://example.com/logo.png"
-                className="bg-zinc-50 mt-2"
-              />
-            </div>
-          </div>
+	                className="bg-zinc-50 mt-2"
+	              />
+	            </div>
+	          </div>
 
-          <Button 
-            data-testid="save-template-btn"
-            onClick={handleSaveTemplate}
-            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
+	          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+	            <div>
+	              <Label htmlFor="template-font-family">Font Family</Label>
+	              <Select value={fontFamily} onValueChange={(v) => setFontFamily(String(v || 'helvetica'))}>
+	                <SelectTrigger id="template-font-family" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select font" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="helvetica">Helvetica</SelectItem>
+	                  <SelectItem value="times">Times</SelectItem>
+	                  <SelectItem value="courier">Courier</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div>
+	              <Label htmlFor="template-logo-position">Logo Position</Label>
+	              <Select value={logoPosition} onValueChange={(v) => setLogoPosition(String(v || 'left'))}>
+	                <SelectTrigger id="template-logo-position" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select position" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="left">Left</SelectItem>
+	                  <SelectItem value="center">Center</SelectItem>
+	                  <SelectItem value="right">Right</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div>
+	              <Label htmlFor="template-table-style">Table Style</Label>
+	              <Select value={tableStyle} onValueChange={(v) => setTableStyle(String(v || 'minimal'))}>
+	                <SelectTrigger id="template-table-style" className="bg-zinc-50 mt-2">
+	                  <SelectValue placeholder="Select style" />
+	                </SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="minimal">Minimal</SelectItem>
+	                  <SelectItem value="bordered">Bordered</SelectItem>
+	                  <SelectItem value="striped">Striped</SelectItem>
+	                </SelectContent>
+	              </Select>
+	            </div>
+
+	            <div className="space-y-3">
+	              <Label>Show Fields</Label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show ABN</span>
+	                <Checkbox checked={Boolean(showAbn)} onCheckedChange={(v) => setShowAbn(Boolean(v))} />
+	              </label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show Due Date</span>
+	                <Checkbox checked={Boolean(showDueDate)} onCheckedChange={(v) => setShowDueDate(Boolean(v))} />
+	              </label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show Notes</span>
+	                <Checkbox checked={Boolean(showNotes)} onCheckedChange={(v) => setShowNotes(Boolean(v))} />
+	              </label>
+	            </div>
+	          </div>
+
+	          <div>
+	            <Label htmlFor="template-footer-text">Footer Text (Optional)</Label>
+	            <Textarea
+	              id="template-footer-text"
+	              value={footerText}
+	              onChange={(e) => setFooterText(e.target.value)}
+	              placeholder="e.g. Thank you for your business"
+	              className="bg-zinc-50 mt-2"
+	              rows={3}
+	            />
+	            <p className="text-xs text-zinc-500 mt-2">Shown at the bottom of the PDF invoice.</p>
+	          </div>
+
+	          <Button 
+	            data-testid="save-template-btn"
+	            onClick={handleSaveTemplate}
+	            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-lg"
           >
             Save & Set Active
           </Button>
@@ -4492,6 +6730,419 @@ const PDFUploadTab = ({ businessId, onBookingCreated }) => {
   );
 };
 
+// ============= Public Profile Tab =============
+const PublicProfileTab = ({ business, onUpdate }) => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [customerReviewsLoading, setCustomerReviewsLoading] = useState(false);
+  const [customerReviews, setCustomerReviews] = useState([]);
+  const [formData, setFormData] = useState({
+    public_enabled: Boolean(business?.public_enabled),
+    public_description: business?.public_description || '',
+    public_postcode: business?.public_postcode || '',
+    public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+    public_website: business?.public_website || '',
+    public_services: Array.isArray(business?.public_services) ? business.public_services : [],
+  });
+
+  useEffect(() => {
+    setFormData({
+      public_enabled: Boolean(business?.public_enabled),
+      public_description: business?.public_description || '',
+      public_postcode: business?.public_postcode || '',
+      public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
+      public_website: business?.public_website || '',
+      public_services: Array.isArray(business?.public_services) ? business.public_services : [],
+    });
+  }, [business]);
+
+  const refreshCustomerReviews = async () => {
+    if (!business?.id) return;
+    setCustomerReviewsLoading(true);
+    try {
+      const res = await axios.get(`${API}/business/reviews`);
+      setCustomerReviews(Array.isArray(res.data?.reviews) ? res.data.reviews : []);
+    } catch {
+      setCustomerReviews([]);
+    } finally {
+      setCustomerReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCustomerReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const payload = {
+        public_enabled: Boolean(formData.public_enabled),
+        public_postcode: String(formData.public_postcode || ''),
+        public_website: String(formData.public_website || ''),
+        public_description: String(formData.public_description || ''),
+        public_photos: Array.isArray(formData.public_photos) ? formData.public_photos : [],
+        public_services: Array.isArray(formData.public_services) ? formData.public_services : [],
+      };
+
+      const response = await axios.put(`${API}/business/profile`, payload);
+
+      localStorage.setItem('dobook_business', JSON.stringify(minimizeBusinessForStorage(response.data)));
+      onUpdate(response.data);
+      toast.success('Public profile updated!');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update public profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const profileUrl = business?.id ? `${window.location.origin}/discover/${business.id}` : '';
+  const pendingCustomerReviews = (Array.isArray(customerReviews) ? customerReviews : []).filter(
+    (r) => String(r?.status || 'pending').toLowerCase() === 'pending',
+  );
+  const approvedCustomerReviews = (Array.isArray(customerReviews) ? customerReviews : []).filter(
+    (r) => String(r?.status || 'pending').toLowerCase() === 'approved',
+  );
+
+  return (
+    <div className="space-y-6">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Public Profile</CardTitle>
+          <CardDescription>
+            Control what customers see on your discover page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Show on directory</Label>
+              <p className="text-sm text-muted-foreground">Customers can find you via Find services.</p>
+            </div>
+            <Switch
+              checked={Boolean(formData.public_enabled)}
+              onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
+            />
+          </div>
+
+          <Separator />
+
+          {Boolean(formData.public_enabled) && profileUrl ? (
+            <div className="rounded-xl border border-border bg-muted/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Preview link</div>
+                <div className="text-xs text-muted-foreground truncate">{profileUrl}</div>
+              </div>
+              <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={() => router.push(`/discover/${business.id}`)}>
+                Preview
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid gap-2 mb-4">
+              <Label htmlFor="public_postcode">Postcode (optional)</Label>
+              <Input
+                id="public_postcode"
+                value={formData.public_postcode || ''}
+                onChange={(e) => setFormData({ ...formData, public_postcode: e.target.value })}
+                placeholder="e.g. 3000"
+                inputMode="numeric"
+              />
+            </div>
+
+            <div className="grid gap-2 mb-4">
+              <Label htmlFor="public_website">Website (optional)</Label>
+              <Input
+                id="public_website"
+                value={formData.public_website || ''}
+                onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
+                placeholder="https://yourwebsite.com"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2 mb-4">
+            <Label htmlFor="public_description">Business description</Label>
+            <Textarea
+              id="public_description"
+              value={formData.public_description || ''}
+              onChange={(e) => setFormData({ ...formData, public_description: e.target.value })}
+              placeholder="Tell customers what you do, what’s included, and what areas you service…"
+              rows={5}
+            />
+            <p className="text-xs text-muted-foreground mt-2">Max 2000 characters.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Photos</div>
+                <div className="text-xs text-muted-foreground">Add up to 8 photo URLs.</div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    public_photos: [...(Array.isArray(formData.public_photos) ? formData.public_photos : []), ""].slice(0, 8),
+                  })
+                }
+              >
+                Add photo
+              </Button>
+            </div>
+
+            {(Array.isArray(formData.public_photos) ? formData.public_photos : []).length === 0 ? (
+              <div className="text-sm text-muted-foreground">No photos yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {(formData.public_photos || []).map((url, idx) => (
+                  <div key={`photo-${idx}`} className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden flex-shrink-0">
+                      {String(url || "").trim() ? (
+                        <img
+                          src={String(url)}
+                          alt={`Photo ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <Input
+                      value={url}
+                      onChange={(e) => {
+                        const next = [...(formData.public_photos || [])];
+                        next[idx] = e.target.value;
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                      placeholder="https://... (image url)"
+                      className="bg-zinc-50"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => {
+                        const next = (formData.public_photos || []).filter((_, i) => i !== idx);
+                        setFormData({ ...formData, public_photos: next });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 pt-2 border-t border-zinc-200">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Services</div>
+                <div className="text-xs text-muted-foreground">List what you offer (optional pricing).</div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    public_services: [
+                      ...(Array.isArray(formData.public_services) ? formData.public_services : []),
+                      { name: "", description: "", unit: "session", price: "" },
+                    ].slice(0, 25),
+                  })
+                }
+              >
+                Add service
+              </Button>
+            </div>
+
+            {(Array.isArray(formData.public_services) ? formData.public_services : []).length === 0 ? (
+              <div className="text-sm text-muted-foreground">No services yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {(formData.public_services || []).map((s, idx) => (
+                  <div key={`service-${idx}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                      <div className="md:col-span-6 grid gap-2 mb-4">
+                        <Label>Service name</Label>
+                        <Input
+                          value={s?.name || ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), name: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white"
+                          placeholder="e.g. 2 Hours"
+                        />
+                      </div>
+                      <div className="md:col-span-3 grid gap-2 mb-4">
+                        <Label>Price</Label>
+                        <Input
+                          value={s?.price ?? ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), price: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white"
+                          placeholder="e.g. 375"
+                          inputMode="decimal"
+                        />
+                      </div>
+                      <div className="md:col-span-3 grid gap-2 mb-4">
+                        <Label>Unit</Label>
+                        <Input
+                          value={s?.unit || ""}
+                          onChange={(e) => {
+                            const next = [...(formData.public_services || [])];
+                            next[idx] = { ...(next[idx] || {}), unit: e.target.value };
+                            setFormData({ ...formData, public_services: next });
+                          }}
+                          className="bg-white"
+                          placeholder="session"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2 mb-4">
+                      <Label>Description (optional)</Label>
+                      <Textarea
+                        value={s?.description || ""}
+                        onChange={(e) => {
+                          const next = [...(formData.public_services || [])];
+                          next[idx] = { ...(next[idx] || {}), description: e.target.value };
+                          setFormData({ ...formData, public_services: next });
+                        }}
+                        className="bg-white"
+                        rows={3}
+                        placeholder="What’s included?"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10"
+                        onClick={() => {
+                          const next = (formData.public_services || []).filter((_, i) => i !== idx);
+                          setFormData({ ...formData, public_services: next });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={loading}
+            className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl"
+          >
+            {loading ? 'Saving...' : 'Save Public Profile'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Customer Reviews</CardTitle>
+          <CardDescription>Approve reviews before they show on your public profile.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-zinc-600">
+              Pending: <span className="font-semibold text-zinc-900">{pendingCustomerReviews.length}</span> • Approved:{' '}
+              <span className="font-semibold text-zinc-900">{approvedCustomerReviews.length}</span>
+            </div>
+            <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={refreshCustomerReviews} disabled={customerReviewsLoading}>
+              {customerReviewsLoading ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          </div>
+
+          {customerReviewsLoading ? (
+            <div className="text-sm text-zinc-500">Loading reviews…</div>
+          ) : pendingCustomerReviews.length ? (
+            <div className="space-y-3">
+              {pendingCustomerReviews.slice(0, 20).map((r) => (
+                <div key={r.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-zinc-900 truncate">{r.customer_name || 'Customer'}</div>
+                      <div className="text-sm text-zinc-700">{'★'.repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        className="h-9 bg-emerald-600 hover:bg-emerald-700 rounded-lg"
+                        onClick={async () => {
+                          try {
+                            await axios.put(
+                              `${API}/business/reviews/${r.id}`,
+                              { status: 'approved' },
+                            );
+                            toast.success('Review approved');
+                            refreshCustomerReviews();
+                          } catch (e) {
+                            toast.error(e.response?.data?.detail || 'Failed to approve review');
+                          }
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        onClick={async () => {
+                          try {
+                            await axios.put(
+                              `${API}/business/reviews/${r.id}`,
+                              { status: 'rejected' },
+                            );
+                            toast.success('Review rejected');
+                            refreshCustomerReviews();
+                          } catch (e) {
+                            toast.error(e.response?.data?.detail || 'Failed to reject review');
+                          }
+                        }}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-zinc-700 whitespace-pre-line">{r.comment}</div>
+                  {r.created_at ? (
+                    <div className="text-xs text-zinc-500">{new Date(r.created_at).toLocaleDateString()}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-zinc-500">
+              No pending reviews yet. Use <span className="font-semibold">Request review</span> on a booking to email the customer.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // ============= Widget Tab =============
 const WidgetTab = ({ businessId }) => {
   const widgetUrl = `${window.location.origin}/book/${businessId}`;
@@ -4574,12 +7225,15 @@ const BookingWidget = () => {
     duration_minutes: 120,
     parking_info: '',
     notes: '',
+    company_website: '',
     price: '',
     quantity: 1,
     apply_cbd_fee: false,
-    custom_fields: {}
+    custom_fields: {},
+    addon_ids: [],
   });
   const [loading, setLoading] = useState(false);
+  const [uploadingFields, setUploadingFields] = useState({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -4638,10 +7292,19 @@ const BookingWidget = () => {
       const isPhotoBooth = String(response.data?.industry || 'photobooth') === 'photobooth';
       setFormData((prev) => ({
         ...prev,
-        booth_type: boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'),
-        service_type: isPhotoBooth ? 'Photo Booth' : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
+        booth_type: isPhotoBooth
+          ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'))
+          : '',
+        service_type: isPhotoBooth
+          ? 'Photo Booth'
+          : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
         package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
-        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : (prev.duration_minutes || 60),
+        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : 60,
+        quantity: isPhotoBooth ? (prev.quantity || 1) : 1,
+        price: isPhotoBooth ? prev.price : 0,
+        event_location: isPhotoBooth ? prev.event_location : '',
+        event_location_geo: isPhotoBooth ? prev.event_location_geo : null,
+        parking_info: isPhotoBooth ? prev.parking_info : '',
       }));
     } catch (error) {
       console.error('Failed to load business:', error);
@@ -4702,21 +7365,38 @@ const BookingWidget = () => {
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
     ? business.booth_types
     : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+  const bookingFormFields = Array.isArray(business?.booking_form_fields) ? business.booking_form_fields : [];
+  const serviceAddons = Array.isArray(business?.service_addons) ? business.service_addons : [];
   const extraFields = Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [];
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const bookingTypeKey = inferBookingTypeKey({ businessType: business?.business_type, industry: business?.industry });
+  const bookingFields = BOOKING_FIELDS_BY_TYPE[bookingTypeKey] || BOOKING_FIELDS_BY_TYPE.photobooth;
+  const bookingFieldKeys = new Set(bookingFields.map((f) => String(f?.key || '').trim()).filter(Boolean));
+  const extraFormFields = (bookingFormFields || []).filter((f) => {
+    const key = String(f?.field_key || '').trim();
+    if (!key) return false;
+    if (RESERVED_CUSTOM_FIELD_KEYS.has(key)) return false;
+    if (bookingFieldKeys.has(key)) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-6" data-testid="booking-widget">
-      <Toaster position="top-center" richColors />
-      
       <div className="max-w-2xl mx-auto">
-	        <div className="text-center mb-8">
-	          <div className="inline-flex items-center gap-3 mb-4">
-	            <BrandLogo size="lg" />
-	          </div>
-	          <h1 className="text-3xl font-bold mb-2" style={{fontFamily: 'Manrope'}}>{business.business_name}</h1>
-	          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Book your appointment</p>
-	        </div>
+		        <div className="text-center mb-8">
+		          <div className="inline-flex items-center gap-3 mb-4">
+		            <img
+		              src={business?.logo_src || DOBOOK_LOGO_PNG}
+		              alt={String(business?.business_name || 'Business logo')}
+		              style={{ height: 84, width: 'auto', maxWidth: 240 }}
+		              className="select-none"
+		              draggable={false}
+		              onError={(e) => { e.currentTarget.src = DOBOOK_LOGO_PNG; }}
+		            />
+		          </div>
+		          <h1 className="text-3xl font-bold mb-2" style={{fontFamily: 'Manrope'}}>{business.business_name}</h1>
+		          <p className="text-zinc-600" style={{fontFamily: 'Inter'}}>Book your appointment</p>
+		        </div>
 
         <Card data-testid="booking-form-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
           <CardHeader>
@@ -4724,201 +7404,362 @@ const BookingWidget = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="hidden" aria-hidden="true">
+                <label htmlFor="company_website">Company website</label>
+                <input
+                  id="company_website"
+                  name="company_website"
+                  type="text"
+                  value={formData.company_website}
+                  onChange={(e) => setFormData({ ...formData, company_website: e.target.value })}
+                  autoComplete="off"
+                  tabIndex="-1"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="customer_name">Full Name *</Label>
-                  <Input
-                    id="customer_name"
-                    data-testid="widget-name-input"
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                {bookingFields.map((field) => {
+                  const key = String(field?.key || '').trim();
+                  if (!key) return null;
+                  const type = String(field?.type || 'text').trim();
+                  const label = String(field?.label || key).trim();
+                  const required = Boolean(field?.required);
+                  const placeholder = String(field?.placeholder || '').trim();
 
-                <div>
-                  <Label htmlFor="customer_email">Email *</Label>
-                  <Input
-                    id="customer_email"
-                    data-testid="widget-email-input"
-                    type="email"
-                    value={formData.customer_email}
-                    onChange={(e) => setFormData({...formData, customer_email: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  const column = field?.column;
+                  const value = column
+                    ? formData?.[column]
+                    : (formData.custom_fields?.[key] ?? "");
 
-                <div>
-                  <Label htmlFor="customer_phone">Phone Number</Label>
-                  <Input
-                    id="customer_phone"
-                    data-testid="widget-phone-input"
-                    type="tel"
-                    value={formData.customer_phone}
-                    onChange={(e) => setFormData({...formData, customer_phone: e.target.value})}
-                    inputMode="tel"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="booking_date">Event Date *</Label>
-                  <Input
-                    id="booking_date"
-                    data-testid="widget-date-input"
-                    type="date"
-                    value={formData.booking_date}
-                    onChange={(e) => setFormData({...formData, booking_date: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <Label htmlFor="event_location">Event Location *</Label>
-                  <AddressAutocomplete
-                    value={formData.event_location}
-                    onChange={(val, item) =>
-                      setFormData({ ...formData, event_location: val, event_location_geo: item || null })
+                  const setValue = (nextValue) => {
+                    if (column) {
+                      setFormData({ ...formData, [column]: nextValue });
+                      return;
                     }
-                    placeholder="Enter venue or address"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                    inputProps={{ id: "event_location", "data-testid": "widget-location-input", required: true }}
-                  />
-                </div>
+                    setFormData({
+                      ...formData,
+                      custom_fields: { ...(formData.custom_fields || {}), [key]: nextValue },
+                    });
+                  };
 
-                <div>
-                  <Label htmlFor="booth_type">
-                    {isPhotoBooth ? 'Select Booth Type *' : 'Select Service Type *'}
-                  </Label>
-                  <Select 
-                    value={isPhotoBooth ? formData.booth_type : formData.service_type}
-                    onValueChange={(val) => {
-                      if (isPhotoBooth) setFormData({ ...formData, booth_type: val });
-                      else setFormData({ ...formData, service_type: val, booth_type: '' });
-                    }}
-                  >
-                    <SelectTrigger data-testid="widget-booth-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boothTypes.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  if (type === "address") {
+                    return (
+                      <div key={key} className="md:col-span-2">
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <AddressAutocomplete
+                          value={String(formData.event_location || "")}
+                          onChange={(val, item) =>
+                            setFormData({ ...formData, event_location: val, event_location_geo: item || null })
+                          }
+                          placeholder={placeholder || "Enter venue or address"}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          inputProps={{ id: key, required, "data-testid": "widget-location-input" }}
+                        />
+                      </div>
+                    );
+                  }
 
-                {isPhotoBooth ? (
-                  <div>
-                    <Label htmlFor="package_duration">Select Package Duration *</Label>
-                    <Select 
-                      value={formData.package_duration} 
-                      onValueChange={(val) => {
-                        const hours = parseInt(val);
-                        setFormData({...formData, package_duration: val, duration_minutes: hours * 60});
-                      }}
-                    >
-                      <SelectTrigger data-testid="widget-package-select" className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1 Hour">1 Hour</SelectItem>
-                        <SelectItem value="2 Hours">2 Hours</SelectItem>
-                        <SelectItem value="3 Hours">3 Hours</SelectItem>
-                        <SelectItem value="4 Hours">4 Hours</SelectItem>
-                        <SelectItem value="5 Hours">5 Hours</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <div>
-                    <Label htmlFor="duration_minutes">Duration (minutes) *</Label>
-                    <Input
-                      id="duration_minutes"
-                      type="number"
-                      min="15"
-                      step="15"
-                      value={formData.duration_minutes}
-                      onChange={(e) => setFormData({...formData, duration_minutes: parseInt(e.target.value) || 60})}
-                      className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                    />
-                  </div>
-                )}
+                  if (type === "select_services") {
+                    const selected = column ? String(formData?.[column] || "") : String(value || "");
+                    const options = boothTypes;
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={selected}
+                          onValueChange={(val) => setValue(val)}
+                        >
+                          <SelectTrigger
+                            data-testid="widget-booth-select"
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {options.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
 
-                <div>
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    data-testid="widget-quantity-input"
-                    type="number"
-                    min="1"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value) || 1})}
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  if (type === "package_duration") {
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={String(formData.package_duration || "")}
+                          onValueChange={(val) => {
+                            const hours = parseInt(String(val || "").replaceAll(/\D+/g, ""), 10);
+                            setFormData({
+                              ...formData,
+                              package_duration: val,
+                              duration_minutes: Number.isFinite(hours) ? hours * 60 : formData.duration_minutes,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            data-testid="widget-package-select"
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1 Hour">1 Hour</SelectItem>
+                            <SelectItem value="2 Hours">2 Hours</SelectItem>
+                            <SelectItem value="3 Hours">3 Hours</SelectItem>
+                            <SelectItem value="4 Hours">4 Hours</SelectItem>
+                            <SelectItem value="5 Hours">5 Hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
 
-                <div>
-                  <Label htmlFor="price">Agreed Price ($) *</Label>
-                  <Input
-                    id="price"
-                    data-testid="widget-price-input"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || ''})}
-                    placeholder="0.00"
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                  if (type === "time_window") {
+                    const options = Array.isArray(field?.options) ? field.options : [];
+                    return (
+                      <div key={key}>
+                        <Label htmlFor={key}>
+                          {label}
+                          {required ? " *" : ""}
+                        </Label>
+                        <Select
+                          value={String(value || "")}
+                          onValueChange={(val) => {
+                            const selected = options.find((o) => String(o?.value) === String(val));
+                            setFormData({
+                              ...formData,
+                              booking_time: String(selected?.booking_time || "09:00"),
+                              custom_fields: { ...(formData.custom_fields || {}), [key]: val },
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {options.map((opt) => (
+                              <SelectItem key={`${key}-${String(opt?.value)}`} value={String(opt?.value)}>
+                                {String(opt?.label || opt?.value)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
+
+                  const inputType =
+                    type === "email" || type === "tel" || type === "date" || type === "time"
+                      ? type
+                      : (type === "number" || type === "money")
+                        ? "number"
+                        : "text";
+
+                  return (
+                    <div key={key} className={type === "textarea" ? "md:col-span-2" : ""}>
+                      <Label htmlFor={key}>
+                        {label}
+                        {required ? " *" : ""}
+                      </Label>
+                      {type === "textarea" ? (
+                        <Textarea
+                          id={key}
+                          value={String(value ?? "")}
+                          onChange={(e) => setValue(e.target.value)}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg mt-2"
+                          rows={3}
+                        />
+                      ) : (
+                        <Input
+                          id={key}
+                          data-testid={key === "customer_phone" ? "widget-phone-input" : undefined}
+                          type={inputType}
+                          step={type === "money" ? "0.01" : undefined}
+                          min={type === "money" || type === "number" ? "0" : undefined}
+                          value={String(value ?? "")}
+                          onChange={(e) => {
+                            if (type === "money" || type === "number") setValue(e.target.value);
+                            else setValue(e.target.value);
+                          }}
+                          placeholder={placeholder || undefined}
+                          required={required}
+                          inputMode={type === "tel" ? "tel" : undefined}
+                          className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
+                        />
+                      )}
+                      {key === "customer_phone" ? (
+                        <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="booking_time">Start Time *</Label>
-                  <Input
-                    id="booking_time"
-                    data-testid="widget-start-time-input"
-                    type="time"
-                    value={formData.booking_time}
-                    onChange={(e) => setFormData({...formData, booking_time: e.target.value})}
-                    required
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+              {extraFormFields.length > 0 ? (
+                <div className="pt-2">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {extraFormFields.map((f) => {
+                      const key = String(f?.field_key || '').trim();
+                      if (!key) return null;
+                      const type = String(f?.field_type || 'text').trim();
+                      const label = String(f?.field_name || key).trim();
+                      const required = Boolean(f?.required);
+                      const isPrivate = Boolean(f?.is_private);
+                      const value = formData.custom_fields?.[key];
 
-                <div>
-                  <Label htmlFor="parking_info">Parking Information</Label>
-                  <Input
-                    id="parking_info"
-                    data-testid="widget-parking-input"
-                    value={formData.parking_info}
-                    onChange={(e) => setFormData({...formData, parking_info: e.target.value})}
-                    placeholder="Street parking, garage, etc."
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
+                      const setValue = (nextValue) =>
+                        setFormData({
+                          ...formData,
+                          custom_fields: { ...(formData.custom_fields || {}), [key]: nextValue },
+                        });
 
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Input
-                    id="notes"
-                    data-testid="widget-notes-input"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    placeholder="Any special requests"
-                    className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11"
-                  />
-                </div>
-              </div>
+                      if (type === 'textarea') {
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">
+                                {key === "health_notes"
+                                  ? "Private notes — only visible to your practitioner. Not included in emails."
+                                  : "Private — not included in emails."}
+                              </div>
+                            ) : null}
+                            <Textarea
+                              value={String(value ?? '')}
+                              onChange={(e) => setValue(e.target.value)}
+                              className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg mt-2"
+                              rows={3}
+                            />
+                          </div>
+                        );
+                      }
 
-              {extraFields.length > 0 && (
+                      if (type === 'select') {
+                        const options = Array.isArray(f?.field_options) ? f.field_options : [];
+                        return (
+                          <div key={key}>
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                            ) : null}
+                            <Select value={String(value ?? '')} onValueChange={(v) => setValue(v)}>
+                              <SelectTrigger className="bg-zinc-50 border-zinc-200 rounded-lg h-11 mt-2">
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {options.map((opt) => (
+                                  <SelectItem key={`${key}-${String(opt)}`} value={String(opt)}>
+                                    {String(opt)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      }
+
+                      if (type === 'boolean') {
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                              <Checkbox checked={Boolean(value)} onCheckedChange={(v) => setValue(Boolean(v))} />
+                              <div className="font-medium text-zinc-800">
+                                {label}
+                                {required ? ' *' : ''}
+                              </div>
+                            </div>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-2">Private — not included in emails.</div>
+                            ) : null}
+                          </div>
+                        );
+                      }
+
+                      if (type === 'file') {
+                        const isUploading = Boolean(uploadingFields?.[key]);
+                        const filesValue = Array.isArray(value) ? value : [];
+                        return (
+                          <div key={key} className="md:col-span-2">
+                            <Label>
+                              {label}
+                              {required ? ' *' : ''}
+                            </Label>
+                            {isPrivate ? (
+                              <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                            ) : null}
+                            <Input
+                              type="file"
+                              multiple
+                              className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (!files.length) return;
+                                try {
+                                  setUploadingFields((prev) => ({ ...(prev || {}), [key]: true }));
+                                  const fd = new FormData();
+                                  fd.append('business_id', String(resolvedBusinessId || ''));
+                                  for (const file of files) fd.append('files', file);
+                                  const res = await axios.post(`${API}/public/booking-uploads`, fd);
+                                  const urls = (res?.data?.files || []).map((x) => x?.url).filter(Boolean);
+                                  if (urls.length) setValue(urls);
+                                  toast.success('Upload complete');
+                                } catch (err) {
+                                  toast.error(err?.response?.data?.detail || 'Upload failed');
+                                } finally {
+                                  setUploadingFields((prev) => ({ ...(prev || {}), [key]: false }));
+                                }
+                              }}
+                            />
+                            <div className="mt-2 text-xs text-zinc-500">
+                              {isUploading ? 'Uploading…' : filesValue.length ? `${filesValue.length} file(s) uploaded` : 'Optional'}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const inputType = (type === 'number' || type === 'date' || type === 'time') ? type : 'text';
+                      return (
+                        <div key={key}>
+                          <Label>
+                            {label}
+                            {required ? ' *' : ''}
+                          </Label>
+                          {isPrivate ? (
+                            <div className="text-[11px] text-zinc-500 mt-1">Private — not included in emails.</div>
+                          ) : null}
+                          <Input
+                            type={inputType}
+                            value={String(value ?? '')}
+                            onChange={(e) => setValue(e.target.value)}
+                            className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-lg h-11 mt-2"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : extraFields.length > 0 ? (
                 <div className="pt-2">
                   <div className="text-sm font-semibold mb-2 text-zinc-800">Additional Details</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4958,6 +7799,41 @@ const BookingWidget = () => {
                     })}
                   </div>
                 </div>
+              ) : null}
+
+              {serviceAddons.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-sm font-semibold mb-2 text-zinc-800">Extras</div>
+                  <div className="space-y-2">
+                    {serviceAddons.map((a) => {
+                      const id = String(a?.id || '').trim();
+                      if (!id) return null;
+                      const checked = Array.isArray(formData.addon_ids) ? formData.addon_ids.includes(id) : false;
+                      const price = Number(a?.price || 0);
+                      const desc = String(a?.description || '').trim();
+                      return (
+                        <div key={id} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(v) => {
+                              const next = new Set(Array.isArray(formData.addon_ids) ? formData.addon_ids : []);
+                              if (Boolean(v)) next.add(id);
+                              else next.delete(id);
+                              setFormData({ ...formData, addon_ids: Array.from(next) });
+                            }}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="font-medium text-zinc-800">{String(a?.name || 'Extra')}</div>
+                              <div className="text-sm font-semibold text-zinc-900">{price ? `$${price.toFixed(2)}` : '—'}</div>
+                            </div>
+                            {desc ? <div className="text-xs text-zinc-500 mt-1">{desc}</div> : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {Boolean(business?.travel_fee_enabled) ||
@@ -4977,34 +7853,26 @@ const BookingWidget = () => {
                       </div>
                     )}
 
-                    {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (
-                      <label className="flex items-center justify-between gap-4 p-3 rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={Boolean(formData.apply_cbd_fee)}
-                            onCheckedChange={(v) => setFormData({ ...formData, apply_cbd_fee: Boolean(v) })}
-                          />
-                          <div>
-                            <div className="font-medium">
-                              {String(business?.cbd_fee_label || 'CBD logistics')}
-                            </div>
-                            <div className="text-xs text-zinc-500">Extra logistics for city/CBD events</div>
-                          </div>
-                        </div>
-                        <div className="font-semibold text-zinc-800">
-                          +${Number(business?.cbd_fee_amount || 0).toFixed(2)}
-                        </div>
-                      </label>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+	                    {Boolean(business?.cbd_fee_enabled) && Number(business?.cbd_fee_amount || 0) > 0 && (
+	                      <div className="p-3 rounded-xl border border-zinc-200 bg-white flex items-start justify-between gap-4">
+	                        <div>
+	                          <div className="font-medium">{String(business?.cbd_fee_label || 'CBD logistics')}</div>
+	                          <div className="text-xs text-zinc-500 mt-1">
+	                            Applied automatically when the booking address postcode is <strong>3000</strong>.
+	                          </div>
+	                        </div>
+	                        <div className="font-semibold text-zinc-800">+${Number(business?.cbd_fee_amount || 0).toFixed(2)}</div>
+	                      </div>
+	                    )}
+	                  </div>
+	                </div>
+	              ) : null}
 
               <Button 
                 data-testid="widget-submit-btn"
                 type="submit" 
                 disabled={loading}
-                className="w-full h-14 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="w-full h-14 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
               >
                 {loading ? 'Booking...' : 'Book Appointment'}
               </Button>

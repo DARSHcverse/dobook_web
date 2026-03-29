@@ -11,25 +11,29 @@ export default function AdminAuth() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  // Simple hardcoded admin credentials
-  const ADMIN_EMAIL = "admin@dobook.test";
-  const ADMIN_PASSWORD = "admin123";
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Simple hardcoded authentication
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      // Store admin session in localStorage
-      localStorage.setItem('adminAuth', 'true');
-      localStorage.setItem('adminEmail', email);
-      router.push('/admin');
-    } else {
-      setError("Invalid credentials");
+    try {
+      const response = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, secret: password }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail || "Invalid credentials");
+      }
+
+      router.push("/admin");
+    } catch (err) {
+      setError(err?.message || "Invalid credentials");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -77,7 +81,7 @@ export default function AdminAuth() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Admin secret
               </label>
               <div className="mt-1">
                 <input

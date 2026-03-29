@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sendBookingCancelledEmail } from "@/lib/bookingMailer";
+import { notifyStaff } from "@/lib/staffNotifier";
 
 function isYmd(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
@@ -15,6 +16,10 @@ function isLikelyEmail(value) {
   const s = String(value || "").trim();
   if (!s) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
 function normalizeCustomFields(value) {
@@ -44,9 +49,13 @@ function buildUpdates(body) {
     "duration_minutes",
     "parking_info",
     "notes",
+    "backdrop_notes",
     "price",
     "quantity",
+    "payment_status",
+    "payment_method",
     "status",
+    "staff_id",
   ];
 
   for (const key of fields) {
@@ -54,6 +63,9 @@ function buildUpdates(body) {
     if (key === "duration_minutes" || key === "quantity") updates[key] = Number(body[key] || 0);
     else if (key === "price") updates[key] = body[key] !== "" && body[key] !== null ? Number(body[key] || 0) : 0;
     else if (key === "booking_date" || key === "booking_time") {
+      const v = body[key];
+      updates[key] = v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim();
+    } else if (key === "staff_id") {
       const v = body[key];
       updates[key] = v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim();
     } else {
@@ -137,6 +149,24 @@ export async function PUT(request, { params }) {
     updates.status = status;
   }
 
+  if ("payment_status" in updates) {
+    const paymentStatus = String(updates.payment_status || "").trim().toLowerCase();
+    const allowed = new Set(["unpaid", "deposit_paid", "paid_in_full"]);
+    if (!allowed.has(paymentStatus)) {
+      return NextResponse.json({ detail: "Invalid payment_status" }, { status: 400 });
+    }
+    updates.payment_status = paymentStatus;
+  }
+
+  if ("payment_method" in updates) {
+    const paymentMethod = String(updates.payment_method || "").trim().toLowerCase();
+    const allowed = new Set(["", "bank_transfer", "cash", "online", "other"]);
+    if (!allowed.has(paymentMethod)) {
+      return NextResponse.json({ detail: "Invalid payment_method" }, { status: 400 });
+    }
+    updates.payment_method = paymentMethod;
+  }
+
   if (auth.mode === "supabase") {
     const { data: before, error: beforeErr } = await auth.supabase
       .from("bookings")
@@ -151,9 +181,33 @@ export async function PUT(request, { params }) {
     const nextStatus = "status" in updates ? String(updates.status || "").trim().toLowerCase() : prevStatus;
     const becameCancelled = prevStatus !== "cancelled" && nextStatus === "cancelled";
 
+    const prevStaffId = before?.staff_id ? String(before.staff_id) : null;
+    const nextStaffId = "staff_id" in updates ? (updates.staff_id ? String(updates.staff_id) : null) : prevStaffId;
+    const staffChanged = prevStaffId !== nextStaffId;
+
+    let staffForNotify = null;
+    if ("staff_id" in updates && updates.staff_id) {
+      if (!isUuid(updates.staff_id)) {
+        return NextResponse.json({ detail: "Invalid staff_id" }, { status: 400 });
+      }
+      const { data: staff, error: staffErr } = await auth.supabase
+        .from("staff")
+        .select("*")
+        .eq("id", updates.staff_id)
+        .eq("business_id", auth.business.id)
+        .maybeSingle();
+      if (staffErr) return NextResponse.json({ detail: staffErr.message }, { status: 500 });
+      if (!staff) return NextResponse.json({ detail: "Staff member not found" }, { status: 400 });
+      if (staff?.is_active === false) {
+        return NextResponse.json({ detail: "Staff member is inactive" }, { status: 400 });
+      }
+      staffForNotify = staff;
+    }
+
     if (becameCancelled) {
       updates.reminder_5d_scheduled_at = null;
       updates.reminder_1d_scheduled_at = null;
+      updates.reminder_sent_hours = [];
     }
 
     const { data, error } = await auth.supabase
@@ -175,6 +229,28 @@ export async function PUT(request, { params }) {
       }
     }
 
+    if (staffChanged && nextStaffId) {
+      try {
+        const staff = staffForNotify
+          || (await auth.supabase
+            .from("staff")
+            .select("*")
+            .eq("id", nextStaffId)
+            .eq("business_id", auth.business.id)
+            .maybeSingle()).data;
+        if (staff) {
+          await notifyStaff({
+            staff,
+            booking: data,
+            business: auth.business,
+            backdrop: data?.backdrop_notes || "",
+          });
+        }
+      } catch {
+        // best-effort
+      }
+    }
+
     return NextResponse.json(data);
   }
 
@@ -189,6 +265,7 @@ export async function PUT(request, { params }) {
   if (becameCancelled) {
     next.reminder_5d_scheduled_at = null;
     next.reminder_1d_scheduled_at = null;
+    next.reminder_sent_hours = [];
   }
 
   auth.db.bookings[idx] = next;
@@ -201,5 +278,6 @@ export async function PUT(request, { params }) {
       // best-effort
     }
   }
+  // Local mode: skip staff notifications.
   return NextResponse.json(auth.db.bookings[idx]);
 }

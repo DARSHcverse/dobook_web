@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
-import { readDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminAuth } from "@/lib/adminAuth";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    let businesses = [];
+    const auth = requireAdminAuth(request);
+    if (auth.error) return auth.error;
 
-    if (hasSupabaseConfig()) {
-      const sb = supabaseAdmin();
-      const { data, error } = await sb.from("businesses").select("*");
-      if (error) throw error;
-      businesses = data || [];
-    } else {
-      const db = readDb();
-      businesses = db.businesses || [];
-    }
+    const sb = supabaseAdmin();
+    const { data: businesses, error } = await sb.from("businesses").select("*");
+
+    if (error) throw error;
 
     // Remove password hashes from response
-    const sanitizedBusinesses = businesses.map(business => {
+    const sanitizedBusinesses = (businesses || []).map(business => {
       const { password_hash, ...sanitized } = business;
       return sanitized;
     });

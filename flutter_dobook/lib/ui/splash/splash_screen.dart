@@ -136,7 +136,7 @@ class _HaloLogoState extends State<_HaloLogo>
           ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: Container(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               padding: const EdgeInsets.all(14),
               child: Image.asset(
                 'assets/brand/dobook-logo.png',

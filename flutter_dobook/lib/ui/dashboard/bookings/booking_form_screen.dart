@@ -196,9 +196,12 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 textInputAction: TextInputAction.newline,
               ),
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _busy ? null : () => _submit(context),
-                child: const Text('Create booking'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : () => _submit(context),
+                  child: const Text('Create booking'),
+                ),
               ),
             ],
           ),

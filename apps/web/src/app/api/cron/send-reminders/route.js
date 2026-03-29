@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { readDb, writeDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBookingReminderEmail } from "@/lib/bookingMailer";
-import { hasProAccess } from "@/lib/entitlements";
+import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
 
 function ymd(date) {
   const d = new Date(date);
@@ -16,6 +15,30 @@ function addDaysUtc(date, days) {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   d.setUTCDate(d.getUTCDate() + days);
   return d;
+}
+
+function normalizeReminderTimes(value) {
+  const allowed = new Set([1, 2, 4, 12, 24, 48, 72, 168]);
+  const list = Array.isArray(value) ? value : [];
+  const cleaned = list.map((v) => Number(v)).filter((v) => Number.isFinite(v) && allowed.has(v));
+  return Array.from(new Set(cleaned)).slice(0, 3);
+}
+
+function parseBookingDateTimeUtc(booking) {
+  const dateStr = String(booking?.booking_date || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [y, m, d] = dateStr.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const timeStr = String(booking?.booking_time || "").trim();
+  if (timeStr && /^\d{2}:\d{2}$/.test(timeStr)) {
+    const [h, min] = timeStr.split(":").map((n) => Number(n));
+    if (Number.isFinite(h) && Number.isFinite(min)) {
+      return new Date(Date.UTC(y, m - 1, d, h, min, 0, 0));
+    }
+  }
+
+  return new Date(Date.UTC(y, m - 1, d, 9, 0, 0, 0));
 }
 
 function isAuthorized(request) {
@@ -49,102 +72,99 @@ export async function POST(request) {
   }
 
   const now = new Date();
-  const date5 = ymd(addDaysUtc(now, 5));
-  const date1 = ymd(addDaysUtc(now, 1));
+  const sb = supabaseAdmin();
 
-  const stats = { date1, date5, sent_5d: 0, sent_1d: 0, skipped: 0 };
+  const { data: businesses, error: bizErr } = await sb.from("businesses").select("*");
+  if (bizErr) return NextResponse.json({ detail: bizErr.message }, { status: 500 });
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
+  const businessById = new Map((businesses || []).map((b) => [b.id, b]));
+  const allTimes = (businesses || [])
+    .flatMap((b) =>
+      normalizeReminderTimes(
+        Array.isArray(b?.reminder_times) && b.reminder_times.length ? b.reminder_times : b?.reminder_timing_hrs,
+      ),
+    )
+    .filter(Boolean);
+  const maxHours = allTimes.length ? Math.max(...allTimes) : 48;
+  const lookaheadDays = Math.max(1, Math.ceil(maxHours / 24));
+  const startDate = ymd(now);
+  const endDate = ymd(addDaysUtc(now, lookaheadDays));
 
-    const { data: businesses, error: bizErr } = await sb.from("businesses").select("*");
-    if (bizErr) return NextResponse.json({ detail: bizErr.message }, { status: 500 });
-    const businessById = new Map((businesses || []).map((b) => [b.id, b]));
+  const stats = { startDate, endDate, lookaheadDays, sent: 0, skipped: 0 };
 
-    const { data: bookings5, error: b5Err } = await sb
-      .from("bookings")
-      .select("*")
-      .eq("booking_date", date5)
-      .eq("status", "confirmed");
-    if (b5Err) return NextResponse.json({ detail: b5Err.message }, { status: 500 });
+  const { data: bookings, error: bookingsErr } = await sb
+    .from("bookings")
+    .select("*")
+    .gte("booking_date", startDate)
+    .lte("booking_date", endDate)
+    .eq("status", "confirmed");
+  if (bookingsErr) return NextResponse.json({ detail: bookingsErr.message }, { status: 500 });
 
-    const { data: bookings1, error: b1Err } = await sb
-      .from("bookings")
-      .select("*")
-      .eq("booking_date", date1)
-      .eq("status", "confirmed");
-    if (b1Err) return NextResponse.json({ detail: b1Err.message }, { status: 500 });
+  const windowMs = 30 * 60 * 1000;
 
-    const process = async (booking, daysBefore) => {
-      const business = businessById.get(booking.business_id);
-      if (!business || !booking.customer_email) return false;
-      if (!hasProAccess(business)) return false;
-
-      const already =
-        daysBefore === 5
-          ? booking.reminder_5d_sent_at || booking.reminder_5d_scheduled_at
-          : booking.reminder_1d_sent_at || booking.reminder_1d_scheduled_at;
-      if (already) return false;
-
-      const result = await sendBookingReminderEmail({ booking, business, daysBefore });
-      if (!result?.ok) return false;
-
-      const field = daysBefore === 5 ? "reminder_5d_sent_at" : "reminder_1d_sent_at";
-      await sb
-        .from("bookings")
-        .update({ [field]: new Date().toISOString() })
-        .eq("id", booking.id)
-        .eq("business_id", booking.business_id);
-      return true;
-    };
-
-    for (const b of bookings5 || []) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await process(b, 5)) stats.sent_5d += 1;
-      else stats.skipped += 1;
-    }
-    for (const b of bookings1 || []) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await process(b, 1)) stats.sent_1d += 1;
-      else stats.skipped += 1;
-    }
-
-    return NextResponse.json({ ok: true, ...stats });
-  }
-
-  const db = readDb();
-  const businessById = new Map((db.businesses || []).map((b) => [b.id, b]));
-  const nowIso = new Date().toISOString();
-
-  const processLocal = async (booking, daysBefore) => {
+  const process = async (booking) => {
     const business = businessById.get(booking.business_id);
     if (!business || !booking.customer_email) return false;
-    if (!hasProAccess(business)) return false;
+    const subStatus = String(business?.subscription_status || "").trim().toLowerCase();
+    const proActive = hasProAccess(business) && (isOwnerBusiness(business) || subStatus === "active");
+    if (!proActive) return false;
+    if (business.reminders_enabled === false) return false;
 
-    const field = daysBefore === 5 ? "reminder_5d_sent_at" : "reminder_1d_sent_at";
-    const scheduledField = daysBefore === 5 ? "reminder_5d_scheduled_at" : "reminder_1d_scheduled_at";
-    if (booking[field]) return false;
-    if (booking[scheduledField]) return false;
+    const reminderTimes = normalizeReminderTimes(
+      Array.isArray(business?.reminder_times) && business.reminder_times.length
+        ? business.reminder_times
+        : business?.reminder_timing_hrs,
+    );
+    if (!reminderTimes.length) return false;
 
-    const result = await sendBookingReminderEmail({ booking, business, daysBefore });
-    if (!result?.ok) return false;
+    const eventAt = parseBookingDateTimeUtc(booking);
+    if (!eventAt) return false;
 
-    booking[field] = nowIso;
-    return true;
+    const sentHours = Array.isArray(booking?.reminder_sent_hours) ? booking.reminder_sent_hours : [];
+    const includeDetails = business?.reminder_include_booking_details !== false;
+    const includePaymentLink = Boolean(business?.reminder_include_payment_link) && Boolean(String(business?.payment_link || "").trim());
+    const customMessage = String(business?.reminder_custom_message || "").trim();
+
+    let sentAny = false;
+    for (const hoursBefore of reminderTimes) {
+      if (sentHours.includes(hoursBefore)) continue;
+      const targetMs = Number(hoursBefore) * 60 * 60 * 1000;
+      const deltaMs = eventAt.getTime() - now.getTime();
+      if (deltaMs <= 0) continue;
+      if (Math.abs(deltaMs - targetMs) > windowMs) continue;
+
+      // eslint-disable-next-line no-await-in-loop
+      const result = await sendBookingReminderEmail({
+        booking,
+        business,
+        hoursBefore,
+        includeDetails,
+        includePaymentLink,
+        customMessage,
+      });
+      if (!result?.ok) continue;
+
+      sentHours.push(hoursBefore);
+      sentAny = true;
+    }
+
+    if (sentAny) {
+      const unique = Array.from(new Set(sentHours));
+      await sb
+        .from("bookings")
+        .update({ reminder_sent_hours: unique })
+        .eq("id", booking.id)
+        .eq("business_id", booking.business_id);
+    }
+
+    return sentAny;
   };
 
-  for (const booking of db.bookings || []) {
-    if (booking.status !== "confirmed") continue;
-    if (booking.booking_date === date5) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await processLocal(booking, 5)) stats.sent_5d += 1;
-    }
-    if (booking.booking_date === date1) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await processLocal(booking, 1)) stats.sent_1d += 1;
-    }
+  for (const booking of bookings || []) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await process(booking)) stats.sent += 1;
+    else stats.skipped += 1;
   }
 
-  writeDb(db);
   return NextResponse.json({ ok: true, ...stats });
 }

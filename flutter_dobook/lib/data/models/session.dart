@@ -8,30 +8,35 @@ class Session {
 
   final String token;
   final String businessId;
-  final int createdAt;
-  final int expiresAt;
+  final DateTime createdAt;
+  final DateTime expiresAt;
 
-  bool get isExpired => DateTime.now().millisecondsSinceEpoch >= expiresAt;
+  bool get isExpired => expiresAt.isBefore(DateTime.now());
 
   Map<String, dynamic> toJson() {
     return {
       'token': token,
       'businessId': businessId,
-      'createdAt': createdAt,
-      'expiresAt': expiresAt,
+      'createdAt': createdAt.toIso8601String(),
+      'expiresAt': expiresAt.toIso8601String(),
     };
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is DateTime) return value;
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    final parsed = DateTime.tryParse(value?.toString() ?? '');
+    return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   static Session fromJson(Map<String, dynamic> json) {
     return Session(
       token: json['token']?.toString() ?? '',
       businessId: json['businessId']?.toString() ?? '',
-      createdAt: (json['createdAt'] is num)
-          ? (json['createdAt'] as num).toInt()
-          : 0,
-      expiresAt: (json['expiresAt'] is num)
-          ? (json['expiresAt'] as num).toInt()
-          : 0,
+      createdAt: _parseDate(json['createdAt']),
+      expiresAt: _parseDate(json['expiresAt']),
     );
   }
 }

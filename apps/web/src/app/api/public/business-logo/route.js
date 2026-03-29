@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readDb } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -31,18 +30,12 @@ export async function GET(request) {
     return NextResponse.json({ detail: "business_id is required" }, { status: 400 });
   }
 
-  let logoUrl = "";
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.from("businesses").select("logo_url").eq("id", businessId).maybeSingle();
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.from("businesses").select("logo_url").eq("id", businessId).maybeSingle();
-    if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
-    logoUrl = String(data?.logo_url || "").trim();
-  } else {
-    const db = readDb();
-    const business = (db.businesses || []).find((b) => String(b?.id || "") === String(businessId));
-    logoUrl = String(business?.logo_url || "").trim();
-  }
+  if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
+
+  const logoUrl = String(data?.logo_url || "").trim();
 
   if (!logoUrl) return redirectToDefaultLogo();
 

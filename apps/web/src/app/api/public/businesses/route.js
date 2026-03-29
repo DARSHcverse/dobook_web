@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { readDb, sanitizeBusiness } from "@/lib/localdb";
-import { hasSupabaseConfig, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sanitizeBusiness } from "@/app/api/_utils/auth";
 
 function normalizeQuery(value) {
   return String(value || "").trim().toLowerCase();
@@ -16,6 +16,7 @@ function pickPublicBusiness(business) {
     business_address: String(b.business_address || "").trim(),
     industry: String(b.industry || "photobooth").trim(),
     booth_types: Array.isArray(b.booth_types) ? b.booth_types : [],
+    public_services: Array.isArray(b.public_services) ? b.public_services : [],
     public_description: String(b.public_description || "").trim(),
     public_postcode: String(b.public_postcode || "").trim(),
     public_photos: Array.isArray(b.public_photos) ? b.public_photos : [],
@@ -30,44 +31,30 @@ export async function GET(request) {
   const q = normalizeQuery(url.searchParams.get("q"));
   const postcode = normalizeQuery(url.searchParams.get("postcode"));
 
-  if (hasSupabaseConfig()) {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("businesses")
-      .select(
-        "id,business_name,email,phone,business_address,industry,booth_types,public_enabled,public_description,public_postcode,public_photos,public_website",
-      )
-      .eq("public_enabled", true)
-      .order("created_at", { ascending: false })
-      .limit(100);
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("businesses")
+    .select(
+      "id,business_name,email,phone,business_address,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos,public_website",
+    )
+    .eq("public_enabled", true)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
 
-    let list = (data || []).map(pickPublicBusiness);
-    if (q) {
-      list = list.filter((b) => {
-        const hay = `${b.business_name} ${b.public_description} ${b.industry}`.toLowerCase();
-        return hay.includes(q);
-      });
-    }
-    if (postcode) {
-      list = list.filter((b) => String(b.public_postcode || "").toLowerCase().includes(postcode));
-    }
-    return NextResponse.json(list);
-  }
+  let list = (data || []).map(pickPublicBusiness);
 
-  const db = readDb();
-  const businesses = Array.isArray(db.businesses) ? db.businesses : [];
-  let list = businesses.filter((b) => Boolean(b?.public_enabled)).map(pickPublicBusiness);
   if (q) {
     list = list.filter((b) => {
       const hay = `${b.business_name} ${b.public_description} ${b.industry}`.toLowerCase();
       return hay.includes(q);
     });
   }
+
   if (postcode) {
     list = list.filter((b) => String(b.public_postcode || "").toLowerCase().includes(postcode));
   }
-  return NextResponse.json(list.slice(0, 100));
-}
 
+  return NextResponse.json(list);
+}

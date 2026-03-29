@@ -11,6 +11,29 @@ function asList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function summarizeServices(b) {
+  const fromPublic = asList(b?.public_services)
+    .map((s) => String(s?.name || "").trim())
+    .filter(Boolean);
+  if (fromPublic.length) return fromPublic.slice(0, 3);
+  return asList(b?.booth_types).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3);
+}
+
+function normalizeWebsiteUrl(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+
+  let candidate = value;
+  if (/^\/\//.test(candidate)) candidate = `https:${candidate}`;
+  else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(candidate)) candidate = `https://${candidate}`;
+
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) {
   const router = useRouter();
   const [q, setQ] = useState(String(initialQ || ""));
@@ -60,10 +83,15 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+            onClick={() => router.push("/")}
+            aria-label="Go to DoBook home"
+          >
             <img src="/brand/dobook-logo.png" alt="DoBook" className="h-10 w-auto" draggable={false} />
             <div className="font-semibold">Find nearby services</div>
-          </div>
+          </button>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="h-10 rounded-full" onClick={() => router.push("/auth")}>
               Business login
@@ -124,8 +152,10 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {results.map((b) => (
-              <Card key={b.id} className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
+            {results.map((b) => {
+              const websiteUrl = normalizeWebsiteUrl(b.public_website);
+              return (
+                <Card key={b.id} className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="space-y-3">
                   <div className="flex items-center gap-3">
                     <img
@@ -135,9 +165,14 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                       draggable={false}
                     />
                     <div className="min-w-0">
-                      <div className="font-semibold truncate" style={{ fontFamily: "Manrope" }}>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/discover/${b.id}`)}
+                        className="text-left font-semibold truncate hover:underline"
+                        style={{ fontFamily: "Manrope" }}
+                      >
                         {b.business_name}
-                      </div>
+                      </button>
                       <div className="text-xs text-zinc-500 truncate">{b.industry}</div>
                     </div>
                   </div>
@@ -156,8 +191,8 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                         {b.business_address ? b.business_address : null}
                       </div>
                     ) : null}
-                    {asList(b.booth_types).length ? (
-                      <div className="truncate mt-1">{asList(b.booth_types).slice(0, 3).join(" • ")}</div>
+                    {summarizeServices(b).length ? (
+                      <div className="truncate mt-1">{summarizeServices(b).join(" • ")}</div>
                     ) : null}
                   </div>
 
@@ -168,23 +203,24 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                     >
                       Book now
                     </Button>
-                    {b.public_website ? (
-                      <Button
-                        variant="outline"
-                        className="h-11 rounded-xl"
-                        onClick={() => window.open(String(b.public_website), "_blank", "noopener,noreferrer")}
-                      >
-                        Website
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => router.push(`/discover/${b.id}`)}>
+                      Details
+                    </Button>
+                    {websiteUrl ? (
+                      <Button asChild variant="outline" className="h-11 rounded-xl">
+                        <a href={websiteUrl} target="_blank" rel="noopener noreferrer">
+                          Website
+                        </a>
                       </Button>
                     ) : null}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
     </div>
   );
 }
-

@@ -19,11 +19,17 @@ class DobookApp extends StatelessWidget {
         Provider.value(value: repo),
         ChangeNotifierProvider(create: (_) => AppSession(repo: repo)..init()),
       ],
-      child: MaterialApp(
-        title: 'DoBook',
-        theme: buildDobookTheme(),
-        debugShowCheckedModeBanner: false,
-        home: const _Home(),
+      child: Consumer<AppSession>(
+        builder: (context, session, _) {
+          return MaterialApp(
+            title: 'DoBook',
+            theme: buildDobookTheme(brightness: Brightness.light),
+            darkTheme: buildDobookTheme(brightness: Brightness.dark),
+            themeMode: session.themeMode,
+            debugShowCheckedModeBanner: false,
+            home: const _Home(),
+          );
+        },
       ),
     );
   }

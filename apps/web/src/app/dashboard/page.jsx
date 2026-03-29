@@ -9,12 +9,24 @@ export default function DashboardPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("dobook_token");
-    if (!token) {
-      router.replace("/auth");
-      return;
-    }
-    setReady(true);
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        if (cancelled) return;
+        if (!res.ok) {
+          router.replace("/auth");
+          return;
+        }
+        setReady(true);
+      } catch {
+        if (!cancelled) router.replace("/auth");
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!ready) return null;
