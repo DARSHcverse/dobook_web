@@ -73,6 +73,8 @@ export async function PUT(request) {
     "reminder_include_payment_link",
     "reminder_include_booking_details",
     "confirmation_email_enabled",
+    "sms_confirmations_enabled",
+    "sms_staff_notifications_enabled",
   ];
 
   if (auth.mode === "supabase") {
@@ -179,6 +181,10 @@ export async function PUT(request) {
       }
       if (key === "confirmation_email_enabled") {
         updates.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
+        continue;
+      }
+      if (key === "sms_confirmations_enabled" || key === "sms_staff_notifications_enabled") {
+        updates[key] = asBool(body[key]);
         continue;
       }
       if (key === "booth_types") {
@@ -313,6 +319,10 @@ export async function PUT(request) {
     }
     if (key === "confirmation_email_enabled") {
       auth.business.confirmation_email_enabled = asBool(body.confirmation_email_enabled);
+      continue;
+    }
+    if (key === "sms_confirmations_enabled" || key === "sms_staff_notifications_enabled") {
+      auth.business[key] = asBool(body[key]);
       continue;
     }
     if (key === "booth_types") {

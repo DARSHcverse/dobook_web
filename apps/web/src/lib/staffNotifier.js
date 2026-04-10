@@ -113,10 +113,10 @@ export async function notifyStaff({ staff, booking, business, backdrop }) {
     results.email = { ok: false, skipped: true, error: "No staff email" };
   }
 
-  // SMS to staff (best-effort, non-blocking).
+  // SMS to staff. Await it so the route does not finish before Twilio receives the request.
   const staffPhone = String(staff?.phone || "").trim();
   if (staffPhone && business?.sms_staff_notifications_enabled !== false) {
-    sendSMS({
+    const sid = await sendSMS({
       to: staffPhone,
       message: staffAssignmentSMS({
         staffName: staffName,
@@ -128,14 +128,8 @@ export async function notifyStaff({ staff, booking, business, backdrop }) {
         location: safeName(booking?.event_location) || null,
         backdrop: resolvedBackdrop || null,
       }),
-    })
-      .then((sid) => {
-        results.sms = { ok: Boolean(sid), sid: sid || null };
-      })
-      .catch((e) => {
-        console.error("[staffNotifier] SMS failed:", e?.message);
-        results.sms = { ok: false, error: e?.message };
-      });
+    });
+    results.sms = sid ? { ok: true, sid } : { ok: false, error: "SMS not sent" };
   } else {
     results.sms = { ok: false, skipped: true, error: staffPhone ? "SMS notifications disabled" : "No staff phone" };
   }

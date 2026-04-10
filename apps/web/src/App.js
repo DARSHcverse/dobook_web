@@ -3440,7 +3440,11 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
         industry: business?.industry || 'photobooth',
         booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
-        booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
+        booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [],
+        sms_confirmations_enabled:
+          business?.sms_confirmations_enabled !== undefined ? Boolean(business.sms_confirmations_enabled) : true,
+        sms_staff_notifications_enabled:
+          business?.sms_staff_notifications_enabled !== undefined ? Boolean(business.sms_staff_notifications_enabled) : true,
       });
       const reminderTimes = Array.isArray(business?.reminder_times) && business.reminder_times.length
         ? business.reminder_times
@@ -3606,6 +3610,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         reminder_include_payment_link: Boolean(formData.reminder_include_payment_link),
         reminder_include_booking_details: Boolean(formData.reminder_include_booking_details),
         confirmation_email_enabled: Boolean(formData.confirmation_email_enabled),
+        sms_confirmations_enabled: Boolean(formData.sms_confirmations_enabled),
+        sms_staff_notifications_enabled: Boolean(formData.sms_staff_notifications_enabled),
       };
       payload.travel_fee_amount = Number(formData.travel_fee_amount || 0);
       payload.travel_fee_free_km = Math.max(0, Math.floor(Number(formData.travel_fee_free_km || 40)));
