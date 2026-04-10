@@ -538,7 +538,9 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [backdropNotes, setBackdropNotes] = useState('');
   const [invoiceUpgradeOpen, setInvoiceUpgradeOpen] = useState(false);
 
-  const hasProForInvoice = hasProAccess(business);
+  const hasProForInvoice =
+    String(business?.account_role || '').trim().toLowerCase() === 'owner' ||
+    String(business?.subscription_plan || '').trim().toLowerCase() === 'pro';
 
   useEffect(() => {
     setCurrentBooking(booking || null);
