@@ -3,6 +3,10 @@ import { requireSession } from "../../_utils/auth";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sendBookingCancelledEmail } from "@/lib/bookingMailer";
 import { notifyStaff } from "@/lib/staffNotifier";
+import { updateCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
+import { sendSMS, formatSMSDate, formatSMSTime } from "@/lib/sms";
+import { bookingCancellationSMS } from "@/lib/smsTemplates";
+import { hasProAccess } from "@/lib/entitlements";
 
 function isYmd(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
@@ -227,6 +231,20 @@ export async function PUT(request, { params }) {
       } catch {
         // best-effort
       }
+      // Best-effort SMS cancellation (Pro only).
+      if (hasProAccess(auth.business) && data.customer_phone) {
+        sendSMS({
+          to: data.customer_phone,
+          message: bookingCancellationSMS({
+            customerName: data.customer_name,
+            businessName: auth.business.business_name,
+            date: formatSMSDate(data.booking_date),
+            time: formatSMSTime(data.booking_time),
+          }),
+        }).catch((e) => {
+          console.error(`[bookings/PUT] SMS cancellation failed for booking ${bookingId}:`, e?.message);
+        });
+      }
     }
 
     if (staffChanged && nextStaffId) {
@@ -249,6 +267,17 @@ export async function PUT(request, { params }) {
       } catch {
         // best-effort
       }
+    }
+
+    // Best-effort: sync to Google Calendar without blocking the response.
+    if (becameCancelled) {
+      deleteCalendarEvent(auth.business.id, data).catch((e) => {
+        console.error(`[bookings/PUT] Google Calendar delete failed for booking ${bookingId}:`, e?.message);
+      });
+    } else {
+      updateCalendarEvent(auth.business.id, data).catch((e) => {
+        console.error(`[bookings/PUT] Google Calendar update failed for booking ${bookingId}:`, e?.message);
+      });
     }
 
     return NextResponse.json(data);

@@ -536,6 +536,9 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [assigningStaff, setAssigningStaff] = useState(false);
   const [staffSelection, setStaffSelection] = useState('');
   const [backdropNotes, setBackdropNotes] = useState('');
+  const [invoiceUpgradeOpen, setInvoiceUpgradeOpen] = useState(false);
+
+  const hasProForInvoice = hasProAccess(business);
 
   useEffect(() => {
     setCurrentBooking(booking || null);
@@ -734,6 +737,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const totalAmount = Number(currentBooking?.total_amount ?? bookingTotalAmount(currentBooking)).toFixed(2);
 
   return (
+    <>
     <Dialog open={!!booking} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent
         data-testid="booking-detail-dialog"
@@ -1135,6 +1139,10 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                 <Button
                   data-testid="download-invoice-btn"
                   onClick={async () => {
+                    if (!hasProForInvoice) {
+                      setInvoiceUpgradeOpen(true);
+                      return;
+                    }
                     try {
                       const res = await axios.get(`${API}/invoices/pdf/${currentBooking.id}`, {
                         responseType: 'blob',
@@ -1156,7 +1164,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                   variant="outline"
                   className="w-full"
                 >
-                  Download PDF
+                  Download PDF {!hasProForInvoice && <span className="ml-1 text-xs text-rose-500">(Pro)</span>}
                 </Button>
                 <Button
                   type="button"
@@ -1252,11 +1260,59 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
               <div className="mt-3 text-xs text-muted-foreground">
                 Invoice: {invoiceNumber}
               </div>
+              {currentBooking?.google_sync_error && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+                  <span>⚠️ Google Calendar sync failed.</span>
+                  <button
+                    type="button"
+                    className="font-semibold underline underline-offset-2 hover:text-yellow-900"
+                    onClick={async () => {
+                      try {
+                        await axios.post(`${API}/google/sync`);
+                        toast.success('Retry scheduled — check Google Calendar shortly.');
+                      } catch {
+                        toast.error('Retry failed. Please try again.');
+                      }
+                    }}
+                  >
+                    Retry sync
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Invoice PDF upgrade dialog */}
+    <Dialog open={invoiceUpgradeOpen} onOpenChange={setInvoiceUpgradeOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'Inter' }}>
+            Invoice PDFs are available on the Pro plan. Upgrade for ${PRO_PRICE_AUD} AUD/month and unlock unlimited
+            bookings, invoice PDFs, SMS reminders and more.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+          <Button type="button" variant="ghost" onClick={() => setInvoiceUpgradeOpen(false)}>
+            Maybe later
+          </Button>
+          <Button
+            type="button"
+            className="bg-rose-600 hover:bg-rose-700 text-white"
+            onClick={() => {
+              setInvoiceUpgradeOpen(false);
+              window.location.href = '/dashboard?tab=settings';
+            }}
+          >
+            Upgrade Now
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
@@ -2103,10 +2159,12 @@ const LandingPage = ({
             </CardHeader>
             <CardContent className="space-y-5">
               <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Free plan">
-                <li>• Up to 10 bookings/month</li>
+                <li>• Up to 50 bookings/month</li>
                 <li>• Confirmation emails</li>
                 <li>• Calendar + dashboard</li>
-                <li>• No automated reminders or invoice PDFs</li>
+                <li>• Booking widget</li>
+                <li>• Basic client management</li>
+                <li>• Up to 2 staff members</li>
               </ul>
               <Button
                 type="button"
@@ -2121,6 +2179,9 @@ const LandingPage = ({
 
           <Card className="bg-white border border-rose-200 shadow-sm rounded-3xl relative overflow-hidden">
             <div className="absolute -top-10 -right-10 h-40 w-40 bg-rose-100 rounded-full blur-2xl" aria-hidden="true" />
+            <div className="absolute top-4 right-4 bg-rose-600 text-white text-xs font-semibold px-3 py-1 rounded-full" style={{ fontFamily: 'Inter' }}>
+              Most Popular
+            </div>
             <CardHeader className="space-y-2">
               <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
               <CardDescription style={{ fontFamily: 'Inter' }}>
@@ -2131,10 +2192,13 @@ const LandingPage = ({
             <CardContent className="space-y-5">
               <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Pro plan">
                 <li>• Unlimited bookings</li>
-                <li>• Unlimited invoice templates</li>
+                <li>• Unlimited staff members</li>
                 <li>• Invoice PDFs</li>
-                <li>• Client reminders</li>
+                <li>• Automated email reminders</li>
+                <li>• SMS reminders (coming soon)</li>
+                <li>• Google Calendar sync (coming soon)</li>
                 <li>• Priority support</li>
+                <li>• Remove DoBook branding from booking page</li>
               </ul>
               <Button
                 type="button"
@@ -2143,9 +2207,41 @@ const LandingPage = ({
               >
                 {isAuthed ? 'Open dashboard' : 'Choose Pro'}
               </Button>
-              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime.</div>
+              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime. No lock-in contracts.</div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Feature comparison table */}
+        <div className="mt-12 max-w-5xl overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-zinc-700 font-semibold" style={{ fontFamily: 'Manrope' }}>Feature</TableHead>
+                <TableHead className="text-center text-zinc-700 font-semibold" style={{ fontFamily: 'Manrope' }}>Free</TableHead>
+                <TableHead className="text-center bg-rose-50 text-rose-700 font-semibold rounded-t-lg" style={{ fontFamily: 'Manrope' }}>Pro</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[
+                { feature: 'Bookings per month', free: '50', pro: 'Unlimited' },
+                { feature: 'Staff members', free: '2', pro: 'Unlimited' },
+                { feature: 'Invoice PDFs', free: '❌', pro: '✅' },
+                { feature: 'Email reminders', free: '✅', pro: '✅' },
+                { feature: 'SMS reminders', free: '❌', pro: '✅' },
+                { feature: 'Google Calendar sync', free: '❌', pro: '✅' },
+                { feature: 'Custom booking fields', free: '❌', pro: '✅' },
+                { feature: 'Remove branding', free: '❌', pro: '✅' },
+                { feature: 'Priority support', free: '❌', pro: '✅' },
+              ].map(({ feature, free, pro }) => (
+                <TableRow key={feature}>
+                  <TableCell className="text-zinc-700 text-sm" style={{ fontFamily: 'Inter' }}>{feature}</TableCell>
+                  <TableCell className="text-center text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{free}</TableCell>
+                  <TableCell className="text-center text-sm bg-rose-50 text-zinc-700" style={{ fontFamily: 'Inter' }}>{pro}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </section>
 
@@ -2358,6 +2454,8 @@ const Dashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [googleBannerDismissed, setGoogleBannerDismissed] = useState(false);
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState(undefined); // undefined = loading
 
   useEffect(() => {
     const storedBusiness = localStorage.getItem('dobook_business');
@@ -2373,7 +2471,27 @@ const Dashboard = () => {
       toast.success('Thanks! Your subscription is being activated.');
       refreshBusiness();
     }
+    if (searchParams?.get('google_connected') === 'true') {
+      toast.success('Google Calendar connected successfully!');
+      loadGoogleStatus();
+    }
+    if (searchParams?.get('google_error')) {
+      toast.error('Failed to connect Google Calendar. Please try again.');
+    }
   }, [searchParams]);
+
+  const loadGoogleStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/google/status`);
+      setGoogleCalendarStatus(res.data || null);
+    } catch {
+      setGoogleCalendarStatus(null);
+    }
+  };
+
+  useEffect(() => {
+    loadGoogleStatus();
+  }, []);
 
   const refreshBusiness = async () => {
     try {
@@ -2972,6 +3090,32 @@ const Dashboard = () => {
           </button>
         </div>
 
+        {/* Google Calendar connect banner — Pro users who haven't connected yet */}
+        {business && !googleBannerDismissed && googleCalendarStatus === null &&
+          (String(business.account_role || '').toLowerCase() === 'owner' ||
+           String(business.subscription_plan || '').toLowerCase() === 'pro') && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <span>
+              📅 Connect Google Calendar to automatically sync your bookings.{' '}
+              <button
+                type="button"
+                className="font-semibold underline underline-offset-2 hover:text-blue-900"
+                onClick={() => { window.location.href = `${API}/auth/google/connect`; }}
+              >
+                Connect now →
+              </button>
+            </span>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="shrink-0 text-blue-500 hover:text-blue-700"
+              onClick={() => setGoogleBannerDismissed(true)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Content based on active tab */}
         {activeTab === 'overview' && (
           <div>
@@ -3151,7 +3295,11 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     cbd_fee_amount: business?.cbd_fee_amount !== undefined && business?.cbd_fee_amount !== null ? String(business.cbd_fee_amount) : '0',
     industry: business?.industry || 'photobooth',
     booth_types: Array.isArray(business?.booth_types) ? business.booth_types : ['Open Booth', 'Glam Booth', 'Enclosed Booth'],
-    booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : []
+    booking_custom_fields: Array.isArray(business?.booking_custom_fields) ? business.booking_custom_fields : [],
+    sms_confirmations_enabled:
+      business?.sms_confirmations_enabled !== undefined ? Boolean(business.sms_confirmations_enabled) : true,
+    sms_staff_notifications_enabled:
+      business?.sms_staff_notifications_enabled !== undefined ? Boolean(business.sms_staff_notifications_enabled) : true,
   });
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -3162,6 +3310,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [billingLoading, setBillingLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSending, setSupportSending] = useState(false);
@@ -3171,6 +3320,57 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   const [platformReviewChecked, setPlatformReviewChecked] = useState(false);
   const [platformReviewHasReview, setPlatformReviewHasReview] = useState(false);
   const [reminderRows, setReminderRows] = useState([]);
+
+  // Google Calendar integration state
+  const [googleStatus, setGoogleStatus] = useState(undefined); // undefined=loading, null=not connected
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleDisconnectOpen, setGoogleDisconnectOpen] = useState(false);
+  const [googleDisconnecting, setGoogleDisconnecting] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/google/status`).then((r) => setGoogleStatus(r.data || null)).catch(() => setGoogleStatus(null));
+  }, []);
+
+  const handleGoogleConnect = () => {
+    window.location.href = `${API}/auth/google/connect`;
+  };
+
+  const handleGoogleToggle = async (enabled) => {
+    setGoogleStatus((prev) => prev ? { ...prev, sync_enabled: enabled } : prev);
+    try {
+      await axios.post(`${API}/google/toggle`, { enabled });
+    } catch {
+      // revert on error
+      setGoogleStatus((prev) => prev ? { ...prev, sync_enabled: !enabled } : prev);
+      toast.error('Failed to update sync setting');
+    }
+  };
+
+  const handleGoogleSync = async () => {
+    setGoogleSyncing(true);
+    try {
+      const res = await axios.post(`${API}/google/sync`);
+      toast.success(`${res.data?.synced ?? 0} bookings synced to Google Calendar`);
+    } catch {
+      toast.error('Sync failed. Please try again.');
+    } finally {
+      setGoogleSyncing(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleDisconnecting(true);
+    try {
+      await axios.post(`${API}/auth/google/disconnect`);
+      setGoogleStatus(null);
+      setGoogleDisconnectOpen(false);
+      toast.success('Google Calendar disconnected');
+    } catch {
+      toast.error('Failed to disconnect');
+    } finally {
+      setGoogleDisconnecting(false);
+    }
+  };
 
   const reminderOptions = [
     { value: 1, label: '1 hour before' },
@@ -3520,7 +3720,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
               <p className="text-sm text-zinc-600 mt-1">
                 {effectivePlan === 'free'
-                  ? `${bookingsThisMonth} / 10 bookings this month • Confirmation emails only • No reminders`
+                  ? `${bookingsThisMonth} / 50 bookings this month • Confirmation emails only • No reminders`
                   : 'Unlimited bookings • Invoice PDFs • Automated reminders'}
                 {!isOwner && effectivePlan !== 'free' && subscriptionStatus && subscriptionStatus !== 'active' && (
                   <span className="ml-2 text-zinc-500">
@@ -3560,8 +3760,52 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               </div>
             )}
           </div>
+
+          {/* Soft warning at 80% of free plan limit */}
+          {effectivePlan === 'free' && bookingsThisMonth >= 40 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800" style={{ fontFamily: 'Inter' }}>
+                You've used <strong>{bookingsThisMonth}</strong> of your 50 free bookings this month. Upgrade to Pro for unlimited bookings.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg shrink-0"
+                onClick={handleUpgrade}
+                disabled={billingLoading}
+              >
+                {billingLoading ? 'Redirecting…' : 'Upgrade Now'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Upgrade to Pro Dialog */}
+      <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
+            <DialogDescription style={{ fontFamily: 'Inter' }}>
+              This feature is available on the Pro plan. Upgrade for ${PRO_PRICE_AUD} AUD/month and unlock unlimited
+              bookings, invoice PDFs, SMS reminders and more.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+            <Button type="button" variant="ghost" onClick={() => setUpgradeDialogOpen(false)}>
+              Maybe later
+            </Button>
+            <Button
+              type="button"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => { setUpgradeDialogOpen(false); handleUpgrade(); }}
+              disabled={billingLoading}
+            >
+              {billingLoading ? 'Redirecting…' : 'Upgrade Now'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
@@ -3898,10 +4142,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                   type="button"
                   variant="outline"
                   className="h-9"
-                  onClick={handleUpgrade}
-                  disabled={billingLoading}
+                  onClick={() => setUpgradeDialogOpen(true)}
                 >
-                  {billingLoading ? 'Redirecting…' : 'Upgrade to Pro'}
+                  Upgrade to Pro
                 </Button>
               </div>
             )}
@@ -4046,6 +4289,59 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             </div>
           </div>
 
+          {/* SMS Notifications */}
+          <div className="rounded-xl border border-zinc-200 p-4 space-y-4">
+            <div>
+              <div className="font-semibold">SMS Notifications</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Send text messages from DoBook on your behalf.</div>
+            </div>
+
+            {!hasReminderAccess ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-zinc-500">
+                <span>SMS notifications are a Pro feature. Upgrade to Pro to enable SMS.</span>
+                <Button type="button" variant="outline" className="h-9" onClick={() => setUpgradeDialogOpen(true)}>
+                  Upgrade to Pro
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Send SMS confirmations to customers</div>
+                    <div className="text-xs text-muted-foreground">Sent when a new booking is created.</div>
+                  </div>
+                  <Switch
+                    checked={Boolean(formData.sms_confirmations_enabled)}
+                    onCheckedChange={(v) => setFormData({ ...formData, sms_confirmations_enabled: Boolean(v) })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Send SMS reminders to customers</div>
+                    <div className="text-xs text-muted-foreground">Sent alongside email reminders at your chosen times.</div>
+                  </div>
+                  <Switch
+                    checked={Boolean(formData.reminders_enabled)}
+                    onCheckedChange={(v) => setFormData({ ...formData, reminders_enabled: Boolean(v) })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Send SMS to staff when assigned</div>
+                    <div className="text-xs text-muted-foreground">Notifies the assigned staff member via text.</div>
+                  </div>
+                  <Switch
+                    checked={Boolean(formData.sms_staff_notifications_enabled)}
+                    onCheckedChange={(v) => setFormData({ ...formData, sms_staff_notifications_enabled: Boolean(v) })}
+                  />
+                </div>
+                <p className="text-xs text-zinc-500">
+                  SMS messages are sent from DoBook on your behalf. Standard message rates may apply for recipients.
+                </p>
+              </>
+            )}
+          </div>
+
           <Button
             type="button"
             onClick={() => handleSave({ successMessage: 'Reminder settings saved!' })}
@@ -4056,6 +4352,133 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </Button>
         </CardContent>
       </Card>
+
+      {/* Integrations */}
+      <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{ fontFamily: 'Manrope' }}>Integrations</CardTitle>
+          <CardDescription>Connect third-party tools to your DoBook account.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-xl border border-zinc-200 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-lg">
+                  📅
+                </div>
+                <div>
+                  <div className="font-semibold text-zinc-900 flex items-center gap-2">
+                    Google Calendar
+                    {!hasReminderAccess && (
+                      <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                        Pro
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    Sync your DoBook bookings automatically to Google Calendar. New bookings appear instantly, cancellations are removed.
+                  </div>
+                </div>
+              </div>
+
+              {/* Not a Pro user */}
+              {!hasReminderAccess && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-rose-600 hover:bg-rose-700 text-white shrink-0"
+                  onClick={() => setUpgradeDialogOpen(true)}
+                >
+                  Upgrade
+                </Button>
+              )}
+
+              {/* Pro user, loading status */}
+              {hasReminderAccess && googleStatus === undefined && (
+                <div className="text-xs text-zinc-400">Loading…</div>
+              )}
+
+              {/* Pro user, not connected */}
+              {hasReminderAccess && googleStatus === null && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-rose-600 hover:bg-rose-700 text-white shrink-0"
+                  onClick={handleGoogleConnect}
+                >
+                  Connect Google Calendar
+                </Button>
+              )}
+            </div>
+
+            {/* Connected state */}
+            {hasReminderAccess && googleStatus && (
+              <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
+                  <span>✓</span>
+                  <span className="font-medium">Google Calendar Connected</span>
+                  {googleStatus.google_email && (
+                    <span className="text-zinc-500">— {googleStatus.google_email}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2">
+                  <span className="text-sm text-zinc-700">Auto-sync new bookings</span>
+                  <Switch
+                    checked={Boolean(googleStatus.sync_enabled)}
+                    onCheckedChange={handleGoogleToggle}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-lg"
+                    disabled={googleSyncing}
+                    onClick={handleGoogleSync}
+                  >
+                    {googleSyncing ? 'Syncing…' : 'Sync all existing bookings'}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2"
+                    onClick={() => setGoogleDisconnectOpen(true)}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Calendar disconnect confirmation */}
+      <Dialog open={googleDisconnectOpen} onOpenChange={setGoogleDisconnectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Disconnect Google Calendar?</DialogTitle>
+            <DialogDescription>
+              Your existing Google Calendar events will not be deleted, but DoBook will stop syncing new bookings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button type="button" variant="outline" onClick={() => setGoogleDisconnectOpen(false)} disabled={googleDisconnecting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleGoogleDisconnect}
+              disabled={googleDisconnecting}
+            >
+              {googleDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
       <BusinessBookingSettingsCard />
@@ -7602,7 +8025,9 @@ const BookingWidget = () => {
                         />
                       )}
                       {key === "customer_phone" ? (
-                        <p className="text-xs text-zinc-500 mt-1">{phoneValidationHint()}</p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          0400 000 000 or +61400000000 — We'll send booking confirmations and reminders via SMS.
+                        </p>
                       ) : null}
                     </div>
                   );

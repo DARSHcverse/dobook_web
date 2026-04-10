@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBookingReminderEmail } from "@/lib/bookingMailer";
 import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
+import { sendSMS, formatSMSDate, formatSMSTime } from "@/lib/sms";
+import { bookingReminderSMS } from "@/lib/smsTemplates";
 
 function ymd(date) {
   const d = new Date(date);
@@ -146,6 +148,24 @@ export async function POST(request) {
 
       sentHours.push(hoursBefore);
       sentAny = true;
+
+      // Best-effort SMS reminder alongside email (Pro only, customer must have a phone).
+      if (booking.customer_phone && business.reminders_enabled !== false) {
+        // eslint-disable-next-line no-await-in-loop
+        sendSMS({
+          to: booking.customer_phone,
+          message: bookingReminderSMS({
+            customerName: booking.customer_name,
+            businessName: business.business_name,
+            service: booking.service_type || booking.booth_type,
+            date: formatSMSDate(booking.booking_date),
+            time: formatSMSTime(booking.booking_time),
+            hoursUntil: hoursBefore,
+          }),
+        }).catch((e) => {
+          console.error(`[send-reminders] SMS reminder failed for booking ${booking.id}:`, e?.message);
+        });
+      }
     }
 
     if (sentAny) {

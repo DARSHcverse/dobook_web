@@ -1,0 +1,4 @@
+-- Free plan booking limit raised from 10 to 50.
+-- The limit is enforced in application code (FREE_PLAN_MAX_BOOKINGS_PER_MONTH
+-- in apps/web/src/app/api/bookings/route.js) — there is no database column
+-- for it. No schema changes are required for this migration.

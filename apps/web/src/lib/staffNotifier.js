@@ -1,5 +1,7 @@
 import { sendEmailViaResend } from "./email";
 import { emailLayout, escapeHtml, paragraphHtml, safeEmail, safeName } from "./email/templates";
+import { sendSMS, formatSMSDate, formatSMSTime } from "./sms";
+import { staffAssignmentSMS } from "./smsTemplates";
 
 function formatDurationMinutes(value) {
   const minutes = Number(value || 0);
@@ -111,8 +113,32 @@ export async function notifyStaff({ staff, booking, business, backdrop }) {
     results.email = { ok: false, skipped: true, error: "No staff email" };
   }
 
-  // TODO: Add Twilio SMS here
-  // TODO: Add Twilio WhatsApp here
+  // SMS to staff (best-effort, non-blocking).
+  const staffPhone = String(staff?.phone || "").trim();
+  if (staffPhone && business?.sms_staff_notifications_enabled !== false) {
+    sendSMS({
+      to: staffPhone,
+      message: staffAssignmentSMS({
+        staffName: staffName,
+        businessName: businessName,
+        customerName: safeName(booking?.customer_name),
+        service: safeName(booking?.booth_type || booking?.service_type),
+        date: formatSMSDate(booking?.booking_date),
+        time: formatSMSTime(booking?.booking_time),
+        location: safeName(booking?.event_location) || null,
+        backdrop: resolvedBackdrop || null,
+      }),
+    })
+      .then((sid) => {
+        results.sms = { ok: Boolean(sid), sid: sid || null };
+      })
+      .catch((e) => {
+        console.error("[staffNotifier] SMS failed:", e?.message);
+        results.sms = { ok: false, error: e?.message };
+      });
+  } else {
+    results.sms = { ok: false, skipped: true, error: staffPhone ? "SMS notifications disabled" : "No staff phone" };
+  }
 
   return results;
 }

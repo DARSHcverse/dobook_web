@@ -4,6 +4,9 @@ import { requireSession } from "../_utils/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
+import { createCalendarEvent } from "@/lib/googleCalendar";
+import { sendSMS, formatSMSDate, formatSMSTime } from "@/lib/sms";
+import { bookingConfirmationSMS } from "@/lib/smsTemplates";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import {
@@ -13,7 +16,8 @@ import {
   haversineDistanceKm,
 } from "@/lib/geoapify";
 
-const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 10;
+const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 50;
+const FREE_PLAN_SOFT_WARNING_THRESHOLD = 40;
 
 function asMoney(value) {
   const n = Number(value);
@@ -489,6 +493,34 @@ export async function POST(request) {
   } catch {
     // ignore email failures
   }
+
+  // Best-effort: send SMS confirmation (Pro only, non-blocking).
+  if (hasProAccess(business) && business.sms_confirmations_enabled !== false && inserted.customer_phone) {
+    (async () => {
+      try {
+        const sid = await sendSMS({
+          to: inserted.customer_phone,
+          message: bookingConfirmationSMS({
+            customerName: inserted.customer_name,
+            businessName: business.business_name,
+            service: inserted.service_type || inserted.booth_type,
+            date: formatSMSDate(inserted.booking_date),
+            time: formatSMSTime(inserted.booking_time),
+          }),
+        });
+        if (sid) {
+          await sb.from("bookings").update({ sms_confirmation_sent_at: new Date().toISOString() }).eq("id", inserted.id);
+        }
+      } catch (e) {
+        console.error(`[bookings/POST] SMS confirmation failed for booking ${inserted.id}:`, e?.message);
+      }
+    })();
+  }
+
+  // Best-effort: sync to Google Calendar without blocking the response.
+  createCalendarEvent(businessId, inserted).catch((e) => {
+    console.error(`[bookings/POST] Google Calendar sync failed for booking ${inserted.id}:`, e?.message);
+  });
 
   return NextResponse.json(inserted);
 }
