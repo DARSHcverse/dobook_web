@@ -54,6 +54,7 @@ import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 import { PRO_PRICE_AUD } from '@/lib/pricing';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
+import ImageUpload from '@/components/app/ImageUpload';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import BusinessTour from '@/components/tour/BusinessTour';
 import ThemeModeToggle from "@/components/app/ThemeModeToggle";
@@ -2679,6 +2680,21 @@ const Dashboard = () => {
           </Button>
 
           <Button
+            data-testid="enquiries-tab"
+            variant="ghost"
+            onClick={() => setActiveTab('enquiries')}
+            className={cn(
+              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+              activeTab === 'enquiries'
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span>Enquiries</span>
+          </Button>
+
+          <Button
             data-testid="staff-tab"
             variant="ghost"
             onClick={() => setActiveTab('staff')}
@@ -2854,6 +2870,20 @@ const Dashboard = () => {
             >
               <Calendar className="h-5 w-5" />
               <span>Bookings</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setActiveTab('enquiries'); setMobileMenuOpen(false); }}
+              className={cn(
+                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
+                activeTab === 'enquiries'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <MessageSquare className="h-5 w-5" />
+              <span>Enquiries</span>
             </Button>
             <Button
               type="button"
@@ -3252,11 +3282,170 @@ const Dashboard = () => {
             onStartTour={() => setTourOpen(true)}
           />
         )}
+        {activeTab === 'enquiries' && business && <EnquiriesTab business={business} onRefresh={loadBookings} />}
         {activeTab === 'public_profile' && business && <PublicProfileTab business={business} onUpdate={(updated) => setBusiness(updated)} />}
         {activeTab === 'pdf' && business && <PDFUploadTab businessId={business.id} onBookingCreated={loadBookings} />}
-        {activeTab === 'widget' && business && <WidgetTab businessId={business.id} />}
+        {activeTab === 'widget' && business && <WidgetTab businessId={business.id} business={business} />}
       </div>
     </div>
+  );
+};
+
+// ============= Enquiry Settings Card =============
+const EnquirySettingsCard = ({ business, onUpdate }) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.do-book.com';
+  const [slug, setSlug] = useState(business?.slug || '');
+  const [brandColor, setBrandColor] = useState(business?.brand_color || '#E8193C');
+  const [enabled, setEnabled] = useState(business?.enquiry_page_enabled !== false);
+  const [autoQuote, setAutoQuote] = useState(business?.enquiry_auto_quote !== false);
+  const [validityHours, setValidityHours] = useState(String(business?.enquiry_quote_validity_hours || 48));
+  const [responseHours, setResponseHours] = useState(String(business?.enquiry_response_hours || 24));
+  const [cancellationPolicy, setCancellationPolicy] = useState(business?.enquiry_cancellation_policy || '');
+  const [confirmationMessage, setConfirmationMessage] = useState(business?.enquiry_confirmation_message || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSlug(business?.slug || '');
+    setBrandColor(business?.brand_color || '#E8193C');
+    setEnabled(business?.enquiry_page_enabled !== false);
+    setAutoQuote(business?.enquiry_auto_quote !== false);
+    setValidityHours(String(business?.enquiry_quote_validity_hours || 48));
+    setResponseHours(String(business?.enquiry_response_hours || 24));
+    setCancellationPolicy(business?.enquiry_cancellation_policy || '');
+    setConfirmationMessage(business?.enquiry_confirmation_message || '');
+  }, [business?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enquiryUrl = slug ? `${origin}/enquiry/${slug}` : '';
+
+  const copyLink = () => {
+    if (!enquiryUrl) return;
+    navigator.clipboard.writeText(enquiryUrl);
+    toast.success('Link copied!');
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.patch('/api/business/enquiry-settings', {
+        slug: slug.toLowerCase().replace(/[^a-z0-9]+/g, ''),
+        brand_color: brandColor,
+        enquiry_page_enabled: enabled,
+        enquiry_auto_quote: autoQuote,
+        enquiry_quote_validity_hours: Number(validityHours) || 48,
+        enquiry_response_hours: Number(responseHours) || 24,
+        enquiry_cancellation_policy: cancellationPolicy,
+        enquiry_confirmation_message: confirmationMessage,
+      });
+      toast.success('Enquiry settings saved');
+      onUpdate?.(res.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+      <CardHeader>
+        <CardTitle style={{ fontFamily: 'Manrope' }}>Enquiry Settings</CardTitle>
+        <CardDescription>Configure your public enquiry page</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div>
+          <Label>Your enquiry page</Label>
+          <div className="flex gap-2 mt-2">
+            <Input value={enquiryUrl} readOnly className="bg-zinc-50 font-mono text-sm" />
+            <Button onClick={copyLink} className="bg-rose-600 hover:bg-rose-700 px-5" disabled={!enquiryUrl}>Copy</Button>
+            {enquiryUrl && (
+              <Button variant="outline" onClick={() => window.open(enquiryUrl, '_blank')}>Preview</Button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <Label>Custom URL slug</Label>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-sm text-zinc-500 whitespace-nowrap">{origin}/enquiry/</span>
+            <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="yourbusiness" />
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">Lowercase letters and numbers only.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Brand color</Label>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="color"
+                value={brandColor}
+                onChange={(e) => setBrandColor(e.target.value)}
+                className="h-10 w-12 rounded border border-zinc-200"
+              />
+              <Input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="font-mono" />
+            </div>
+          </div>
+          <div className="flex items-end gap-4">
+            <div className="flex items-center gap-2">
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <Label>Enquiry page enabled</Label>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch checked={autoQuote} onCheckedChange={setAutoQuote} />
+          <Label>Auto-send quote email on submission</Label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Quote validity (hours)</Label>
+            <Input
+              type="number"
+              value={validityHours}
+              onChange={(e) => setValidityHours(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <div>
+            <Label>Target response time (hours)</Label>
+            <Input
+              type="number"
+              value={responseHours}
+              onChange={(e) => setResponseHours(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label>Cancellation policy</Label>
+          <Textarea
+            value={cancellationPolicy}
+            onChange={(e) => setCancellationPolicy(e.target.value)}
+            placeholder="Shown on the review step of your enquiry page."
+            rows={3}
+            className="mt-2"
+          />
+        </div>
+
+        <div>
+          <Label>Custom confirmation message</Label>
+          <Textarea
+            value={confirmationMessage}
+            onChange={(e) => setConfirmationMessage(e.target.value)}
+            placeholder="Shown on the thank-you page after submission."
+            rows={2}
+            className="mt-2"
+          />
+        </div>
+
+        <Button onClick={save} disabled={saving} className="bg-rose-600 hover:bg-rose-700 w-full h-11 rounded-lg">
+          {saving ? 'Saving…' : 'Save Enquiry Settings'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -3709,8 +3898,90 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       .slice(0, 2);
   };
 
+  const SETTINGS_SECTIONS = [
+    { id: 'business-info', label: 'Business Information', icon: '📋' },
+    { id: 'payment-details', label: 'Payment Details', icon: '💳' },
+    { id: 'additional-charges', label: 'Additional Charges', icon: '💰' },
+    { id: 'reminders', label: 'Reminders & SMS', icon: '🔔' },
+    { id: 'integrations', label: 'Integrations', icon: '🔗' },
+    { id: 'booking-editor', label: 'Booking Editor', icon: '📝' },
+    { id: 'enquiry-settings', label: 'Enquiry Settings', icon: '🔎' },
+    { id: 'support', label: 'Help & Support', icon: '💬' },
+    { id: 'danger-zone', label: 'Danger Zone', icon: '⚠️' },
+  ];
+  const [activeSection, setActiveSection] = useState('business-info');
+
+  useEffect(() => {
+    const readHash = () => {
+      const h = (typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, '');
+      if (h && SETTINGS_SECTIONS.some((s) => s.id === h)) setActiveSection(h);
+    };
+    readHash();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', readHash);
+      return () => window.removeEventListener('hashchange', readHash);
+    }
+  }, []);
+
+  const selectSection = (id) => {
+    setActiveSection(id);
+    if (typeof window !== 'undefined') {
+      try { window.history.replaceState(null, '', `#${id}`); } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Mobile pill tabs */}
+      <div className="lg:hidden -mx-4 px-4 overflow-x-auto">
+        <div className="flex gap-2 pb-2 min-w-max">
+          {SETTINGS_SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => selectSection(s.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+                activeSection === s.id
+                  ? 'bg-zinc-900 text-white border-zinc-900'
+                  : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+              }`}
+            >
+              <span>{s.icon}</span>
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:block lg:w-60 shrink-0">
+        <div className="sticky top-6 bg-white border border-zinc-200 rounded-xl shadow-sm p-2">
+          {SETTINGS_SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => selectSection(s.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors ${
+                activeSection === s.id
+                  ? 'bg-zinc-900 text-white'
+                  : 'text-zinc-700 hover:bg-zinc-100'
+              }`}
+            >
+              <span className="text-base">{s.icon}</span>
+              <span className="font-medium">{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {/* Content area */}
+      <div className="flex-1 min-w-0 space-y-6">
+      {/* Enquiry Settings Card */}
+      {activeSection === 'enquiry-settings' && (
+      <EnquirySettingsCard business={business} onUpdate={onUpdate} />
+      )}
+
       {/* Subscription Info Card */}
       <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl mb-6">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -3844,6 +4115,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       </Dialog>
 
       {/* Business Information */}
+      {activeSection === 'business-info' && (<>
       <Card data-testid="business-info-card" className="mb-6">
         <CardHeader>
           <CardTitle>Business Information</CardTitle>
@@ -3956,7 +4228,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
-      {/* Payment Details */}
+      </>)}
+
+      {activeSection === 'payment-details' && (
       <Card data-testid="payment-details-card" className="mb-6">
         <CardHeader>
           <CardTitle>Payment Details</CardTitle>
@@ -4021,7 +4295,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
-      {/* Additional Charges */}
+      )}
+
+      {activeSection === 'additional-charges' && (
       <Card data-testid="surcharges-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Additional Charges</CardTitle>
@@ -4119,7 +4395,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
-      {/* Reminder Settings */}
+      )}
+
+      {activeSection === 'reminders' && (
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Reminder Settings</CardTitle>
@@ -4361,7 +4639,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
-      {/* Integrations */}
+      )}
+
+      {activeSection === 'integrations' && (<>
       <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl">
         <CardHeader>
           <CardTitle style={{ fontFamily: 'Manrope' }}>Integrations</CardTitle>
@@ -4488,6 +4768,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </DialogContent>
       </Dialog>
 
+      </>)}
+
+      {activeSection === 'booking-editor' && (<>
       <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
       <BusinessBookingSettingsCard />
 
@@ -4605,7 +4888,11 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
-      <Button 
+      <PackagesManagementTab business={business} />
+      </>)}
+
+      {['business-info','payment-details','additional-charges','reminders','booking-editor'].includes(activeSection) && (
+      <Button
         data-testid="save-settings-btn"
         onClick={handleSave}
         disabled={loading}
@@ -4613,7 +4900,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       >
         {loading ? 'Saving...' : 'Save Changes'}
       </Button>
+      )}
 
+      {activeSection === 'support' && (<>
       {platformReviewChecked && !platformReviewHasReview && (
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
           <CardHeader>
@@ -4755,6 +5044,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
+      </>)}
+
+      {activeSection === 'danger-zone' && (<>
       <Card className="border-destructive mb-6">
         <CardHeader>
           <CardTitle className="text-destructive">Danger Zone</CardTitle>
@@ -4837,6 +5129,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
         </DialogContent>
       </Dialog>
+      </>)}
+      </div>
     </div>
   );
 };
@@ -7574,9 +7868,745 @@ const PublicProfileTab = ({ business, onUpdate }) => {
   );
 };
 
+// ============= Enquiries Tab =============
+const ENQUIRY_STATUS_COLORS = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  quoted: 'bg-blue-100 text-blue-800',
+  confirmed: 'bg-green-100 text-green-800',
+  declined: 'bg-red-100 text-red-700',
+  expired: 'bg-zinc-200 text-zinc-700',
+};
+const ENQUIRY_STATUS_ICONS = {
+  pending: '🟡',
+  quoted: '🔵',
+  confirmed: '🟢',
+  declined: '🔴',
+  expired: '⚫',
+};
+
+function buildEnquiryTimeline(enq) {
+  const events = [];
+  if (enq.created_at) {
+    events.push({ ts: enq.created_at, label: 'Enquiry received' });
+  }
+  if (enq.enquiry_status === 'quoted' || enq.enquiry_status === 'confirmed') {
+    events.push({ ts: enq.created_at, label: 'Auto-quote sent to customer' });
+  }
+  if (enq.enquiry_status === 'confirmed') {
+    events.push({ ts: enq.updated_at || enq.created_at, label: 'Confirmed' });
+  }
+  if (enq.enquiry_status === 'declined') {
+    events.push({ ts: enq.updated_at || enq.created_at, label: 'Declined' });
+  }
+  return events;
+}
+
+const EnquiriesTab = ({ business, onRefresh }) => {
+  const [enquiries, setEnquiries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEnquiry, setSelectedEnquiry] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [quotedPrice, setQuotedPrice] = useState('');
+  const [quoteMessage, setQuoteMessage] = useState('');
+  const [declineMessage, setDeclineMessage] = useState('');
+  const [responding, setResponding] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const loadEnquiries = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('/api/bookings');
+      const all = Array.isArray(res.data) ? res.data : [];
+      setEnquiries(all.filter((b) => b.is_enquiry));
+    } catch {
+      toast.error('Failed to load enquiries');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadEnquiries(); }, []);
+
+  const openRespond = (enquiry) => {
+    setSelectedEnquiry(enquiry);
+    setQuotedPrice(String(enquiry.quoted_price ?? enquiry.price ?? ''));
+    setQuoteMessage('');
+    setDeclineMessage('');
+    setDrawerOpen(true);
+  };
+
+  const handleSendQuote = async () => {
+    if (!selectedEnquiry) return;
+    setResponding(true);
+    try {
+      await axios.put(`/api/bookings/${selectedEnquiry.id}/quote`, {
+        quoted_price: quotedPrice ? Number(quotedPrice) : null,
+        quote_message: quoteMessage,
+      });
+      toast.success('Quote sent!');
+      setDrawerOpen(false);
+      loadEnquiries();
+      onRefresh?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to send quote');
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!selectedEnquiry) return;
+    setResponding(true);
+    try {
+      await axios.put(`/api/bookings/${selectedEnquiry.id}/decline`, { message: declineMessage });
+      toast.success('Enquiry declined');
+      setDrawerOpen(false);
+      loadEnquiries();
+      onRefresh?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to decline');
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const handleMarkConfirmed = async () => {
+    if (!selectedEnquiry) return;
+    setResponding(true);
+    try {
+      await axios.put(`/api/bookings/${selectedEnquiry.id}/mark-confirmed`);
+      toast.success('Marked as confirmed');
+      setDrawerOpen(false);
+      loadEnquiries();
+      onRefresh?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to confirm');
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const handleConvertToBooking = async () => {
+    if (!selectedEnquiry) return;
+    setResponding(true);
+    try {
+      await axios.put(`/api/bookings/${selectedEnquiry.id}/convert-to-booking`);
+      toast.success('Converted to booking');
+      setDrawerOpen(false);
+      loadEnquiries();
+      onRefresh?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to convert');
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return enquiries;
+    return enquiries.filter((e) => e.enquiry_status === statusFilter);
+  }, [enquiries, statusFilter]);
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{ fontFamily: 'Manrope' }}>Enquiries</CardTitle>
+          <CardDescription>Manage quote requests from your booking flow</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filter tabs */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {['all', 'pending', 'quoted', 'confirmed', 'declined', 'expired'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
+                  statusFilter === s
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                {s === 'all' ? 'All' : s}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-zinc-500 py-8 text-center">Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-sm text-zinc-500 py-8 text-center">
+              {statusFilter === 'all' ? 'No enquiries yet.' : `No ${statusFilter} enquiries.`}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((enq) => (
+                <div
+                  key={enq.id}
+                  className="flex items-center justify-between p-4 border border-zinc-100 rounded-xl bg-zinc-50 gap-4 flex-wrap"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-zinc-900">{enq.customer_name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${ENQUIRY_STATUS_COLORS[enq.enquiry_status] || 'bg-zinc-100 text-zinc-600'}`}>
+                        {ENQUIRY_STATUS_ICONS[enq.enquiry_status] || ''} {enq.enquiry_status}
+                      </span>
+                    </div>
+                    <div className="text-sm text-zinc-500 mt-0.5">
+                      {enq.event_type && <span>{enq.event_type} · </span>}
+                      {enq.booking_date && <span>{enq.booking_date}</span>}
+                      {enq.service_type && <span> · {enq.service_type}</span>}
+                    </div>
+                    <div className="text-xs text-zinc-400 mt-0.5">{enq.customer_email}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {enq.total_amount > 0 && (
+                      <span className="text-sm font-semibold text-zinc-700">${Number(enq.total_amount).toFixed(2)}</span>
+                    )}
+                    {(enq.enquiry_status === 'pending' || enq.enquiry_status === 'quoted') && (
+                      <Button
+                        size="sm"
+                        onClick={() => openRespond(enq)}
+                        className="bg-rose-600 hover:bg-rose-700 text-xs"
+                      >
+                        Respond
+                      </Button>
+                    )}
+                    {(enq.enquiry_status === 'confirmed' || enq.enquiry_status === 'declined') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openRespond(enq)}
+                        className="text-xs"
+                      >
+                        View
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Enquiry Response Drawer */}
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              {selectedEnquiry?.customer_name} — Enquiry
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEnquiry && (
+            <div className="space-y-4">
+              {/* Enquiry details */}
+              <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 text-sm space-y-1.5">
+                {selectedEnquiry.event_type && (
+                  <div><span className="text-zinc-500">Event:</span> <span className="font-medium">{selectedEnquiry.event_type}</span></div>
+                )}
+                {selectedEnquiry.booking_date && (
+                  <div><span className="text-zinc-500">Date:</span> <span className="font-medium">{selectedEnquiry.booking_date}</span></div>
+                )}
+                {selectedEnquiry.event_location && (
+                  <div><span className="text-zinc-500">Venue:</span> <span className="font-medium">{selectedEnquiry.event_location}</span></div>
+                )}
+                {selectedEnquiry.service_type && (
+                  <div><span className="text-zinc-500">Package:</span> <span className="font-medium">{selectedEnquiry.service_type}</span></div>
+                )}
+                {selectedEnquiry.num_guests && (
+                  <div><span className="text-zinc-500">Guests:</span> <span className="font-medium">{selectedEnquiry.num_guests}</span></div>
+                )}
+                <div className="pt-1 border-t border-zinc-200">
+                  <div><span className="text-zinc-500">Customer:</span> <span className="font-medium">{selectedEnquiry.customer_name}</span></div>
+                  <div><span className="text-zinc-500">Email:</span> <span className="font-medium">{selectedEnquiry.customer_email}</span></div>
+                  {selectedEnquiry.customer_phone && (
+                    <div><span className="text-zinc-500">Phone:</span> <span className="font-medium">{selectedEnquiry.customer_phone}</span></div>
+                  )}
+                  {selectedEnquiry.enquiry_message && (
+                    <div className="pt-1"><span className="text-zinc-500">Notes:</span> <span className="font-medium">{selectedEnquiry.enquiry_message}</span></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="rounded-xl border border-zinc-100 bg-white p-4 text-xs space-y-2">
+                <div className="text-zinc-500 font-semibold uppercase tracking-wide text-[11px]">Timeline</div>
+                {buildEnquiryTimeline(selectedEnquiry).map((ev, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    <span className="text-zinc-400">{ev.ts ? new Date(ev.ts).toLocaleString() : ''}</span>
+                    <span className="text-zinc-700">{ev.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {selectedEnquiry.enquiry_status !== 'confirmed' && selectedEnquiry.enquiry_status !== 'declined' && (
+                <>
+                  <Separator />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={handleMarkConfirmed} disabled={responding}>
+                      Mark as Confirmed
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleConvertToBooking} disabled={responding}>
+                      Convert to Booking
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Quoted Price ($)</Label>
+                      <Input
+                        type="number"
+                        value={quotedPrice}
+                        onChange={(e) => setQuotedPrice(e.target.value)}
+                        placeholder="e.g. 1200"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Message to customer</Label>
+                      <Textarea
+                        value={quoteMessage}
+                        onChange={(e) => setQuoteMessage(e.target.value)}
+                        placeholder="Optional note to include with your quote…"
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSendQuote}
+                        disabled={responding}
+                        className="flex-1 bg-rose-600 hover:bg-rose-700"
+                      >
+                        {responding ? 'Sending…' : 'Send Quote'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Separator />
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-zinc-500">Decline message (optional)</Label>
+                      <Textarea
+                        value={declineMessage}
+                        onChange={(e) => setDeclineMessage(e.target.value)}
+                        placeholder="Let them know politely why you can't accommodate them…"
+                        className="mt-1"
+                        rows={2}
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={handleDecline}
+                      disabled={responding}
+                      className="w-full text-zinc-600"
+                    >
+                      {responding ? 'Declining…' : 'Decline Enquiry'}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {(selectedEnquiry.enquiry_status === 'confirmed' || selectedEnquiry.enquiry_status === 'declined') && (
+                <div className={`rounded-xl p-3 text-sm font-semibold ${ENQUIRY_STATUS_COLORS[selectedEnquiry.enquiry_status]}`}>
+                  Status: {selectedEnquiry.enquiry_status}
+                  {selectedEnquiry.quoted_price && (
+                    <span className="ml-2">— Quoted: ${Number(selectedEnquiry.quoted_price).toFixed(2)}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ============= Packages Management Tab =============
+const PackagesManagementTab = ({ business }) => {
+  const [activeSubTab, setActiveSubTab] = useState('categories');
+  const [categories, setCategories] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [pkgDialogOpen, setPkgDialogOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState(null);
+  const [editingPkg, setEditingPkg] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const [catForm, setCatForm] = useState({ name: '', description: '', image_url: '', is_active: true, sort_order: 0 });
+  const [pkgForm, setPkgForm] = useState({ name: '', category_id: '', price: '', duration_hours: '3', description: '', image_url: '', features: [], is_active: true, sort_order: 0 });
+  const [featureInput, setFeatureInput] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [catRes, pkgRes] = await Promise.all([
+        axios.get('/api/package-categories'),
+        axios.get('/api/packages'),
+      ]);
+      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+      setPackages(Array.isArray(pkgRes.data) ? pkgRes.data : []);
+    } catch {
+      toast.error('Failed to load packages data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openNewCat = () => {
+    setEditingCat(null);
+    setCatForm({ name: '', description: '', image_url: '', is_active: true, sort_order: categories.length });
+    setCatDialogOpen(true);
+  };
+
+  const openEditCat = (cat) => {
+    setEditingCat(cat);
+    setCatForm({ name: cat.name, description: cat.description || '', image_url: cat.image_url || '', is_active: cat.is_active, sort_order: cat.sort_order || 0 });
+    setCatDialogOpen(true);
+  };
+
+  const saveCat = async () => {
+    if (!catForm.name.trim()) { toast.error('Name is required'); return; }
+    setSaving(true);
+    try {
+      if (editingCat) {
+        await axios.put(`/api/package-categories/${editingCat.id}`, catForm);
+        toast.success('Category updated');
+      } else {
+        await axios.post('/api/package-categories', catForm);
+        toast.success('Category created');
+      }
+      setCatDialogOpen(false);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteCat = async (id) => {
+    if (!window.confirm('Delete this category? Packages in this category will also be removed.')) return;
+    try {
+      await axios.delete(`/api/package-categories/${id}`);
+      toast.success('Category deleted');
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to delete');
+    }
+  };
+
+  const openNewPkg = () => {
+    setEditingPkg(null);
+    setPkgForm({ name: '', category_id: categories[0]?.id || '', price: '', duration_hours: '3', description: '', image_url: '', features: [], is_active: true, sort_order: packages.length });
+    setFeatureInput('');
+    setPkgDialogOpen(true);
+  };
+
+  const openEditPkg = (pkg) => {
+    setEditingPkg(pkg);
+    setPkgForm({
+      name: pkg.name,
+      category_id: pkg.category_id || '',
+      price: String(pkg.price || ''),
+      duration_hours: String(pkg.duration_hours || '3'),
+      description: pkg.description || '',
+      image_url: pkg.image_url || '',
+      features: Array.isArray(pkg.features) ? pkg.features : [],
+      is_active: pkg.is_active,
+      sort_order: pkg.sort_order || 0,
+    });
+    setFeatureInput('');
+    setPkgDialogOpen(true);
+  };
+
+  const savePkg = async () => {
+    if (!pkgForm.name.trim()) { toast.error('Name is required'); return; }
+    setSaving(true);
+    try {
+      const body = { ...pkgForm, price: Number(pkgForm.price || 0), duration_hours: Number(pkgForm.duration_hours || 3) };
+      if (editingPkg) {
+        await axios.put(`/api/packages/${editingPkg.id}`, body);
+        toast.success('Package updated');
+      } else {
+        await axios.post('/api/packages', body);
+        toast.success('Package created');
+      }
+      setPkgDialogOpen(false);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deletePkg = async (id) => {
+    if (!window.confirm('Delete this package?')) return;
+    try {
+      await axios.delete(`/api/packages/${id}`);
+      toast.success('Package deleted');
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to delete');
+    }
+  };
+
+  const addFeature = () => {
+    const f = featureInput.trim();
+    if (!f) return;
+    setPkgForm((prev) => ({ ...prev, features: [...prev.features, f] }));
+    setFeatureInput('');
+  };
+
+  const removeFeature = (i) => {
+    setPkgForm((prev) => ({ ...prev, features: prev.features.filter((_, idx) => idx !== i) }));
+  };
+
+  const catById = Object.fromEntries(categories.map((c) => [c.id, c]));
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{ fontFamily: 'Manrope' }}>Packages</CardTitle>
+          <CardDescription>Manage booth types and packages for your booking flow</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Sub-tabs */}
+          <div className="flex gap-2 mb-5">
+            {['categories', 'packages'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveSubTab(t)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors ${
+                  activeSubTab === t ? 'bg-rose-600 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-zinc-500 py-8 text-center">Loading…</div>
+          ) : activeSubTab === 'categories' ? (
+            <div>
+              <div className="flex justify-end mb-3">
+                <Button onClick={openNewCat} className="bg-rose-600 hover:bg-rose-700 text-sm">
+                  <Plus className="h-4 w-4 mr-1" /> Add Category
+                </Button>
+              </div>
+              {categories.length === 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-8">No booth categories yet. Add one to enable the multi-step booking flow.</p>
+              ) : (
+                <div className="space-y-2">
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between p-3 border border-zinc-100 rounded-xl bg-zinc-50">
+                      <div className="flex items-center gap-3">
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.name} className="w-10 h-10 rounded-lg object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-sm">
+                            {cat.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold text-sm">{cat.name}</div>
+                          {cat.description && <div className="text-xs text-zinc-500">{cat.description}</div>}
+                          <Badge variant={cat.is_active ? 'default' : 'secondary'} className="text-xs mt-0.5">
+                            {cat.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEditCat(cat)}>Edit</Button>
+                        <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700" onClick={() => deleteCat(cat.id)}>Delete</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex justify-end mb-3">
+                <Button onClick={openNewPkg} disabled={categories.length === 0} className="bg-rose-600 hover:bg-rose-700 text-sm">
+                  <Plus className="h-4 w-4 mr-1" /> Add Package
+                </Button>
+              </div>
+              {categories.length === 0 && (
+                <p className="text-sm text-zinc-500 text-center py-4">Add a booth category first before adding packages.</p>
+              )}
+              {packages.length === 0 && categories.length > 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-8">No packages yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {packages.map((pkg) => (
+                    <div key={pkg.id} className="flex items-center justify-between p-3 border border-zinc-100 rounded-xl bg-zinc-50">
+                      <div className="flex items-center gap-3">
+                        {pkg.image_url ? (
+                          <img src={pkg.image_url} alt={pkg.name} className="w-10 h-10 rounded-lg object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center text-rose-600 font-bold text-sm">
+                            {pkg.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold text-sm">{pkg.name}</div>
+                          <div className="text-xs text-zinc-500">
+                            ${Number(pkg.price || 0).toFixed(2)} · {pkg.duration_hours}h
+                            {catById[pkg.category_id] ? ` · ${catById[pkg.category_id].name}` : ''}
+                          </div>
+                          <Badge variant={pkg.is_active ? 'default' : 'secondary'} className="text-xs mt-0.5">
+                            {pkg.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEditPkg(pkg)}>Edit</Button>
+                        <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700" onClick={() => deletePkg(pkg.id)}>Delete</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Category Dialog */}
+      <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>{editingCat ? 'Edit Category' : 'New Category'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Name *</Label>
+              <Input value={catForm.name} onChange={(e) => setCatForm((p) => ({ ...p, name: e.target.value }))} className="mt-1" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={catForm.description} onChange={(e) => setCatForm((p) => ({ ...p, description: e.target.value }))} className="mt-1" rows={2} />
+            </div>
+            <div>
+              <Label>Image</Label>
+              <div className="mt-1">
+                <ImageUpload
+                  value={catForm.image_url}
+                  onChange={(url) => setCatForm((p) => ({ ...p, image_url: url }))}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={catForm.is_active} onCheckedChange={(v) => setCatForm((p) => ({ ...p, is_active: v }))} />
+              <Label>Active</Label>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button onClick={saveCat} disabled={saving} className="flex-1 bg-rose-600 hover:bg-rose-700">
+                {saving ? 'Saving…' : editingCat ? 'Update' : 'Create'}
+              </Button>
+              <Button variant="outline" onClick={() => setCatDialogOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Package Dialog */}
+      <Dialog open={pkgDialogOpen} onOpenChange={setPkgDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>{editingPkg ? 'Edit Package' : 'New Package'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Name *</Label>
+              <Input value={pkgForm.name} onChange={(e) => setPkgForm((p) => ({ ...p, name: e.target.value }))} className="mt-1" />
+            </div>
+            <div>
+              <Label>Category</Label>
+              <select
+                value={pkgForm.category_id}
+                onChange={(e) => setPkgForm((p) => ({ ...p, category_id: e.target.value }))}
+                className="w-full mt-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">No category</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Price ($)</Label>
+                <Input type="number" value={pkgForm.price} onChange={(e) => setPkgForm((p) => ({ ...p, price: e.target.value }))} className="mt-1" placeholder="0" />
+              </div>
+              <div>
+                <Label>Duration (hours)</Label>
+                <Input type="number" value={pkgForm.duration_hours} onChange={(e) => setPkgForm((p) => ({ ...p, duration_hours: e.target.value }))} className="mt-1" placeholder="3" />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={pkgForm.description} onChange={(e) => setPkgForm((p) => ({ ...p, description: e.target.value }))} className="mt-1" rows={2} />
+            </div>
+            <div>
+              <Label>Image</Label>
+              <div className="mt-1">
+                <ImageUpload
+                  value={pkgForm.image_url}
+                  onChange={(url) => setPkgForm((p) => ({ ...p, image_url: url }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Features</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={featureInput}
+                  onChange={(e) => setFeatureInput(e.target.value)}
+                  placeholder="e.g. Unlimited prints"
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                />
+                <Button type="button" onClick={addFeature} variant="outline" size="sm">Add</Button>
+              </div>
+              <div className="space-y-1 mt-2">
+                {pkgForm.features.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between bg-zinc-50 px-3 py-1.5 rounded-lg text-sm">
+                    <span>✓ {f}</span>
+                    <button onClick={() => removeFeature(i)} className="text-zinc-400 hover:text-red-500 text-xs ml-2">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={pkgForm.is_active} onCheckedChange={(v) => setPkgForm((p) => ({ ...p, is_active: v }))} />
+              <Label>Active</Label>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button onClick={savePkg} disabled={saving} className="flex-1 bg-rose-600 hover:bg-rose-700">
+                {saving ? 'Saving…' : editingPkg ? 'Update' : 'Create'}
+              </Button>
+              <Button variant="outline" onClick={() => setPkgDialogOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 // ============= Widget Tab =============
-const WidgetTab = ({ businessId }) => {
+const WidgetTab = ({ businessId, business }) => {
   const widgetUrl = `${window.location.origin}/book/${businessId}`;
+  const slug = business?.slug || '';
+  const enquiryUrl = slug ? `${window.location.origin}/enquiry/${slug}` : '';
   const embedCode = [
     `<iframe`,
     `  src="${widgetUrl}"`,
@@ -7586,54 +8616,107 @@ const WidgetTab = ({ businessId }) => {
     `  height="720"`,
     `></iframe>`,
   ].join("\n");
+  const enquiryEmbedCode = enquiryUrl
+    ? [
+        `<iframe`,
+        `  src="${enquiryUrl}"`,
+        `  width="100%"`,
+        `  height="900px"`,
+        `  frameborder="0"`,
+        `  style="border-radius:16px;">`,
+        `</iframe>`,
+      ].join("\n")
+    : '';
+
+  const copy = (text, label) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied!`);
+  };
 
   return (
-    <Card data-testid="widget-config-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
-      <CardHeader>
-        <CardTitle style={{fontFamily: 'Manrope'}}>Embed Widget</CardTitle>
-        <CardDescription>Add DoBook to your website</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div>
-          <Label>Direct Booking Link</Label>
-          <div className="flex gap-2 mt-2">
-            <Input value={widgetUrl} readOnly className="bg-zinc-50" />
-            <Button 
-              data-testid="copy-link-btn"
-              onClick={() => { navigator.clipboard.writeText(widgetUrl); toast.success('Link copied!'); }}
-              className="bg-rose-600 hover:bg-rose-700 px-6"
-            >
-              Copy
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Enquiry Page (primary) */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Enquiry Page Link</CardTitle>
+          <CardDescription>Your branded public enquiry URL — share this everywhere</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {enquiryUrl ? (
+            <>
+              <div>
+                <Label>Public Enquiry URL</Label>
+                <div className="flex gap-2 mt-2">
+                  <Input value={enquiryUrl} readOnly className="bg-zinc-50" />
+                  <Button onClick={() => copy(enquiryUrl, 'Enquiry link')} className="bg-rose-600 hover:bg-rose-700 px-6">Copy</Button>
+                  <Button variant="outline" onClick={() => window.open(enquiryUrl, '_blank')}>Open</Button>
+                </div>
+              </div>
 
-        <div>
-          <Label>Embed Code (iframe)</Label>
-          <div className="mt-2">
-            <Textarea 
-              value={embedCode} 
-              readOnly 
-              className="bg-zinc-50 font-mono text-sm h-28"
-            />
-            <Button 
-              data-testid="copy-embed-btn"
-              onClick={() => { navigator.clipboard.writeText(embedCode); toast.success('Code copied!'); }}
-              className="mt-2 bg-rose-600 hover:bg-rose-700 w-full h-12 rounded-lg"
-            >
-              Copy Embed Code
-            </Button>
-          </div>
-        </div>
+              <div>
+                <Label>Embed Enquiry Form</Label>
+                <div className="mt-2">
+                  <Textarea value={enquiryEmbedCode} readOnly className="bg-zinc-50 font-mono text-sm h-32" />
+                  <Button
+                    onClick={() => copy(enquiryEmbedCode, 'Enquiry iframe')}
+                    className="mt-2 bg-rose-600 hover:bg-rose-700 w-full h-11 rounded-lg"
+                  >
+                    Copy Embed Code
+                  </Button>
+                </div>
+              </div>
 
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-          <p className="text-sm text-emerald-800">
-            <strong>Tip:</strong> Paste this iframe where you want the widget. If it looks cut off, increase the{" "}
-            <code>height</code> and <code>min-height</code> values.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <p className="text-sm text-emerald-800">
+                  <strong>Tip:</strong> Share your enquiry link on your website, Instagram bio, Facebook page, and Google Business Profile.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-900">
+              Set a custom URL slug in <strong>Account Settings → Enquiry Settings</strong> to activate your enquiry page.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Legacy Booking Widget */}
+      <Card data-testid="widget-config-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Booking Widget (legacy)</CardTitle>
+          <CardDescription>Direct booking flow by business ID</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <Label>Direct Booking Link</Label>
+            <div className="flex gap-2 mt-2">
+              <Input value={widgetUrl} readOnly className="bg-zinc-50" />
+              <Button
+                data-testid="copy-link-btn"
+                onClick={() => copy(widgetUrl, 'Link')}
+                className="bg-rose-600 hover:bg-rose-700 px-6"
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label>Embed Code (iframe)</Label>
+            <div className="mt-2">
+              <Textarea value={embedCode} readOnly className="bg-zinc-50 font-mono text-sm h-28" />
+              <Button
+                data-testid="copy-embed-btn"
+                onClick={() => copy(embedCode, 'Embed code')}
+                className="mt-2 bg-rose-600 hover:bg-rose-700 w-full h-12 rounded-lg"
+              >
+                Copy Embed Code
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

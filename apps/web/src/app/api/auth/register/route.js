@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
-import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
+import { buildSessionCookieOptions, sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 import { rateLimit } from "@/app/api/_utils/rateLimit";
@@ -194,12 +194,6 @@ export async function POST(request) {
   }
 
   const response = NextResponse.json({ business: sanitizeBusiness(business) });
-  response.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    expires: expiresAt,
-    path: "/",
-  });
+  response.cookies.set(SESSION_COOKIE, token, buildSessionCookieOptions(request, expiresAt));
   return response;
 }

@@ -4,6 +4,29 @@ import { isOwnerEmail } from "@/lib/entitlements";
 
 export const SESSION_COOKIE = "dobook_session";
 
+export function shouldUseSecureCookies(request) {
+  const forwardedProto = String(request?.headers?.get?.("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  if (forwardedProto) return forwardedProto === "https";
+
+  const protocol = String(request?.nextUrl?.protocol || "").trim().toLowerCase();
+  if (protocol) return protocol === "https:";
+
+  return process.env.NODE_ENV === "production";
+}
+
+export function buildSessionCookieOptions(request, expires) {
+  return {
+    httpOnly: true,
+    secure: shouldUseSecureCookies(request),
+    sameSite: "lax",
+    expires,
+    path: "/",
+  };
+}
+
 export function sanitizeBusiness(business) {
   // Never return password hashes to the client.
   // eslint-disable-next-line no-unused-vars

@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOwnerEmail } from "@/lib/entitlements";
-import { sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
+import { buildSessionCookieOptions, sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import {
   rateLimit,
   getClientIp,
@@ -125,13 +125,7 @@ export async function POST(request) {
   }
 
   const response = NextResponse.json({ business: sanitizeBusiness(normalized) });
-  response.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    expires: expiresAt,
-    path: "/",
-  });
+  response.cookies.set(SESSION_COOKIE, token, buildSessionCookieOptions(request, expiresAt));
   await Promise.all([
     clearRateLimitKey({ key: `auth:login:fail:${ip}:${emailKey}` }),
     clearRateLimitKey({ key: penaltyKey }),

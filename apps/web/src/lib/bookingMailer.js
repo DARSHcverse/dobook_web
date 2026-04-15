@@ -496,6 +496,242 @@ export async function sendBookingReminderEmail({
   });
 }
 
+export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons, estimatedTotal }) {
+  const customerEmail = safeEmail(booking?.customer_email);
+  const businessEmail = safeEmail(business?.email);
+  const businessName = safeName(business?.business_name) || "this business";
+  const customerName = safeName(booking?.customer_name) || "there";
+  const site = resolveSiteUrl();
+
+  const addonsList = Array.isArray(addons) ? addons : [];
+  const bookingDate = safeName(booking?.booking_date) || "TBD";
+  const eventType = safeName(booking?.event_type) || "";
+  const eventLocation = safeName(booking?.event_location) || "";
+  const packageName = pkg?.name ? safeName(pkg.name) : safeName(booking?.service_type) || "Package";
+  const basePrice = pkg ? Number(pkg.price || 0) : Number(booking?.price || 0);
+  const total = estimatedTotal !== undefined ? Number(estimatedTotal) : basePrice;
+
+  const addonsHtml = addonsList.length
+    ? addonsList.map(
+        (a) => `<tr>
+          <td style="padding:8px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">+ ${escapeHtml(safeName(a.name))}</td>
+          <td style="padding:8px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600; text-align:right;">$${Number(a.price || 0).toFixed(2)}</td>
+        </tr>`
+      ).join("")
+    : "";
+
+  const summaryTableHtml = `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; background:#fff; margin-top:12px;">
+      <tbody>
+        <tr>
+          <td style="padding:10px 12px; color:#52525b; font-size:13px; width:160px;">Date</td>
+          <td style="padding:10px 12px; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(bookingDate)}</td>
+        </tr>
+        ${eventType ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Event Type</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(eventType)}</td></tr>` : ""}
+        ${eventLocation ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Venue</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(eventLocation)}</td></tr>` : ""}
+        <tr>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Package</td>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(packageName)} — $${basePrice.toFixed(2)}</td>
+        </tr>
+        ${addonsHtml}
+        <tr>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:700;">Estimated Total</td>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:13px; font-weight:700;">$${total.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  const referenceNum = safeName(booking?.invoice_id) || safeName(booking?.id)?.slice(0, 8).toUpperCase() || "";
+
+  // Customer confirmation email
+  const customerSubject = `We received your enquiry — ${businessName}`;
+  const customerHtml = emailLayout({
+    title: "Enquiry Received",
+    preheader: `Thanks ${customerName}! We received your enquiry and will be in touch within 24 hours.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: businessName,
+    contentHtml: `
+      ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — thanks for your enquiry with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>!`)}
+      ${paragraphHtml("We've received your details and will be in touch within <strong>24 hours</strong> to confirm availability and finalise your booking.")}
+      ${summaryTableHtml}
+      ${referenceNum ? `<div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">Reference: ${escapeHtml(referenceNum)}</div>` : ""}
+    `,
+  });
+
+  const customerText =
+    `We received your enquiry — ${businessName}\n\n` +
+    `Hi ${customerName}! Thanks for reaching out.\n\n` +
+    `We'll be in touch within 24 hours to confirm availability.\n\n` +
+    `Date: ${bookingDate}\n` +
+    (eventType ? `Event Type: ${eventType}\n` : "") +
+    (eventLocation ? `Venue: ${eventLocation}\n` : "") +
+    `Package: ${packageName} — $${basePrice.toFixed(2)}\n` +
+    (addonsList.length ? addonsList.map((a) => `+ ${a.name}: $${Number(a.price || 0).toFixed(2)}`).join("\n") + "\n" : "") +
+    `Estimated Total: $${total.toFixed(2)}\n` +
+    (referenceNum ? `Reference: ${referenceNum}\n` : "");
+
+  // Business notification email
+  const businessSubject = `New Enquiry — ${eventType || "Event"} on ${bookingDate}`;
+  const dashboardUrl = `${site}/dashboard`;
+  const businessHtml = emailLayout({
+    title: "New Enquiry",
+    preheader: `${customerName} submitted an enquiry for ${bookingDate}.`,
+    contentHtml: `
+      ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> submitted an enquiry.`)}
+      ${summaryTableHtml}
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; background:#fff; margin-top:12px;">
+        <tbody>
+          <tr>
+            <td style="padding:10px 12px; color:#52525b; font-size:13px; width:160px;">Customer</td>
+            <td style="padding:10px 12px; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(customerName)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Email</td>
+            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(safeEmail(booking?.customer_email))}</td>
+          </tr>
+          ${booking?.customer_phone ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Phone</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(safeName(booking.customer_phone))}</td></tr>` : ""}
+          ${booking?.num_guests ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Guests</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(String(booking.num_guests))}</td></tr>` : ""}
+          ${booking?.enquiry_message ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Notes</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px;">${escapeHtml(safeName(booking.enquiry_message))}</td></tr>` : ""}
+        </tbody>
+      </table>
+      <div style="margin-top:16px;">
+        <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 18px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          View &amp; Respond in Dashboard →
+        </a>
+      </div>
+    `,
+  });
+
+  const businessText =
+    `New Enquiry\n\n` +
+    `${customerName} submitted an enquiry.\n\n` +
+    `Date: ${bookingDate}\n` +
+    (eventType ? `Event Type: ${eventType}\n` : "") +
+    `Package: ${packageName}\n` +
+    `Estimated Total: $${total.toFixed(2)}\n\n` +
+    `Customer: ${customerName}\n` +
+    `Email: ${safeEmail(booking?.customer_email)}\n` +
+    (booking?.customer_phone ? `Phone: ${safeName(booking.customer_phone)}\n` : "") +
+    `\nRespond: ${dashboardUrl}\n`;
+
+  const results = { customer: null, business: null };
+
+  if (customerEmail) {
+    results.customer = await sendEmailViaResend({
+      to: customerEmail,
+      subject: customerSubject,
+      html: customerHtml,
+      text: customerText,
+      replyTo: businessEmail || undefined,
+    });
+  }
+
+  if (businessEmail) {
+    results.business = await sendEmailViaResend({
+      to: businessEmail,
+      subject: businessSubject,
+      html: businessHtml,
+      text: businessText,
+      replyTo: customerEmail || undefined,
+    });
+  }
+
+  return results;
+}
+
+export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMessage }) {
+  const customerEmail = safeEmail(booking?.customer_email);
+  if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
+
+  const businessName = safeName(business?.business_name) || "this business";
+  const customerName = safeName(booking?.customer_name) || "there";
+  const businessEmail = safeEmail(business?.email);
+  const price = quotedPrice !== null && quotedPrice !== undefined ? Number(quotedPrice) : Number(booking?.price || 0);
+  const message = String(quoteMessage || "").trim();
+  const bookingDate = safeName(booking?.booking_date) || "TBD";
+
+  const subject = `Your Quote from ${businessName}`;
+  const html = emailLayout({
+    title: "Your Quote",
+    preheader: `${businessName} has sent you a quote for your event on ${bookingDate}.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: businessName,
+    contentHtml: `
+      ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> has sent you a quote for your event.`)}
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; background:#fff; margin-top:12px;">
+        <tbody>
+          <tr>
+            <td style="padding:10px 12px; color:#52525b; font-size:13px; width:160px;">Event Date</td>
+            <td style="padding:10px 12px; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(bookingDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Quoted Price</td>
+            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:16px; font-weight:700;">$${price.toFixed(2)}</td>
+          </tr>
+          ${message ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Message</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px;">${escapeHtml(message)}</td></tr>` : ""}
+        </tbody>
+      </table>
+      ${paragraphHtml("To accept this quote, please reply to this email or contact us directly.")}
+    `,
+  });
+
+  const text =
+    `Your Quote from ${businessName}\n\n` +
+    `Hi ${customerName} — ${businessName} has sent you a quote.\n\n` +
+    `Event Date: ${bookingDate}\n` +
+    `Quoted Price: $${price.toFixed(2)}\n` +
+    (message ? `\nMessage: ${message}\n` : "") +
+    `\nTo accept this quote, please reply to this email.\n`;
+
+  return sendEmailViaResend({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+    replyTo: businessEmail || undefined,
+  });
+}
+
+export async function sendDeclineEmail({ booking, business, message }) {
+  const customerEmail = safeEmail(booking?.customer_email);
+  if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
+
+  const businessName = safeName(business?.business_name) || "this business";
+  const customerName = safeName(booking?.customer_name) || "there";
+  const businessEmail = safeEmail(business?.email);
+  const msg = String(message || "").trim();
+
+  const subject = `Update on your enquiry — ${businessName}`;
+  const html = emailLayout({
+    title: "Enquiry Update",
+    preheader: `An update regarding your enquiry with ${businessName}.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: businessName,
+    contentHtml: `
+      ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong>,`)}
+      ${paragraphHtml(`Thank you for your interest in <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>. Unfortunately we are unable to accommodate your request at this time.`)}
+      ${msg ? paragraphHtml(escapeHtml(msg)) : ""}
+      ${paragraphHtml("We hope to work with you in the future. Feel free to reach out for other dates or events.")}
+    `,
+  });
+
+  const text =
+    `Update on your enquiry — ${businessName}\n\n` +
+    `Hi ${customerName},\n\n` +
+    `Thank you for your interest in ${businessName}. Unfortunately we are unable to accommodate your request at this time.\n` +
+    (msg ? `\n${msg}\n` : "") +
+    `\nWe hope to work with you in the future.\n`;
+
+  return sendEmailViaResend({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+    replyTo: businessEmail || undefined,
+  });
+}
+
 export async function sendBookingCancelledEmail({ booking, business }) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };

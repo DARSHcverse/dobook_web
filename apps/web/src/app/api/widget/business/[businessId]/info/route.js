@@ -35,6 +35,15 @@ export async function GET(_request, { params }) {
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
+  const { data: packageCategories } = await sb
+    .from("package_categories")
+    .select("id,name,description,image_url,sort_order")
+    .eq("business_id", businessId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  const hasPackageFlow = Array.isArray(packageCategories) && packageCategories.length > 0;
+
   return NextResponse.json({
     business_name: business.business_name || business.name,
     logo_src: resolveLogoSrc({ businessId, logoUrl: business.logo_url }),
@@ -46,6 +55,8 @@ export async function GET(_request, { params }) {
     booking_custom_fields: business.booking_custom_fields || [],
     booking_form_fields: bookingFormFields || [],
     service_addons: serviceAddons || [],
+    package_categories: packageCategories || [],
+    has_package_flow: hasPackageFlow,
     travel_fee_enabled: Boolean(business.travel_fee_enabled),
     travel_fee_label: String(business.travel_fee_label || "Travel fee"),
     travel_fee_amount: Number(business.travel_fee_amount || 0),
