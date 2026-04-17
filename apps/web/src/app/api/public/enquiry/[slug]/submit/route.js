@@ -144,14 +144,6 @@ export async function POST(request, { params }) {
     lineItems.push({ description: addon.name, qty: 1, unit_price: p, total: p });
   }
 
-  let invoiceId = null;
-  try {
-    const { data } = await sb.rpc("next_invoice_id", { p_business_id: businessId });
-    invoiceId = data?.[0]?.invoice_id || null;
-  } catch {
-    invoiceId = null;
-  }
-
   const durationMinutes = pkg?.duration_hours
     ? Math.round(Number(pkg.duration_hours) * 60)
     : Number(body?.duration_minutes || 180);
@@ -175,12 +167,12 @@ export async function POST(request, { params }) {
     quantity: 1,
     line_items: lineItems,
     total_amount: estimatedTotal,
-    status: "confirmed",
+    status: "pending",
     payment_status: "unpaid",
     payment_method: "",
-    invoice_id: invoiceId,
-    invoice_date: new Date().toISOString(),
-    due_date: new Date(`${bookingDateStr}T00:00:00Z`).toISOString(),
+    invoice_id: null,
+    invoice_date: null,
+    due_date: null,
     custom_fields: {
       first_name: firstName,
       last_name: lastName,
@@ -212,10 +204,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  await sb
-    .from("businesses")
-    .update({ booking_count: Number(business.booking_count || 0) + 1 })
-    .eq("id", businessId);
+  // Do NOT increment booking_count for enquiries — only confirmed bookings count.
 
   // Fire-and-forget emails + SMS
   try {

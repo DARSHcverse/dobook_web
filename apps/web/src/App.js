@@ -2561,7 +2561,12 @@ const Dashboard = () => {
   };
 
   const activeBookings = useMemo(
-    () => bookings.filter((b) => String(b?.status || 'confirmed').trim().toLowerCase() !== 'cancelled'),
+    () =>
+      bookings.filter(
+        (b) =>
+          !b?.is_enquiry &&
+          String(b?.status || 'confirmed').trim().toLowerCase() !== 'cancelled',
+      ),
     [bookings],
   );
 
@@ -2590,6 +2595,7 @@ const Dashboard = () => {
     const byKey = new Map(months.map((m) => [m.key, m]));
     const list = Array.isArray(bookings) ? bookings : [];
     for (const b of list) {
+      if (b?.is_enquiry) continue;
       if (String(b?.status || 'confirmed').trim().toLowerCase() === 'cancelled') continue;
       const dateStr = String(b?.booking_date || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
@@ -5642,6 +5648,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
     const q = String(search || '').trim().toLowerCase();
     const nowTs = Date.now();
     return bookings.filter((booking) => {
+      if (booking?.is_enquiry) return false;
       const name = String(booking?.customer_name || '').toLowerCase();
       const email = String(booking?.customer_email || '').toLowerCase();
       if (q && !name.includes(q) && !email.includes(q)) return false;
@@ -8325,6 +8332,7 @@ const ENQUIRY_STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
   quoted: 'bg-blue-100 text-blue-800',
   confirmed: 'bg-green-100 text-green-800',
+  converted: 'bg-emerald-100 text-emerald-800',
   declined: 'bg-red-100 text-red-700',
   expired: 'bg-zinc-200 text-zinc-700',
 };
@@ -8332,6 +8340,7 @@ const ENQUIRY_STATUS_ICONS = {
   pending: '🟡',
   quoted: '🔵',
   confirmed: '🟢',
+  converted: '✅',
   declined: '🔴',
   expired: '⚫',
 };
@@ -8341,8 +8350,11 @@ function buildEnquiryTimeline(enq) {
   if (enq.created_at) {
     events.push({ ts: enq.created_at, label: 'Enquiry received' });
   }
-  if (enq.enquiry_status === 'quoted' || enq.enquiry_status === 'confirmed') {
+  if (enq.enquiry_status === 'quoted' || enq.enquiry_status === 'converted' || enq.enquiry_status === 'confirmed') {
     events.push({ ts: enq.created_at, label: 'Auto-quote sent to customer' });
+  }
+  if (enq.enquiry_status === 'converted') {
+    events.push({ ts: enq.updated_at || enq.created_at, label: 'Converted to booking' });
   }
   if (enq.enquiry_status === 'confirmed') {
     events.push({ ts: enq.updated_at || enq.created_at, label: 'Confirmed' });
@@ -8358,11 +8370,14 @@ const EnquiriesTab = ({ business, onRefresh }) => {
   const [loading, setLoading] = useState(true);
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [responseStatus, setResponseStatus] = useState('quoted');
   const [quotedPrice, setQuotedPrice] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
   const [declineMessage, setDeclineMessage] = useState('');
   const [responding, setResponding] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [confirmConvertOpen, setConfirmConvertOpen] = useState(false);
+  const [showDeclineForm, setShowDeclineForm] = useState(false);
 
   const loadEnquiries = async () => {
     setLoading(true);
@@ -8381,9 +8396,11 @@ const EnquiriesTab = ({ business, onRefresh }) => {
 
   const openRespond = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    setQuotedPrice(String(enquiry.quoted_price ?? enquiry.price ?? ''));
+    setResponseStatus(enquiry.enquiry_status === 'pending' ? 'quoted' : (enquiry.enquiry_status || 'quoted'));
+    setQuotedPrice(String(enquiry.quoted_price ?? enquiry.price ?? enquiry.total_amount ?? ''));
     setQuoteMessage('');
     setDeclineMessage('');
+    setShowDeclineForm(false);
     setDrawerOpen(true);
   };
 
@@ -8392,10 +8409,10 @@ const EnquiriesTab = ({ business, onRefresh }) => {
     setResponding(true);
     try {
       await axios.put(`/api/bookings/${selectedEnquiry.id}/quote`, {
-        quoted_price: quotedPrice ? Number(quotedPrice) : null,
+        quoted_price: responseStatus === 'quoted' && quotedPrice ? Number(quotedPrice) : null,
         quote_message: quoteMessage,
       });
-      toast.success('Quote sent!');
+      toast.success('Response sent!');
       setDrawerOpen(false);
       loadEnquiries();
       onRefresh?.();
@@ -8443,7 +8460,8 @@ const EnquiriesTab = ({ business, onRefresh }) => {
     setResponding(true);
     try {
       await axios.put(`/api/bookings/${selectedEnquiry.id}/convert-to-booking`);
-      toast.success('Converted to booking');
+      toast.success('Enquiry converted to booking successfully');
+      setConfirmConvertOpen(false);
       setDrawerOpen(false);
       loadEnquiries();
       onRefresh?.();
@@ -8469,7 +8487,7 @@ const EnquiriesTab = ({ business, onRefresh }) => {
         <CardContent>
           {/* Filter tabs */}
           <div className="flex gap-2 mb-4 flex-wrap">
-            {['all', 'pending', 'quoted', 'confirmed', 'declined', 'expired'].map((s) => (
+            {['all', 'pending', 'quoted', 'converted', 'declined', 'expired'].map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -8524,7 +8542,7 @@ const EnquiriesTab = ({ business, onRefresh }) => {
                         Respond
                       </Button>
                     )}
-                    {(enq.enquiry_status === 'confirmed' || enq.enquiry_status === 'declined') && (
+                    {(enq.enquiry_status === 'converted' || enq.enquiry_status === 'confirmed' || enq.enquiry_status === 'declined') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -8544,36 +8562,67 @@ const EnquiriesTab = ({ business, onRefresh }) => {
 
       {/* Enquiry Response Drawer */}
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>
-              {selectedEnquiry?.customer_name} — Enquiry
+        <DialogContent className="w-full sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader className="pr-8">
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="text-lg">
+              {selectedEnquiry?.customer_name || 'Enquiry'}
             </DialogTitle>
+            {selectedEnquiry && (
+              <p className="text-xs text-zinc-500">
+                Enquiry #{String(selectedEnquiry.id || '').slice(0, 8)} · Received{' '}
+                {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleDateString() : ''}
+              </p>
+            )}
           </DialogHeader>
           {selectedEnquiry && (
             <div className="space-y-4">
-              {/* Enquiry details */}
-              <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 text-sm space-y-1.5">
-                {selectedEnquiry.event_type && (
-                  <div><span className="text-zinc-500">Event:</span> <span className="font-medium">{selectedEnquiry.event_type}</span></div>
-                )}
-                {selectedEnquiry.booking_date && (
-                  <div><span className="text-zinc-500">Date:</span> <span className="font-medium">{selectedEnquiry.booking_date}</span></div>
-                )}
-                {selectedEnquiry.event_location && (
-                  <div><span className="text-zinc-500">Venue:</span> <span className="font-medium">{selectedEnquiry.event_location}</span></div>
-                )}
-                {selectedEnquiry.service_type && (
-                  <div><span className="text-zinc-500">Package:</span> <span className="font-medium">{selectedEnquiry.service_type}</span></div>
-                )}
-                {selectedEnquiry.num_guests && (
-                  <div><span className="text-zinc-500">Guests:</span> <span className="font-medium">{selectedEnquiry.num_guests}</span></div>
-                )}
-                <div className="pt-1 border-t border-zinc-200">
-                  <div><span className="text-zinc-500">Customer:</span> <span className="font-medium">{selectedEnquiry.customer_name}</span></div>
+              {/* Customer Info card */}
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Customer Info
+                </div>
+                <div className="text-sm space-y-1">
+                  <div><span className="text-zinc-500">Name:</span> <span className="font-medium">{selectedEnquiry.customer_name}</span></div>
                   <div><span className="text-zinc-500">Email:</span> <span className="font-medium">{selectedEnquiry.customer_email}</span></div>
                   {selectedEnquiry.customer_phone && (
                     <div><span className="text-zinc-500">Phone:</span> <span className="font-medium">{selectedEnquiry.customer_phone}</span></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Details card */}
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Event Details
+                </div>
+                <div className="text-sm space-y-1">
+                  {selectedEnquiry.booking_date && (
+                    <div><span className="text-zinc-500">Date:</span> <span className="font-medium">{selectedEnquiry.booking_date}</span></div>
+                  )}
+                  {selectedEnquiry.booking_time && (
+                    <div><span className="text-zinc-500">Time:</span> <span className="font-medium">{selectedEnquiry.booking_time}</span></div>
+                  )}
+                  {selectedEnquiry.event_location && (
+                    <div><span className="text-zinc-500">Venue:</span> <span className="font-medium">{selectedEnquiry.event_location}</span></div>
+                  )}
+                  {selectedEnquiry.event_type && (
+                    <div><span className="text-zinc-500">Type:</span> <span className="font-medium">{selectedEnquiry.event_type}</span></div>
+                  )}
+                  {selectedEnquiry.num_guests ? (
+                    <div><span className="text-zinc-500">Guests:</span> <span className="font-medium">{selectedEnquiry.num_guests}</span></div>
+                  ) : null}
+                  {selectedEnquiry.service_type && (
+                    <div><span className="text-zinc-500">Package:</span> <span className="font-medium">{selectedEnquiry.service_type}</span></div>
+                  )}
+                  {Array.isArray(selectedEnquiry.line_items) && selectedEnquiry.line_items.length > 1 && (
+                    <div className="pt-1">
+                      <span className="text-zinc-500">Add-ons:</span>
+                      <ul className="mt-1 ml-4 list-disc text-zinc-700">
+                        {selectedEnquiry.line_items.slice(1).map((li, i) => (
+                          <li key={i}>{li.description}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                   {selectedEnquiry.enquiry_message && (
                     <div className="pt-1"><span className="text-zinc-500">Notes:</span> <span className="font-medium">{selectedEnquiry.enquiry_message}</span></div>
@@ -8581,33 +8630,51 @@ const EnquiriesTab = ({ business, onRefresh }) => {
                 </div>
               </div>
 
-              {/* Timeline */}
-              <div className="rounded-xl border border-zinc-100 bg-white p-4 text-xs space-y-2">
-                <div className="text-zinc-500 font-semibold uppercase tracking-wide text-[11px]">Timeline</div>
-                {buildEnquiryTimeline(selectedEnquiry).map((ev, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                    <span className="text-zinc-400">{ev.ts ? new Date(ev.ts).toLocaleString() : ''}</span>
-                    <span className="text-zinc-700">{ev.label}</span>
+              {/* Quote Summary card */}
+              {Array.isArray(selectedEnquiry.line_items) && selectedEnquiry.line_items.length > 0 && (
+                <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Quote Summary
                   </div>
-                ))}
-              </div>
+                  <div className="text-sm space-y-1">
+                    {selectedEnquiry.line_items.map((li, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span className="text-zinc-700">{li.description}</span>
+                        <span className="text-zinc-700">${Number(li.total || li.unit_price || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 mt-1 border-t border-zinc-200 flex justify-between">
+                      <span className="font-semibold text-zinc-900">Total</span>
+                      <span className="font-bold text-rose-600">
+                        ${Number(selectedEnquiry.quoted_price ?? selectedEnquiry.total_amount ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {selectedEnquiry.enquiry_status !== 'confirmed' && selectedEnquiry.enquiry_status !== 'declined' && (
-                <>
-                  <Separator />
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={handleMarkConfirmed} disabled={responding}>
-                      Mark as Confirmed
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleConvertToBooking} disabled={responding}>
-                      Convert to Booking
-                    </Button>
+              {/* Response section */}
+              {selectedEnquiry.enquiry_status !== 'converted' && selectedEnquiry.enquiry_status !== 'declined' && (
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Your Response
                   </div>
-                  <Separator />
-                  <div className="space-y-3">
+
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <select
+                      value={responseStatus}
+                      onChange={(e) => setResponseStatus(e.target.value)}
+                      className="mt-1 w-full h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm"
+                    >
+                      <option value="quoted">Quoted</option>
+                      <option value="pending">Pending</option>
+                    </select>
+                  </div>
+
+                  {responseStatus === 'quoted' && (
                     <div>
-                      <Label>Quoted Price ($)</Label>
+                      <Label className="text-xs">Custom Quote Price ($)</Label>
                       <Input
                         type="number"
                         value={quotedPrice}
@@ -8616,53 +8683,81 @@ const EnquiriesTab = ({ business, onRefresh }) => {
                         className="mt-1"
                       />
                     </div>
-                    <div>
-                      <Label>Message to customer</Label>
-                      <Textarea
-                        value={quoteMessage}
-                        onChange={(e) => setQuoteMessage(e.target.value)}
-                        placeholder="Optional note to include with your quote…"
-                        className="mt-1"
-                        rows={3}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleSendQuote}
-                        disabled={responding}
-                        className="flex-1 bg-rose-600 hover:bg-rose-700"
-                      >
-                        {responding ? 'Sending…' : 'Send Quote'}
-                      </Button>
-                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-xs">Message to customer</Label>
+                    <Textarea
+                      value={quoteMessage}
+                      onChange={(e) => setQuoteMessage(e.target.value)}
+                      placeholder="Add a note to include with your response…"
+                      className="mt-1"
+                      style={{ minHeight: 120 }}
+                    />
                   </div>
 
-                  <Separator />
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-zinc-500">Decline message (optional)</Label>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <Button
+                      onClick={handleSendQuote}
+                      disabled={responding}
+                      className="flex-1 bg-rose-600 hover:bg-rose-700"
+                    >
+                      {responding ? 'Sending…' : 'Send Response Email'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmConvertOpen(true)}
+                      disabled={responding}
+                      className="flex-1"
+                    >
+                      Convert to Booking
+                    </Button>
+                  </div>
+
+                  {!showDeclineForm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeclineForm(true)}
+                      className="block w-full text-center text-xs text-zinc-500 hover:text-zinc-700 underline pt-1"
+                    >
+                      Decline this enquiry
+                    </button>
+                  ) : (
+                    <div className="pt-2 border-t border-zinc-200 space-y-2">
+                      <Label className="text-xs text-zinc-500">Decline message (optional)</Label>
                       <Textarea
                         value={declineMessage}
                         onChange={(e) => setDeclineMessage(e.target.value)}
                         placeholder="Let them know politely why you can't accommodate them…"
-                        className="mt-1"
                         rows={2}
                       />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDeclineForm(false)}
+                          disabled={responding}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleDecline}
+                          disabled={responding}
+                          size="sm"
+                          className="flex-1 text-zinc-600"
+                        >
+                          {responding ? 'Declining…' : 'Confirm Decline'}
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={handleDecline}
-                      disabled={responding}
-                      className="w-full text-zinc-600"
-                    >
-                      {responding ? 'Declining…' : 'Decline Enquiry'}
-                    </Button>
-                  </div>
-                </>
+                  )}
+                </div>
               )}
 
-              {(selectedEnquiry.enquiry_status === 'confirmed' || selectedEnquiry.enquiry_status === 'declined') && (
-                <div className={`rounded-xl p-3 text-sm font-semibold ${ENQUIRY_STATUS_COLORS[selectedEnquiry.enquiry_status]}`}>
+              {(selectedEnquiry.enquiry_status === 'converted' || selectedEnquiry.enquiry_status === 'declined') && (
+                <div className={`rounded-xl p-3 text-sm font-semibold ${ENQUIRY_STATUS_COLORS[selectedEnquiry.enquiry_status] || 'bg-zinc-100 text-zinc-600'}`}>
                   Status: {selectedEnquiry.enquiry_status}
                   {selectedEnquiry.quoted_price && (
                     <span className="ml-2">— Quoted: ${Number(selectedEnquiry.quoted_price).toFixed(2)}</span>
@@ -8671,6 +8766,36 @@ const EnquiriesTab = ({ business, onRefresh }) => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to Booking confirmation */}
+      <Dialog open={confirmConvertOpen} onOpenChange={setConfirmConvertOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convert enquiry to booking?</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-zinc-700 space-y-2">
+            <p>This will:</p>
+            <ul className="ml-5 list-disc space-y-1 text-zinc-600">
+              <li>Create a new confirmed booking with the enquiry details</li>
+              <li>Mark this enquiry as converted</li>
+              <li>Send a booking confirmation email to {selectedEnquiry?.customer_email || 'the customer'}</li>
+            </ul>
+            <p className="text-xs text-zinc-500 pt-1">No invoice is generated automatically — you can create one from the booking detail if needed.</p>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setConfirmConvertOpen(false)} disabled={responding}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConvertToBooking}
+              disabled={responding}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              {responding ? 'Converting…' : 'Convert to Booking'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

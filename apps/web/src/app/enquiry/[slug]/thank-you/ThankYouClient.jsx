@@ -1,8 +1,16 @@
 "use client";
 
+function normalizeWebsiteUrl(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://${s.replace(/^\/+/, "")}`;
+}
+
 export default function ThankYouClient({ business, refId, email, name }) {
   const brand = business.brand_color || "#E8193C";
   const logo = business.brand_logo_url || business.logo_url || "";
+  const websiteUrl = normalizeWebsiteUrl(business.public_website);
   const confirmMsg =
     business.enquiry_confirmation_message ||
     "Check your inbox — your personalised quote is waiting for you!";
@@ -74,7 +82,7 @@ export default function ThankYouClient({ business, refId, email, name }) {
           </div>
         ) : null}
 
-        {business.public_website ? (
+        {websiteUrl ? (
           <>
             <div
               style={{
@@ -95,7 +103,8 @@ export default function ThankYouClient({ business, refId, email, name }) {
               {business.business_address ? <div style={{ fontSize: "14px", color: "#52525b" }}>📍 {business.business_address}</div> : null}
             </div>
             <a
-              href={business.public_website}
+              href={websiteUrl}
+              rel="noopener"
               style={{
                 display: "inline-block",
                 background: brand,
@@ -107,7 +116,7 @@ export default function ThankYouClient({ business, refId, email, name }) {
                 fontSize: "14px",
               }}
             >
-              Back to {business.business_name} Website
+              Back to {business.business_name}
             </a>
           </>
         ) : (
