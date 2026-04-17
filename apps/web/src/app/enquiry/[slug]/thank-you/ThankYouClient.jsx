@@ -74,42 +74,75 @@ export default function ThankYouClient({ business, refId, email, name }) {
           </div>
         ) : null}
 
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e4e4e7",
-            borderRadius: "20px",
-            padding: "20px",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-            textAlign: "left",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
-            Contact {business.business_name}
-          </div>
-          {business.email ? <div style={{ fontSize: "14px", marginBottom: "4px" }}>✉️ {business.email}</div> : null}
-          {business.phone ? <div style={{ fontSize: "14px", marginBottom: "4px" }}>📞 {business.phone}</div> : null}
-          {business.business_address ? <div style={{ fontSize: "14px", color: "#52525b" }}>📍 {business.business_address}</div> : null}
-        </div>
-
         {business.public_website ? (
-          <a
-            href={business.public_website}
+          <>
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e4e4e7",
+                borderRadius: "20px",
+                padding: "20px",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+                textAlign: "left",
+                marginBottom: "20px",
+              }}
+            >
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
+                Contact {business.business_name}
+              </div>
+              {business.email ? <div style={{ fontSize: "14px", marginBottom: "4px" }}>✉️ {business.email}</div> : null}
+              {business.phone ? <div style={{ fontSize: "14px", marginBottom: "4px" }}>📞 {business.phone}</div> : null}
+              {business.business_address ? <div style={{ fontSize: "14px", color: "#52525b" }}>📍 {business.business_address}</div> : null}
+            </div>
+            <a
+              href={business.public_website}
+              style={{
+                display: "inline-block",
+                background: brand,
+                color: "#fff",
+                padding: "12px 24px",
+                borderRadius: "12px",
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: "14px",
+              }}
+            >
+              Back to {business.business_name} Website
+            </a>
+          </>
+        ) : (
+          <div
             style={{
-              display: "inline-block",
-              background: brand,
-              color: "#fff",
-              padding: "12px 24px",
-              borderRadius: "12px",
-              textDecoration: "none",
-              fontWeight: 700,
-              fontSize: "14px",
+              background: "#fff",
+              border: "1px solid #e4e4e7",
+              borderRadius: "20px",
+              padding: "24px",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+              textAlign: "left",
+              marginBottom: "20px",
             }}
           >
-            Back to {business.business_name}
-          </a>
-        ) : null}
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px" }}>
+              Get in touch
+            </div>
+            {business.phone ? (
+              <div style={{ fontSize: "15px", marginBottom: "8px" }}>
+                📞 Contact us:{" "}
+                <a href={`tel:${business.phone}`} style={{ color: brand, fontWeight: 600, textDecoration: "none" }}>
+                  {business.phone}
+                </a>
+              </div>
+            ) : null}
+            {business.email ? (
+              <div style={{ fontSize: "15px", marginBottom: "4px" }}>
+                ✉️ Email us:{" "}
+                <a href={`mailto:${business.email}`} style={{ color: brand, fontWeight: 600, textDecoration: "none" }}>
+                  {business.email}
+                </a>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <style>{`

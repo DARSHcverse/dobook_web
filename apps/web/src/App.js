@@ -9,24 +9,32 @@ import {
   ArrowUpDown,
   BarChart3,
   Bell,
+  Building2,
   Calendar,
   CalendarDays,
+  ClipboardList,
   Clock,
   Code,
   CreditCard,
+  Crown,
+  DollarSign,
   FileText,
   Globe,
+  HelpCircle,
   LayoutDashboard,
   Link2,
   List,
   LogOut,
   MapPin,
   MessageSquare,
+  Package,
+  Plug,
   Plus,
   Search,
   Settings,
   Smartphone,
   Star,
+  Trash2,
   Upload,
   User,
   UserCheck,
@@ -2772,22 +2780,6 @@ const Dashboard = () => {
           </Button>
 
           <Button
-            data-testid="widget-tab"
-            data-tour="nav-widget"
-            variant="ghost"
-            onClick={() => setActiveTab('widget')}
-            className={cn(
-              "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
-              activeTab === 'widget'
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Code className="h-5 w-5" />
-            <span>Embed Widget</span>
-          </Button>
-
-          <Button
             data-testid="account-settings-tab"
             data-tour="nav-settings"
             variant="ghost"
@@ -2954,20 +2946,6 @@ const Dashboard = () => {
             >
               <Upload className="h-5 w-5" />
               <span>PDF Upload</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => { setActiveTab('widget'); setMobileMenuOpen(false); }}
-              className={cn(
-                "w-full justify-start gap-3 rounded-lg px-3 py-2.5",
-                activeTab === 'widget'
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Code className="h-5 w-5" />
-              <span>Embed Widget</span>
             </Button>
             <Button
               type="button"
@@ -3288,6 +3266,428 @@ const Dashboard = () => {
         {activeTab === 'widget' && business && <WidgetTab businessId={business.id} business={business} />}
       </div>
     </div>
+  );
+};
+
+// ============= Subscription Section (with retention cancel flow) =============
+const SubscriptionSection = ({
+  business,
+  effectivePlan,
+  isOwner,
+  bookingsThisMonth,
+  subscriptionStatus,
+  handleUpgrade,
+  handleManageBilling,
+  billingLoading,
+  onRefresh,
+}) => {
+  const [cancelStep, setCancelStep] = useState(0); // 0 closed, 1 reason, 2 offer, 3 confirm
+  const [cancelReason, setCancelReason] = useState('');
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelledAt, setCancelledAt] = useState(business?.subscription_cancel_at || null);
+
+  const isPro = effectivePlan !== 'free';
+  const nextBilling = business?.subscription_current_period_end
+    ? new Date(business.subscription_current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—';
+
+  const closeCancel = () => { setCancelStep(0); setCancelReason(''); };
+
+  const applyRetentionOffer = async () => {
+    setApplyingCoupon(true);
+    try {
+      const res = await fetch('/api/business/subscription/retention-offer', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.detail || 'Failed to apply discount');
+      }
+      toast.success('Discount applied! See you around 🎉');
+      closeCancel();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to apply discount');
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch('/api/business/subscription/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.detail || 'Failed to cancel');
+      const endsOn = data?.cancel_at ? new Date(data.cancel_at).toLocaleDateString() : nextBilling;
+      setCancelledAt(data?.cancel_at || null);
+      toast.success(`Subscription cancelled. You'll have Pro access until ${endsOn}.`);
+      closeCancel();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to cancel');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const FEATURES = [
+    'Unlimited bookings',
+    'Invoice PDFs',
+    'SMS reminders',
+    'Google Calendar sync',
+    'Enquiry page',
+    'Priority support',
+  ];
+
+  return (
+    <>
+      {!isPro ? (
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-700">Free Plan</span>
+            </div>
+            <CardTitle style={{ fontFamily: 'Manrope' }} className="mt-2">You're on the Free plan</CardTitle>
+            <CardDescription>
+              {bookingsThisMonth} / 50 bookings this month • Confirmation emails only • No reminders
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-5">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Pro Plan</div>
+                  <div className="text-sm text-zinc-600">Everything you need to grow</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-zinc-900">${PRO_PRICE_AUD}</div>
+                  <div className="text-xs text-zinc-500">AUD / month</div>
+                </div>
+              </div>
+              <ul className="space-y-1.5 text-sm text-zinc-700 mb-4">
+                {FEATURES.map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <span className="text-emerald-600">✅</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                onClick={handleUpgrade}
+                disabled={billingLoading}
+                className="w-full h-11 bg-rose-600 hover:bg-rose-700 rounded-xl"
+              >
+                {billingLoading ? 'Redirecting…' : `Upgrade to Pro — $${PRO_PRICE_AUD} AUD/month`}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Pro Plan ✓</span>
+              {subscriptionStatus && subscriptionStatus !== 'active' && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                  {subscriptionStatus}
+                </span>
+              )}
+            </div>
+            <CardTitle style={{ fontFamily: 'Manrope' }} className="mt-2">
+              {isOwner ? 'Owner access' : "You're on the Pro plan"}
+            </CardTitle>
+            <CardDescription>Unlimited bookings • Invoice PDFs • Automated reminders</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <div className="text-xs text-zinc-500 mb-1">Next billing</div>
+                <div className="font-semibold text-zinc-900">{nextBilling}</div>
+              </div>
+              <div className="rounded-lg bg-zinc-50 p-4">
+                <div className="text-xs text-zinc-500 mb-1">Amount</div>
+                <div className="font-semibold text-zinc-900">${PRO_PRICE_AUD} AUD/month</div>
+              </div>
+            </div>
+
+            {cancelledAt && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Subscription cancelled. You'll have Pro access until {new Date(cancelledAt).toLocaleDateString()}.
+              </div>
+            )}
+
+            {!isOwner && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 px-6 rounded-lg border-zinc-200"
+                  onClick={handleManageBilling}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Opening…' : 'Manage Billing'}
+                </Button>
+
+                <Separator />
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    className="text-xs text-zinc-500 hover:text-zinc-700 underline underline-offset-2"
+                    onClick={() => setCancelStep(1)}
+                  >
+                    Cancel subscription
+                  </button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Multi-step cancellation modal */}
+      <Dialog open={cancelStep > 0} onOpenChange={(open) => !open && closeCancel()}>
+        <DialogContent className="max-w-lg">
+          {cancelStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ fontFamily: 'Manrope' }}>We're sorry to see you go</DialogTitle>
+                <DialogDescription>Help us improve by telling us why</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 mt-2">
+                {[
+                  'Too expensive',
+                  'Missing features I need',
+                  'Switching to another platform',
+                  'Not using it enough',
+                  'Technical issues',
+                  'Other',
+                ].map((opt) => (
+                  <label
+                    key={opt}
+                    className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                      cancelReason === opt ? 'border-rose-500 bg-rose-50' : 'border-zinc-200 hover:bg-zinc-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="cancel_reason"
+                      value={opt}
+                      checked={cancelReason === opt}
+                      onChange={() => setCancelReason(opt)}
+                      className="accent-rose-600"
+                    />
+                    <span className="text-sm text-zinc-800">{opt}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button type="button" variant="ghost" onClick={closeCancel}>Keep plan</Button>
+                <Button
+                  type="button"
+                  className="bg-zinc-900 hover:bg-zinc-800 text-white"
+                  disabled={!cancelReason}
+                  onClick={() => setCancelStep(2)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </>
+          )}
+
+          {cancelStep === 2 && (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ fontFamily: 'Manrope' }}>Wait! Before you go…</DialogTitle>
+              </DialogHeader>
+              <div className="rounded-xl border-2 border-rose-500 bg-rose-50 p-5 mt-2">
+                <div className="text-sm font-semibold text-rose-700 mb-2">🎁 Special offer just for you</div>
+                <div className="text-lg font-bold text-zinc-900 mb-1" style={{ fontFamily: 'Manrope' }}>
+                  Stay for 2 more months at 10% off
+                </div>
+                <div className="text-sm text-zinc-700 mb-1">
+                  ${PRO_PRICE_AUD} → ${(PRO_PRICE_AUD * 0.9).toFixed(0)} AUD/month for 2 months
+                </div>
+                <div className="text-xs text-zinc-500 mb-1">Then back to normal ${PRO_PRICE_AUD}/month</div>
+                <div className="text-xs text-zinc-500">Cancel anytime after</div>
+              </div>
+              <div className="flex flex-col gap-2 mt-4">
+                <Button
+                  type="button"
+                  className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
+                  onClick={applyRetentionOffer}
+                  disabled={applyingCoupon}
+                >
+                  {applyingCoupon ? 'Applying…' : `Accept Offer — Stay at $${(PRO_PRICE_AUD * 0.9).toFixed(0)}/mo`}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setCancelStep(3)}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 underline underline-offset-2 mx-auto"
+                >
+                  No thanks, continue cancelling
+                </button>
+              </div>
+            </>
+          )}
+
+          {cancelStep === 3 && (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ fontFamily: 'Manrope' }}>Are you sure?</DialogTitle>
+              </DialogHeader>
+              <div className="text-sm text-zinc-700 space-y-2 mt-2">
+                <p>Your Pro access will end on <strong>{nextBilling}</strong>. After that you'll lose access to:</p>
+                <ul className="space-y-1 pl-1">
+                  <li>❌ Invoice PDFs</li>
+                  <li>❌ SMS reminders</li>
+                  <li>❌ Google Calendar sync</li>
+                  <li>❌ Unlimited bookings</li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2 mt-4">
+                <Button
+                  type="button"
+                  className="h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
+                  onClick={closeCancel}
+                >
+                  Keep My Pro Plan
+                </Button>
+                <button
+                  type="button"
+                  onClick={confirmCancel}
+                  disabled={cancelling}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 underline underline-offset-2 mx-auto disabled:opacity-50"
+                >
+                  {cancelling ? 'Cancelling…' : 'Yes, Cancel My Subscription'}
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+// ============= Integration Links Cards (Booking + Enquiry) =============
+const IntegrationLinksCards = ({ business }) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.do-book.com';
+  const businessId = business?.id;
+  const slug = business?.slug;
+  const bookingUrl = `${origin}/book/${businessId || ''}`;
+  const enquiryUrl = slug ? `${origin}/enquiry/${slug}` : '';
+
+  const bookingIframe = `<iframe\n  src="${bookingUrl}"\n  width="100%"\n  height="700px"\n  frameborder="0"\n  style="border-radius:12px;border:none;">\n</iframe>`;
+  const enquiryIframe = enquiryUrl ? `<iframe\n  src="${enquiryUrl}"\n  width="100%"\n  height="900px"\n  frameborder="0"\n  style="border-radius:12px;border:none;">\n</iframe>` : '';
+
+  const copy = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied!`);
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  return (
+    <>
+      {/* Direct Booking Link */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{ fontFamily: 'Manrope' }}>Direct Booking Link</CardTitle>
+          <CardDescription>Share this link so customers can book directly with you</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input value={bookingUrl} readOnly className="bg-zinc-50 font-mono text-sm" />
+            <Button
+              type="button"
+              onClick={() => copy(bookingUrl, 'Link')}
+              className="h-10 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg shrink-0"
+            >
+              Copy Link
+            </Button>
+          </div>
+          <div>
+            <Label className="text-zinc-700 mb-2 block">Embed on your website</Label>
+            <pre className="bg-zinc-900 text-zinc-100 text-xs rounded-lg p-3 overflow-x-auto font-mono leading-relaxed">{bookingIframe}</pre>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 h-9 rounded-lg"
+              onClick={() => copy(bookingIframe, 'Code')}
+            >
+              Copy Code
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Enquiry Page Link */}
+      <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
+        <CardHeader>
+          <CardTitle style={{ fontFamily: 'Manrope' }}>Enquiry Page</CardTitle>
+          <CardDescription>
+            Share this link for a full multi-step enquiry and quote flow. Perfect for Photo Booth and event businesses.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {enquiryUrl ? (
+            <>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input value={enquiryUrl} readOnly className="bg-zinc-50 font-mono text-sm" />
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    onClick={() => copy(enquiryUrl, 'Link')}
+                    className="h-10 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg"
+                  >
+                    Copy Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => window.open(enquiryUrl, '_blank')}
+                    className="h-10 px-4 rounded-lg"
+                  >
+                    Preview
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-zinc-700 mb-2 block">Embed on your website</Label>
+                <pre className="bg-zinc-900 text-zinc-100 text-xs rounded-lg p-3 overflow-x-auto font-mono leading-relaxed">{enquiryIframe}</pre>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 h-9 rounded-lg"
+                  onClick={() => copy(enquiryIframe, 'Code')}
+                >
+                  Copy Code
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              Set your business slug in <strong>Enquiry Settings</strong> to enable the enquiry page.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tip */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        💡 <strong>Tip:</strong> Add your enquiry or booking link to your website, Instagram bio, Facebook page, and Google Business Profile to get more bookings.
+      </div>
+    </>
   );
 };
 
@@ -3899,15 +4299,17 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
   };
 
   const SETTINGS_SECTIONS = [
-    { id: 'business-info', label: 'Business Information', icon: '📋' },
-    { id: 'payment-details', label: 'Payment Details', icon: '💳' },
-    { id: 'additional-charges', label: 'Additional Charges', icon: '💰' },
-    { id: 'reminders', label: 'Reminders & SMS', icon: '🔔' },
-    { id: 'integrations', label: 'Integrations', icon: '🔗' },
-    { id: 'booking-editor', label: 'Booking Editor', icon: '📝' },
-    { id: 'enquiry-settings', label: 'Enquiry Settings', icon: '🔎' },
-    { id: 'support', label: 'Help & Support', icon: '💬' },
-    { id: 'danger-zone', label: 'Danger Zone', icon: '⚠️' },
+    { id: 'business-info', label: 'Business Info', Icon: Building2 },
+    { id: 'payment-details', label: 'Payment', Icon: CreditCard },
+    { id: 'additional-charges', label: 'Charges', Icon: DollarSign },
+    { id: 'reminders', label: 'Reminders', Icon: Bell },
+    { id: 'sms', label: 'SMS', Icon: MessageSquare },
+    { id: 'integrations', label: 'Integrations', Icon: Plug },
+    { id: 'booking-editor', label: 'Booking Editor', Icon: Package },
+    { id: 'enquiry-settings', label: 'Enquiry', Icon: ClipboardList },
+    { id: 'subscription', label: 'Subscription', Icon: Crown },
+    { id: 'support', label: 'Support', Icon: HelpCircle },
+    { id: 'danger-zone', label: 'Danger Zone', Icon: Trash2 },
   ];
   const [activeSection, setActiveSection] = useState('business-info');
 
@@ -3931,58 +4333,103 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     }
   };
 
+  const activeMeta = SETTINGS_SECTIONS.find((s) => s.id === activeSection) || SETTINGS_SECTIONS[0];
+
   return (
     <div className="flex flex-col lg:flex-row gap-6">
-      {/* Mobile pill tabs */}
+      {/* Mobile horizontal icon bar */}
       <div className="lg:hidden -mx-4 px-4 overflow-x-auto">
-        <div className="flex gap-2 pb-2 min-w-max">
-          {SETTINGS_SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => selectSection(s.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
-                activeSection === s.id
-                  ? 'bg-zinc-900 text-white border-zinc-900'
-                  : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
-              }`}
-            >
-              <span>{s.icon}</span>
-              <span>{s.label}</span>
-            </button>
-          ))}
+        <div className="flex gap-1 pb-2 min-w-max">
+          {SETTINGS_SECTIONS.map((s) => {
+            const Icon = s.Icon;
+            const active = activeSection === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => selectSection(s.id)}
+                className="flex flex-col items-center gap-1 px-2 py-1.5 min-w-[68px] group"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                    active ? 'bg-rose-600 text-white' : 'bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200'
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={2} />
+                </span>
+                <span
+                  className={`text-[10px] font-medium whitespace-nowrap ${
+                    active ? 'text-rose-600' : 'text-zinc-500'
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block lg:w-60 shrink-0">
-        <div className="sticky top-6 bg-white border border-zinc-200 rounded-xl shadow-sm p-2">
-          {SETTINGS_SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => selectSection(s.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors ${
-                activeSection === s.id
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-700 hover:bg-zinc-100'
-              }`}
-            >
-              <span className="text-base">{s.icon}</span>
-              <span className="font-medium">{s.label}</span>
-            </button>
-          ))}
+      {/* Desktop icon rail */}
+      <aside className="hidden lg:block lg:w-16 shrink-0">
+        <div className="sticky top-6 bg-white border border-zinc-200 rounded-xl shadow-sm py-2 flex flex-col items-center gap-1">
+          {SETTINGS_SECTIONS.map((s) => {
+            const Icon = s.Icon;
+            const active = activeSection === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => selectSection(s.id)}
+                title={s.label}
+                aria-label={s.label}
+                className="group relative flex h-12 w-12 items-center justify-center"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                    active
+                      ? 'bg-rose-600 text-white'
+                      : 'text-zinc-500 group-hover:bg-zinc-100 group-hover:text-zinc-800'
+                  }`}
+                >
+                  <Icon size={22} strokeWidth={2} />
+                </span>
+                <span className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 z-10">
+                  {s.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </aside>
 
       {/* Content area */}
-      <div className="flex-1 min-w-0 space-y-6">
+      <div key={activeSection} className="flex-1 min-w-0 space-y-6 animate-in fade-in duration-150">
+      <div className="mb-2">
+        <h2 className="text-xl font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{activeMeta.label}</h2>
+      </div>
       {/* Enquiry Settings Card */}
       {activeSection === 'enquiry-settings' && (
       <EnquirySettingsCard business={business} onUpdate={onUpdate} />
       )}
 
       {/* Subscription Info Card */}
+      {activeSection === 'subscription' && (<>
+      <SubscriptionSection
+        business={business}
+        effectivePlan={effectivePlan}
+        isOwner={isOwner}
+        bookingsThisMonth={bookingsThisMonth}
+        subscriptionStatus={subscriptionStatus}
+        handleUpgrade={handleUpgrade}
+        handleManageBilling={handleManageBilling}
+        billingLoading={billingLoading}
+        onStartTour={onStartTour}
+        onRefresh={onUpdate}
+      />
+      </>)}
+
+      {false && (
       <Card className="bg-white dark:bg-zinc-950/20 border border-zinc-200 dark:border-zinc-800/60 shadow-sm rounded-xl mb-6">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
@@ -4059,6 +4506,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Upgrade to Pro Dialog */}
       <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
@@ -4086,6 +4534,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </DialogContent>
       </Dialog>
 
+      {false && (
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -4113,6 +4562,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Business Information */}
       {activeSection === 'business-info' && (<>
@@ -4397,7 +4847,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
 
       )}
 
-      {activeSection === 'reminders' && (
+      {(activeSection === 'reminders' || activeSection === 'sms') && (
       <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl mb-6">
         <CardHeader>
           <CardTitle style={{fontFamily: 'Manrope'}}>Reminder Settings</CardTitle>
@@ -4743,6 +5193,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
         </CardContent>
       </Card>
 
+      <IntegrationLinksCards business={business} />
+
       {/* Google Calendar disconnect confirmation */}
       <Dialog open={googleDisconnectOpen} onOpenChange={setGoogleDisconnectOpen}>
         <DialogContent>
@@ -4891,7 +5343,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       <PackagesManagementTab business={business} />
       </>)}
 
-      {['business-info','payment-details','additional-charges','reminders','booking-editor'].includes(activeSection) && (
+      {['business-info','payment-details','additional-charges','reminders','sms','booking-editor'].includes(activeSection) && (
       <Button
         data-testid="save-settings-btn"
         onClick={handleSave}
