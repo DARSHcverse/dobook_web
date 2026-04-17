@@ -8692,6 +8692,7 @@ const PackagesManagementTab = ({ business }) => {
   const [catForm, setCatForm] = useState({ name: '', description: '', image_url: '', is_active: true, sort_order: 0 });
   const [pkgForm, setPkgForm] = useState({ name: '', category_id: '', price: '', duration_hours: '3', description: '', image_url: '', features: [], is_active: true, sort_order: 0 });
   const [featureInput, setFeatureInput] = useState('');
+  const [importModal, setImportModal] = useState({ open: false, mode: 'url' });
 
   const load = async () => {
     setLoading(true);
@@ -8888,7 +8889,13 @@ const PackagesManagementTab = ({ business }) => {
             </div>
           ) : (
             <div>
-              <div className="flex justify-end mb-3">
+              <div className="flex justify-end gap-2 mb-3">
+                <ImportPackagesMenu
+                  onOpenUrl={() => setImportModal({ open: true, mode: 'url' })}
+                  onOpenPdf={() => setImportModal({ open: true, mode: 'pdf' })}
+                  onOpenManual={openNewPkg}
+                  manualDisabled={categories.length === 0}
+                />
                 <Button onClick={openNewPkg} disabled={categories.length === 0} className="bg-rose-600 hover:bg-rose-700 text-sm">
                   <Plus className="h-4 w-4 mr-1" /> Add Package
                 </Button>
@@ -9050,9 +9057,480 @@ const PackagesManagementTab = ({ business }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ImportPackagesModal
+        open={importModal.open}
+        initialMode={importModal.mode}
+        onClose={() => setImportModal({ open: false, mode: 'url' })}
+        onImported={() => { setImportModal({ open: false, mode: 'url' }); load(); }}
+      />
     </div>
   );
 };
+
+// ============= Import Packages Menu =============
+const ImportPackagesMenu = ({ onOpenUrl, onOpenPdf, onOpenManual, manualDisabled }) => {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen((v) => !v)}
+        className="text-sm gap-1"
+      >
+        Import Packages <span className="text-xs">▾</span>
+      </Button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-56 rounded-lg border border-zinc-200 bg-white shadow-lg z-20 py-1">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onOpenUrl(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-50"
+          >
+            📎 Import from website URL
+          </button>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onOpenPdf(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-50"
+          >
+            📄 Import from PDF
+          </button>
+          <button
+            type="button"
+            disabled={manualDisabled}
+            onClick={() => { setOpen(false); onOpenManual(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ✏️ Add manually
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============= Import Packages Modal =============
+const ImportPackagesModal = ({ open, initialMode, onClose, onImported }) => {
+  const [mode, setMode] = useState(initialMode || 'url');
+  const [url, setUrl] = useState('');
+  const [pastedContent, setPastedContent] = useState('');
+  const [showPasteFallback, setShowPasteFallback] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('');
+  const [extracted, setExtracted] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [warning, setWarning] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setMode(initialMode || 'url');
+      setUrl(''); setPastedContent(''); setShowPasteFallback(false);
+      setPdfFile(null); setExtracted(null); setWarning('');
+    }
+  }, [open, initialMode]);
+
+  const totalPkgs = React.useMemo(
+    () => (extracted?.categories || []).reduce(
+      (n, c) => n + c.packages.filter((p) => p.include !== false).length, 0),
+    [extracted],
+  );
+  const totalCats = React.useMemo(
+    () => (extracted?.categories || []).filter(
+      (c) => c.packages.some((p) => p.include !== false)).length,
+    [extracted],
+  );
+
+  const runUrlExtract = async () => {
+    setLoading(true);
+    setLoadingMsg('Reading your packages page…');
+    try {
+      const body = showPasteFallback ? { content: pastedContent } : { url };
+      const res = await fetch('/api/business/packages/import-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.detail || 'Extraction failed');
+        if (!showPasteFallback && /couldn't read that page|blocked|unavailable/i.test(data?.detail || '')) {
+          setShowPasteFallback(true);
+        }
+        return;
+      }
+      setExtracted(markIncluded(data.extracted));
+      setWarning(data.package_count < 3 ? 'We found a few packages but may have missed some. Please review carefully before importing.' : '');
+    } catch (err) {
+      toast.error('Extraction failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runPdfExtract = async () => {
+    if (!pdfFile) { toast.error('Select a PDF'); return; }
+    setLoading(true);
+    setLoadingMsg('Reading your PDF…');
+    try {
+      const fd = new FormData();
+      fd.append('file', pdfFile);
+      const res = await fetch('/api/business/packages/import-pdf', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data?.detail || 'Extraction failed'); return; }
+      setExtracted(markIncluded(data.extracted));
+      setWarning(data.package_count < 3 ? 'We found a few packages but may have missed some. Please review carefully before importing.' : '');
+    } catch {
+      toast.error('Extraction failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!extracted) return;
+    setImporting(true);
+    try {
+      const res = await fetch('/api/business/packages/import-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: extracted.categories }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data?.detail || 'Import failed'); return; }
+      toast.success(`${data.packages_created} packages imported successfully!`);
+      onImported?.();
+    } catch {
+      toast.error('Import failed');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const updateCatName = (ci, name) => {
+    setExtracted((prev) => {
+      const next = structuredClone(prev);
+      next.categories[ci].name = name;
+      return next;
+    });
+  };
+  const updatePkg = (ci, pi, patch) => {
+    setExtracted((prev) => {
+      const next = structuredClone(prev);
+      Object.assign(next.categories[ci].packages[pi], patch);
+      return next;
+    });
+  };
+  const removePkg = (ci, pi) => {
+    setExtracted((prev) => {
+      const next = structuredClone(prev);
+      next.categories[ci].packages.splice(pi, 1);
+      return next;
+    });
+  };
+  const addFeature = (ci, pi, val) => {
+    const v = String(val || '').trim();
+    if (!v) return;
+    setExtracted((prev) => {
+      const next = structuredClone(prev);
+      next.categories[ci].packages[pi].features = [
+        ...(next.categories[ci].packages[pi].features || []), v,
+      ];
+      return next;
+    });
+  };
+  const removeFeat = (ci, pi, fi) => {
+    setExtracted((prev) => {
+      const next = structuredClone(prev);
+      next.categories[ci].packages[pi].features.splice(fi, 1);
+      return next;
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose?.()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {!extracted ? (
+          <>
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'Manrope' }}>Import Packages</DialogTitle>
+              <DialogDescription>Extract packages automatically from your website or a PDF.</DialogDescription>
+            </DialogHeader>
+
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setMode('url')}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border ${
+                  mode === 'url' ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-zinc-700 border-zinc-200'
+                }`}
+              >
+                📎 From website URL
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('pdf')}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border ${
+                  mode === 'pdf' ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-zinc-700 border-zinc-200'
+                }`}
+              >
+                📄 From PDF
+              </button>
+            </div>
+
+            {mode === 'url' && (
+              <div className="mt-4 space-y-3">
+                {!showPasteFallback && (
+                  <div>
+                    <Label>Packages page URL</Label>
+                    <Input
+                      placeholder="https://example.com/packages"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className="mt-1 bg-zinc-50"
+                    />
+                  </div>
+                )}
+                {showPasteFallback && (
+                  <div>
+                    <Label>Or paste page content here</Label>
+                    <Textarea
+                      rows={8}
+                      placeholder="Paste HTML or plain text from your packages page…"
+                      value={pastedContent}
+                      onChange={(e) => setPastedContent(e.target.value)}
+                      className="mt-1 bg-zinc-50"
+                    />
+                  </div>
+                )}
+                {loading ? (
+                  <div className="text-sm text-zinc-500 flex items-center gap-2 py-2">
+                    <span className="inline-block h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                    {loadingMsg}
+                  </div>
+                ) : (
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button
+                      onClick={runUrlExtract}
+                      disabled={showPasteFallback ? !pastedContent.trim() : !url.trim()}
+                      className="bg-rose-600 hover:bg-rose-700"
+                    >
+                      Extract Packages
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {mode === 'pdf' && (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <Label>Upload PDF</Label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                    className="block w-full mt-1 text-sm"
+                  />
+                  {pdfFile && (
+                    <div className="text-xs text-zinc-500 mt-1">
+                      {pdfFile.name} · {(pdfFile.size / 1024).toFixed(0)} KB
+                    </div>
+                  )}
+                  <div className="text-xs text-zinc-500 mt-1">Max 10MB. Text-based PDFs only (no scans).</div>
+                </div>
+                {loading ? (
+                  <div className="text-sm text-zinc-500 flex items-center gap-2 py-2">
+                    <span className="inline-block h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                    {loadingMsg}
+                  </div>
+                ) : (
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button
+                      onClick={runPdfExtract}
+                      disabled={!pdfFile}
+                      className="bg-rose-600 hover:bg-rose-700"
+                    >
+                      Extract Packages
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'Manrope' }}>Review Extracted Packages</DialogTitle>
+              <DialogDescription>
+                We found {totalPkgs} packages. Review and edit before importing.
+              </DialogDescription>
+            </DialogHeader>
+
+            {warning && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                ⚠️ {warning}
+              </div>
+            )}
+
+            <div className="mt-3 space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+              {extracted.categories.map((cat, ci) => (
+                <div key={ci} className="border border-zinc-200 rounded-xl p-3 bg-zinc-50">
+                  <Input
+                    value={cat.name}
+                    onChange={(e) => updateCatName(ci, e.target.value)}
+                    className="mb-3 font-semibold bg-white"
+                    placeholder="Category name"
+                  />
+                  <div className="space-y-2">
+                    {cat.packages.map((pkg, pi) => (
+                      <div
+                        key={pi}
+                        className={`rounded-lg border p-3 bg-white ${
+                          pkg.include === false ? 'opacity-50' : 'border-zinc-200'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <Input
+                            value={pkg.name}
+                            onChange={(e) => updatePkg(ci, pi, { name: e.target.value })}
+                            className="flex-1"
+                            placeholder="Package name"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePkg(ci, pi)}
+                            className="text-red-500 hover:text-red-700 p-2"
+                            title="Remove"
+                          >
+                            🗑
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div>
+                            <Label className="text-xs">Price ($)</Label>
+                            <Input
+                              type="number"
+                              value={pkg.price}
+                              onChange={(e) => updatePkg(ci, pi, { price: Number(e.target.value) })}
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Duration (hours)</Label>
+                            <Input
+                              type="number"
+                              step="0.5"
+                              value={pkg.duration_hours}
+                              onChange={(e) => updatePkg(ci, pi, { duration_hours: Number(e.target.value) })}
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <Label className="text-xs">Features</Label>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {(pkg.features || []).map((f, fi) => (
+                              <span key={fi} className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 text-xs rounded-full px-2.5 py-1">
+                                {f}
+                                <button type="button" onClick={() => removeFeat(ci, pi, fi)} className="hover:text-red-600">×</button>
+                              </span>
+                            ))}
+                            <FeatureAdder onAdd={(v) => addFeature(ci, pi, v)} />
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 mt-2 text-xs text-zinc-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={pkg.include !== false}
+                            onChange={(e) => updatePkg(ci, pi, { include: e.target.checked })}
+                            className="accent-rose-600"
+                          />
+                          Include this package
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-zinc-200 flex items-center justify-between gap-3">
+              <div className="text-sm text-zinc-600">
+                <strong>{totalPkgs}</strong> packages will be imported across <strong>{totalCats}</strong> categories
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                <Button
+                  onClick={confirmImport}
+                  disabled={importing || totalPkgs === 0}
+                  className="bg-rose-600 hover:bg-rose-700"
+                >
+                  {importing ? 'Importing…' : `Import ${totalPkgs} Package${totalPkgs === 1 ? '' : 's'}`}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const FeatureAdder = ({ onAdd }) => {
+  const [v, setV] = useState('');
+  const [editing, setEditing] = useState(false);
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs rounded-full px-2.5 py-1"
+      >
+        + Add feature
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 bg-white border border-zinc-200 rounded-full px-1 py-0.5">
+      <input
+        autoFocus
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { onAdd(v); setV(''); setEditing(false); }
+          if (e.key === 'Escape') { setV(''); setEditing(false); }
+        }}
+        onBlur={() => { if (v.trim()) onAdd(v); setV(''); setEditing(false); }}
+        placeholder="Feature…"
+        className="text-xs outline-none px-2 py-0.5 w-28"
+      />
+    </span>
+  );
+};
+
+function markIncluded(data) {
+  const next = structuredClone(data || { categories: [] });
+  (next.categories || []).forEach((c) => {
+    (c.packages || []).forEach((p) => { if (p.include === undefined) p.include = true; });
+  });
+  return next;
+}
 
 // ============= Widget Tab =============
 const WidgetTab = ({ businessId, business }) => {
