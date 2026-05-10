@@ -331,6 +331,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
       html: businessHtml,
       text: businessText,
       attachments,
+      replyTo: customerEmail || undefined,
     });
   }
 

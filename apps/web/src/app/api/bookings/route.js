@@ -253,6 +253,10 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  // Require authentication: only logged-in business owners can create bookings
+  const auth = await requireSession(request);
+  if (auth.error) return auth.error;
+
   const limited = rateLimit({
     request,
     keyPrefix: "bookings",
@@ -320,6 +324,11 @@ export async function POST(request) {
     return reject(request, 400, "business_id is required", "missing_business_id");
   }
 
+  // Verify the authenticated user owns this business
+  if (businessId !== auth.business.id) {
+    return reject(request, 403, "Unauthorized: you don't own this business", "unauthorized_business");
+  }
+
   const customerName = String(body?.customer_name || "").trim();
   if (!customerName) {
     return reject(request, 400, "customer_name is required", "missing_customer_name");
@@ -357,17 +366,11 @@ export async function POST(request) {
   }
 
   const sb = supabaseAdmin();
-  const { data: business, error: businessError } = await sb
-    .from("businesses")
-    .select("*")
-    .eq("id", businessId)
-    .maybeSingle();
+  const business = auth.business;
 
-  if (businessError) {
-    console.error(`[reject] POST /api/bookings ip=${getClientIp(request)} reason=business_lookup_failed`);
-    return NextResponse.json({ detail: businessError.message }, { status: 500 });
+  if (!business) {
+    return NextResponse.json({ detail: "Business not found" }, { status: 500 });
   }
-  if (!business) return reject(request, 404, "Business not found", "business_not_found");
 
   if (!hasProAccess(business)) {
     const { startIso, endIso } = monthRangeUtc(new Date());
@@ -496,31 +499,35 @@ export async function POST(request) {
 
   // Best-effort: send SMS confirmation (Pro only, non-blocking).
   if (hasProAccess(business) && business.sms_confirmations_enabled !== false && inserted.customer_phone) {
-    (async () => {
-      try {
-        const sid = await sendSMS({
-          to: inserted.customer_phone,
-          message: bookingConfirmationSMS({
-            customerName: inserted.customer_name,
-            businessName: business.business_name,
-            service: inserted.service_type || inserted.booth_type,
-            date: formatSMSDate(inserted.booking_date),
-            time: formatSMSTime(inserted.booking_time),
-          }),
-        });
-        if (sid) {
-          await sb.from("bookings").update({ sms_confirmation_sent_at: new Date().toISOString() }).eq("id", inserted.id);
+    setTimeout(() => {
+      (async () => {
+        try {
+          const sid = await sendSMS({
+            to: inserted.customer_phone,
+            message: bookingConfirmationSMS({
+              customerName: inserted.customer_name,
+              businessName: business.business_name,
+              service: inserted.service_type || inserted.booth_type,
+              date: formatSMSDate(inserted.booking_date),
+              time: formatSMSTime(inserted.booking_time),
+            }),
+          });
+          if (sid) {
+            await sb.from("bookings").update({ sms_confirmation_sent_at: new Date().toISOString() }).eq("id", inserted.id);
+          }
+        } catch (e) {
+          console.error(`[bookings/POST] SMS confirmation failed for booking ${inserted.id}:`, e?.message);
         }
-      } catch (e) {
-        console.error(`[bookings/POST] SMS confirmation failed for booking ${inserted.id}:`, e?.message);
-      }
-    })();
+      })().catch((e) => console.error(`[bookings/POST] SMS background task failed for booking ${inserted.id}:`, e?.message));
+    }, 0);
   }
 
   // Best-effort: sync to Google Calendar without blocking the response.
-  createCalendarEvent(businessId, inserted).catch((e) => {
-    console.error(`[bookings/POST] Google Calendar sync failed for booking ${inserted.id}:`, e?.message);
-  });
+  setTimeout(() => {
+    createCalendarEvent(businessId, inserted).catch((e) => {
+      console.error(`[bookings/POST] Google Calendar sync failed for booking ${inserted.id}:`, e?.message);
+    });
+  }, 0);
 
   return NextResponse.json(inserted);
 }

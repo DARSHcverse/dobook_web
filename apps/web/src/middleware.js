@@ -17,7 +17,7 @@ function buildContentSecurityPolicy() {
     "https://api.stripe.com",
     "https://api.resend.com",
   ];
-  const scriptSrc = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+  const scriptSrc = ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://va.vercel-scripts.com"];
 
   if (!isProd) {
     connectSrc.push("http:", "ws:", "wss:");
