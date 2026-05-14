@@ -35,7 +35,11 @@ export async function GET(request, { params }) {
   if (!booking) return NextResponse.json({ detail: "Booking not found" }, { status: 404 });
 
   const template = await getActiveInvoiceTemplateSupabase(sb, auth.business.id);
-  const base64 = await generateInvoicePdfBase64({ booking, business: auth.business, template });
+  const base64 = await generateInvoicePdfBase64({
+    booking,
+    business: auth.business,
+    template,
+  });
   const bytes = Buffer.from(base64, "base64");
 
   const filename = `${booking?.invoice_id || "invoice"}.pdf`;
@@ -47,4 +51,3 @@ export async function GET(request, { params }) {
     },
   });
 }
-

@@ -281,6 +281,7 @@ export function normalizeTemplateSettings(templateName, templateSettings) {
     const show_abn = asBool(t.show_abn, true);
     const show_due_date = asBool(t.show_due_date, true);
     const show_notes = asBool(t.show_notes, true);
+    const show_signature = asBool(t.show_signature, true);
 
     const footer_text = String(t.footer_text || "").trim();
 
@@ -302,6 +303,7 @@ export function normalizeTemplateSettings(templateName, templateSettings) {
         show_abn,
         show_due_date,
         show_notes,
+        show_signature,
         table_style,
         footer_text,
         primary_color,

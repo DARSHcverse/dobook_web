@@ -102,6 +102,7 @@ export async function POST(request) {
     show_abn: asBool(body?.show_abn, true),
     show_due_date: asBool(body?.show_due_date, true),
     show_notes: asBool(body?.show_notes, true),
+    show_signature: asBool(body?.show_signature, true),
     table_style: normalizeEnum(body?.table_style, ["minimal", "bordered", "striped"], "minimal"),
     footer_text: normalizeFooterText(body?.footer_text),
     created_at: new Date().toISOString(),
@@ -131,6 +132,7 @@ export async function POST(request) {
             show_abn: templateInput.show_abn,
             show_due_date: templateInput.show_due_date,
             show_notes: templateInput.show_notes,
+            show_signature: templateInput.show_signature,
             table_style: templateInput.table_style,
             footer_text: templateInput.footer_text,
             created_at: templateInput.created_at,
@@ -174,6 +176,7 @@ export async function POST(request) {
       keep.show_abn = templateInput.show_abn;
       keep.show_due_date = templateInput.show_due_date;
       keep.show_notes = templateInput.show_notes;
+      keep.show_signature = templateInput.show_signature;
       keep.table_style = templateInput.table_style;
       keep.footer_text = templateInput.footer_text;
       keep.created_at = templateInput.created_at;

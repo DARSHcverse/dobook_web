@@ -9,7 +9,12 @@ import {
   renderSidebar,
 } from "./invoice/templates";
 
-export async function generateInvoicePdfBase64({ booking, business, template }) {
+export async function generateInvoicePdfBase64({
+  booking,
+  business,
+  template,
+  includeSignature,
+}) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -21,7 +26,7 @@ export async function generateInvoicePdfBase64({ booking, business, template }) 
   const templateName = String(template?.template_name || "Classic").trim() || "Classic";
   const templateSettings = normalizeTemplateSettings(templateName, template);
 
-  const data = { pageW, pageH, marginX, booking, business, logoAsset };
+  const data = { pageW, pageH, marginX, booking, business, logoAsset, includeSignature };
 
   if (templateName === "Clean") renderClean(doc, data, templateSettings);
   else if (templateName === "Gradient") renderGradient(doc, data, templateSettings);

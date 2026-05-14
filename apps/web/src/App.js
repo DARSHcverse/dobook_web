@@ -324,7 +324,7 @@ async function addLogoToPdf(doc, dataUri, box) {
   doc.addImage(supportedDataUri, fmt, x, y, w, h);
 }
 
-async function downloadInvoicePdf({ booking, business, template }) {
+async function downloadInvoicePdf({ booking, business, template, includeSignature = true }) {
   if (!booking) return;
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -515,10 +515,13 @@ async function downloadInvoicePdf({ booking, business, template }) {
   }
 
   // Signature (stylized text, like sample's signature area)
-  doc.setFont('times', 'italic');
-  doc.setFontSize(34);
-  doc.setTextColor(60);
-  doc.text(brand.account_name || brand.name, lineX2, 780, { align: 'right' });
+  const signature = String(brand.account_name || brand.name || '').trim();
+  if (includeSignature && signature) {
+    doc.setFont('times', 'italic');
+    doc.setFontSize(34);
+    doc.setTextColor(60);
+    doc.text(signature, lineX2, 780, { align: 'right' });
+  }
 
   doc.save(`${invoiceNumber}.pdf`);
 }
@@ -7106,6 +7109,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 	  const [showAbn, setShowAbn] = useState(true);
 	  const [showDueDate, setShowDueDate] = useState(true);
 	  const [showNotes, setShowNotes] = useState(true);
+	  const [showSignature, setShowSignature] = useState(true);
 	  const [tableStyle, setTableStyle] = useState('minimal');
 	  const [footerText, setFooterText] = useState('');
 	  const [showPreview, setShowPreview] = useState(false);
@@ -7147,6 +7151,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 	        setShowAbn(active.show_abn === undefined || active.show_abn === null ? true : Boolean(active.show_abn));
 	        setShowDueDate(active.show_due_date === undefined || active.show_due_date === null ? true : Boolean(active.show_due_date));
 	        setShowNotes(active.show_notes === undefined || active.show_notes === null ? true : Boolean(active.show_notes));
+	        setShowSignature(active.show_signature === undefined || active.show_signature === null ? true : Boolean(active.show_signature));
 	        setTableStyle(String(active.table_style || 'minimal').trim().toLowerCase() || 'minimal');
 	        setFooterText(String(active.footer_text || ''));
 	      }
@@ -7166,6 +7171,7 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 	        show_abn: Boolean(showAbn),
 	        show_due_date: Boolean(showDueDate),
 	        show_notes: Boolean(showNotes),
+	        show_signature: Boolean(showSignature),
 	        table_style: tableStyle,
 	        footer_text: footerText || null,
 	      });
@@ -7665,6 +7671,10 @@ const CalendarViewTab = ({ business, bookings, onRefresh }) => {
 	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
 	                <span className="text-sm text-zinc-700">Show Notes</span>
 	                <Checkbox checked={Boolean(showNotes)} onCheckedChange={(v) => setShowNotes(Boolean(v))} />
+	              </label>
+	              <label className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2">
+	                <span className="text-sm text-zinc-700">Show Signature</span>
+	                <Checkbox checked={Boolean(showSignature)} onCheckedChange={(v) => setShowSignature(Boolean(v))} />
 	              </label>
 	            </div>
 	          </div>

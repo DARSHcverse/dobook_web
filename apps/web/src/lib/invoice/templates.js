@@ -11,7 +11,7 @@ import {
 } from "./draw";
 
 export function renderClassic(doc, data, templateSettings) {
-    const { pageW, pageH, marginX, booking, business, logoAsset } = data;
+    const { pageW, pageH, marginX, booking, business, logoAsset, includeSignature } = data;
     const s = normalizeTemplateSettings("Classic", templateSettings);
     const d = commonInvoiceData({ booking, business });
     const lineX1 = marginX;
@@ -221,7 +221,8 @@ export function renderClassic(doc, data, templateSettings) {
 
     // Signature (stylized)
     const signature = String(business?.account_name || business?.business_name || "").trim();
-    if (signature) {
+    const shouldShowSignature = includeSignature === undefined ? s.show_signature : includeSignature === true;
+    if (shouldShowSignature && signature) {
         drawSignatureLikeText({
             doc,
             text: signature,

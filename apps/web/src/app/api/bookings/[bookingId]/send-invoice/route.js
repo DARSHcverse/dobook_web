@@ -57,7 +57,11 @@ export async function POST(request, { params }) {
   }
 
   const template = await getActiveInvoiceTemplateSupabase(sb, auth.business.id);
-  const pdfBase64 = await generateInvoicePdfBase64({ booking, business: auth.business, template });
+  const pdfBase64 = await generateInvoicePdfBase64({
+    booking,
+    business: auth.business,
+    template,
+  });
   const filename = `${booking?.invoice_id || "invoice"}.pdf`;
 
   const businessName = String(auth.business?.business_name || auth.business?.email || "DoBook").trim() || "DoBook";
