@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireSession } from "@/app/api/_utils/auth";
 import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
+import { pickExistingPublicColumns } from "@/lib/dbSchema";
 
 export async function PUT(request, { params }) {
   const auth = await requireSession(request);
@@ -67,16 +68,20 @@ export async function PUT(request, { params }) {
     created_at: new Date().toISOString(),
   };
 
+  const bookingForInsert = await pickExistingPublicColumns(sb, "bookings", bookingRow, {
+    logPrefix: "[convert-to-booking]",
+  });
+
   let inserted = null;
   let insErr = null;
   {
-    const res = await sb.from("bookings").insert(bookingRow).select("*").maybeSingle();
+    const res = await sb.from("bookings").insert(bookingForInsert).select("*").maybeSingle();
     inserted = res.data;
     insErr = res.error;
   }
 
   if (insErr && /converted_from_enquiry_id/i.test(insErr.message || "")) {
-    const { converted_from_enquiry_id, ...fallback } = bookingRow;
+    const { converted_from_enquiry_id, ...fallback } = bookingForInsert;
     const retry = await sb.from("bookings").insert(fallback).select("*").maybeSingle();
     inserted = retry.data;
     insErr = retry.error;

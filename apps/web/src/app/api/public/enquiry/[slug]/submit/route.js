@@ -5,6 +5,7 @@ import { sendEnquiryCreatedEmails } from "@/lib/bookingMailer";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sendSMS } from "@/lib/sms";
+import { pickExistingPublicColumns } from "@/lib/dbSchema";
 
 function isValidEmail(v) {
   const s = String(v || "").trim();
@@ -191,9 +192,13 @@ export async function POST(request, { params }) {
     created_at: new Date().toISOString(),
   };
 
+  const bookingForInsert = await pickExistingPublicColumns(sb, "bookings", booking, {
+    logPrefix: "[public/enquiry/submit]",
+  });
+
   const { data: inserted, error: insErr } = await sb
     .from("bookings")
-    .insert(booking)
+    .insert(bookingForInsert)
     .select("*")
     .maybeSingle();
 

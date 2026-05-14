@@ -5,21 +5,24 @@ To use Supabase Postgres, create the tables first.
 
 ## Create tables
 
+Option A: run `supabase/consolidated_schema.sql` in the Supabase SQL Editor.
+
+Option B: run every file in `supabase/migrations/` in lexicographic filename order.
+
+If you use the per-file path, do not stop at the early setup files. Booking creation now depends on later booking migrations too, especially:
+
+- `20260221120000_booking_line_items_and_surcharges.sql`
+- `20260221150000_travel_fee_distance_fields.sql`
+- `20260313193000_booking_payments.sql`
+- `20260313201000_booking_reminder_tracking.sql`
+- `20260410100000_sms_columns.sql`
+
+Recommended flow:
+
 1. Open Supabase Dashboard → **SQL Editor**
 2. Create a **New query**
-3. Open `supabase/migrations/20260215160000_init_dobook.sql`, copy its SQL contents, paste into the editor, and run it
-4. Open `supabase/migrations/20260215160500_rpc_invoice.sql`, copy its SQL contents, paste into the editor, and run it
-5. Open `supabase/migrations/20260215180000_booking_editor_fields_and_reminders.sql`, copy its SQL contents, paste into the editor, and run it
-6. Open `supabase/migrations/20260216120000_stripe_subscription_fields.sql`, copy its SQL contents, paste into the editor, and run it
-7. Open `supabase/migrations/20260216123500_business_industry.sql`, copy its SQL contents, paste into the editor, and run it
-8. Open `supabase/migrations/20260216130000_business_account_role.sql`, copy its SQL contents, paste into the editor, and run it
-9. Open `supabase/migrations/20260217090000_booking_reminder_scheduled_at.sql`, copy its SQL contents, paste into the editor, and run it
-10. Open `supabase/migrations/20260217110000_password_reset_tokens.sql`, copy its SQL contents, paste into the editor, and run it
-11. Open `supabase/migrations/20260226120000_reviews.sql`, copy its SQL contents, paste into the editor, and run it
-12. Open `supabase/migrations/20260226123000_platform_reviews.sql`, copy its SQL contents, paste into the editor, and run it
-13. Open `supabase/migrations/20260302120000_review_invites.sql`, copy its SQL contents, paste into the editor, and run it
-14. Open `supabase/migrations/20260302123000_reviews_booking_id_and_customer_email.sql`, copy its SQL contents, paste into the editor, and run it
-15. (Recommended) Open `supabase/migrations/20260215183000_enable_rls.sql`, copy its SQL contents, paste into the editor, and run it
+3. Either paste `supabase/consolidated_schema.sql`, or run every file in `supabase/migrations/` in filename order
+4. If you already have a database from an older setup, apply any migration files you have not run yet
 
 ## What gets created
 
@@ -66,12 +69,19 @@ On Vercel, add these under Project → Settings → Environment Variables, then 
 
 ## Applying new migrations (important)
 
-If you pull the latest code and the UI shows errors like **“Failed to update settings”**, your Supabase database may be missing newly-added columns.
+If you pull the latest code and the UI shows errors like **“Failed to update settings”** or **“Failed to create booking”**, your Supabase database may be missing newly-added columns.
 
 Apply the latest SQL migrations from `supabase/migrations/` to your Supabase project (in order). Recently added:
 
 - `20260221120000_booking_line_items_and_surcharges.sql`
 - `20260221130000_business_public_profile.sql`
 - `20260221150000_travel_fee_distance_fields.sql`
+- `20260303120000_invoice_template_design_settings.sql`
+- `20260313193000_booking_payments.sql`
+- `20260313200000_business_reminder_settings.sql`
+- `20260313201000_booking_reminder_tracking.sql`
+- `20260313210000_staff_management.sql`
+- `20260410090000_google_calendar_sync.sql`
+- `20260410100000_sms_columns.sql`
 
 You can run them via the Supabase SQL editor or via the Supabase CLI migrations workflow.

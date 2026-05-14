@@ -5796,6 +5796,10 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                 toast.error('Customer name is required');
                 return;
               }
+              if (!String(createData.customer_email || '').trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(createData.customer_email || '').trim())) {
+                toast.error('Customer email is required');
+                return;
+              }
               if (!createData.booking_date || !createData.booking_time) {
                 toast.error('Booking date and start time are required');
                 return;
@@ -5844,10 +5848,11 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                 />
               </div>
               <div>
-                <Label htmlFor="cb_customer_email">Customer email</Label>
+                <Label htmlFor="cb_customer_email">Customer email *</Label>
                 <Input
                   id="cb_customer_email"
                   type="email"
+                  required
                   value={createData.customer_email}
                   onChange={(e) => setCreateData({ ...createData, customer_email: e.target.value })}
                   className="bg-zinc-50 mt-2"
@@ -9909,7 +9914,7 @@ const BookingWidget = () => {
             package_duration: '',
             business_id: resolvedBusinessId,
           };
-      await axios.post(`${API}/bookings`, payload);
+      await axios.post(`${API}/public/bookings`, payload);
       setSuccess(true);
       toast.success('Booking confirmed! Check your email.');
     } catch (error) {

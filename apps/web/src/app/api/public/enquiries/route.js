@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEnquiryCreatedEmails } from "@/lib/bookingMailer";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { pickExistingPublicColumns } from "@/lib/dbSchema";
 
 function isValidEmail(value) {
   const s = String(value || "").trim();
@@ -184,9 +185,13 @@ export async function POST(request) {
     created_at: new Date().toISOString(),
   };
 
+  const bookingForInsert = await pickExistingPublicColumns(sb, "bookings", booking, {
+    logPrefix: "[public/enquiries/POST]",
+  });
+
   const { data: inserted, error: insertError } = await sb
     .from("bookings")
-    .insert(booking)
+    .insert(bookingForInsert)
     .select("*")
     .maybeSingle();
 

@@ -96,7 +96,7 @@ export default function ReviewPage() {
 
   const handleSubmit = async () => {
     if (!agreed) {
-      setError("Please agree to the terms before submitting.");
+      setError("Please agree to the terms before confirming.");
       return;
     }
     setSubmitting(true);
@@ -124,7 +124,7 @@ export default function ReviewPage() {
         company_website: "", // honeypot — must be empty
       };
 
-      const res = await fetch("/api/public/enquiries", {
+      const res = await fetch("/api/public/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -132,7 +132,7 @@ export default function ReviewPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data?.detail || "Failed to submit enquiry. Please try again.");
+        setError(data?.detail || "Failed to create booking. Please try again.");
         setSubmitting(false);
         return;
       }
@@ -196,10 +196,10 @@ export default function ReviewPage() {
 
       <div style={{ textAlign: "center", marginBottom: "28px" }}>
         <h2 style={{ fontSize: "24px", fontWeight: "800", color: "#18181b", margin: "0 0 8px" }}>
-          Review Your Enquiry
+          Review Your Booking
         </h2>
         <p style={{ fontSize: "15px", color: "#71717a", margin: 0 }}>
-          Please check everything looks correct before submitting
+          Please check everything looks correct before confirming
         </p>
       </div>
 
@@ -311,7 +311,7 @@ export default function ReviewPage() {
             lineHeight: "1.5",
           }}
         >
-          <strong>This is an enquiry, not a confirmed booking.</strong> We will contact you within 24 hours to confirm availability and finalise your booking.
+          <strong>This will confirm your booking instantly.</strong> You&apos;ll receive your booking details right after submission, and the business can follow up if anything else is needed.
         </div>
 
         {/* Terms checkbox */}
@@ -381,7 +381,7 @@ export default function ReviewPage() {
             transition: "background 0.15s ease",
           }}
         >
-          {submitting ? "Submitting…" : "Submit Enquiry"}
+          {submitting ? "Submitting…" : "Confirm Booking"}
         </button>
       </div>
     </BookingShell>

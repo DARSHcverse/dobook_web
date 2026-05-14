@@ -434,3 +434,27 @@ alter table if exists public.invoice_templates
   add column if not exists footer_text text;
 
 commit;
+
+-- Booking + reminder settings that later booking flows depend on.
+-- Generated: 2026-03-13 and 2026-04-10
+
+begin;
+
+alter table if exists public.businesses
+  add column if not exists reminders_enabled boolean not null default true,
+  add column if not exists reminder_times integer[] not null default array[48, 2],
+  add column if not exists reminder_custom_message text not null default '',
+  add column if not exists reminder_include_payment_link boolean not null default true,
+  add column if not exists reminder_include_booking_details boolean not null default true,
+  add column if not exists confirmation_email_enabled boolean not null default true,
+  add column if not exists sms_confirmations_enabled boolean not null default true,
+  add column if not exists sms_staff_notifications_enabled boolean not null default true;
+
+alter table if exists public.bookings
+  add column if not exists payment_status text not null default 'unpaid',
+  add column if not exists payment_method text not null default '',
+  add column if not exists reminder_sent_hours integer[] not null default array[]::integer[],
+  add column if not exists sms_confirmation_sent_at timestamptz,
+  add column if not exists sms_reminder_sent_at timestamptz;
+
+commit;

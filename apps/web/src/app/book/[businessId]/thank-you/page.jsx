@@ -95,7 +95,7 @@ export default function ThankYouPage() {
             margin: "0 0 8px",
           }}
         >
-          Enquiry Received!
+          Booking Confirmed!
         </h1>
 
         <p
@@ -106,9 +106,8 @@ export default function ThankYouPage() {
             lineHeight: "1.6",
           }}
         >
-          Thanks {firstName}! We&apos;ll be in touch within{" "}
-          <strong style={{ color: "#18181b" }}>24 hours</strong> to confirm availability and
-          finalise your booking.
+          Thanks {firstName}! Your booking has been confirmed. Keep your reference number below,
+          and we&apos;ll follow up if we need anything else before the event.
         </p>
 
         {invoiceId && (
@@ -123,7 +122,7 @@ export default function ThankYouPage() {
               color: "#52525b",
             }}
           >
-            Your reference number:{" "}
+            Your booking reference:{" "}
             <strong style={{ color: "#18181b" }}>{invoiceId}</strong>
           </div>
         )}

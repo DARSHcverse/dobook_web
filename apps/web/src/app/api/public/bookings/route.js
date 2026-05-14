@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { requireSession } from "../_utils/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { hasProAccess } from "@/lib/entitlements";
@@ -18,7 +17,6 @@ import {
 } from "@/lib/geoapify";
 
 const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 50;
-const FREE_PLAN_SOFT_WARNING_THRESHOLD = 40;
 
 function asMoney(value) {
   const n = Number(value);
@@ -56,7 +54,7 @@ function extractPostcodeFromAddressString(address) {
 function resolveEventPostcode(body) {
   return (
     extractPostcodeFromAutocompleteItem(body?.event_location_geo || null) ||
-    extractPostcodeFromAddressString(body?.event_location || "")
+    extractPostcodeFromAddressString(body?.event_location || body?.full_address || "")
   );
 }
 
@@ -67,7 +65,75 @@ function formatHours(value) {
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
-function buildLineItemsAndTotal({ body, business, addons = [] }) {
+function normalizeAddonIds(value) {
+  const list = Array.isArray(value) ? value : [];
+  const out = [];
+  for (const raw of list) {
+    const s = String(raw || "").trim();
+    if (!s) continue;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) continue;
+    out.push(s);
+  }
+  return Array.from(new Set(out)).slice(0, 20);
+}
+
+function normalizeCustomFields(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    const key = String(k || "").trim();
+    if (!key || v === undefined) continue;
+    out[key] = v === null ? "" : v;
+  }
+  return out;
+}
+
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
+}
+
+function isHm(value) {
+  return /^\d{2}:\d{2}$/.test(String(value || "").trim());
+}
+
+function isValidEmail(value) {
+  const s = String(value || "").trim();
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function monthRangeUtc(date = new Date()) {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
+function dueDateIsoFromBookingDate(bookingDateStr) {
+  const s = String(bookingDateStr || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map((n) => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0)).toISOString();
+}
+
+function buildCbdLineItem({ business, body }) {
+  const cbdEnabled = Boolean(business?.cbd_fee_enabled);
+  const cbdAmount = asMoney(business?.cbd_fee_amount);
+  if (!cbdEnabled || cbdAmount <= 0) return null;
+
+  const eventPostcode = resolveEventPostcode(body);
+  if (eventPostcode !== "3000") return null;
+
+  const cbdLabel = String(business?.cbd_fee_label || "CBD logistics").trim() || "CBD logistics";
+  return {
+    description: cbdLabel,
+    qty: 1,
+    unit_price: cbdAmount,
+    total: cbdAmount,
+  };
+}
+
+function buildDirectLineItemsAndTotal({ body, business, addons = [] }) {
   const qty = Math.max(1, Number(body?.quantity || 1));
   const unit = asMoney(body?.price);
   const booth = String(body?.booth_type || body?.service_type || "Service").trim() || "Service";
@@ -85,15 +151,13 @@ function buildLineItemsAndTotal({ body, business, addons = [] }) {
     },
   ];
 
-  // Travel fee is calculated automatically (distance-based) before calling this function.
-  // It is passed in via `body._computed_travel_fee` by the route handler.
-  const computed = body?._computed_travel_fee;
-  if (computed?.amount && computed.amount > 0) {
+  const travel = body?._computed_travel_fee;
+  if (travel?.amount && travel.amount > 0) {
     items.push({
-      description: computed.description || "Travel charge",
-      qty: Number(computed.qty || 1),
-      unit_price: asMoney(computed.unit_price),
-      total: asMoney(computed.amount),
+      description: travel.description || "Travel charge",
+      qty: Number(travel.qty || 1),
+      unit_price: asMoney(travel.unit_price),
+      total: asMoney(travel.amount),
     });
   }
 
@@ -109,34 +173,51 @@ function buildLineItemsAndTotal({ body, business, addons = [] }) {
     });
   }
 
-  const cbdEnabled = Boolean(business?.cbd_fee_enabled);
-  const cbdLabel = String(business?.cbd_fee_label || "CBD logistics").trim() || "CBD logistics";
-  const cbdAmount = asMoney(business?.cbd_fee_amount);
-  const eventPostcode = resolveEventPostcode(body);
-  const applyCbd = cbdEnabled && cbdAmount > 0 && eventPostcode === "3000";
-  if (applyCbd) {
-    items.push({
-      description: cbdLabel,
-      qty: 1,
-      unit_price: cbdAmount,
-      total: cbdAmount,
-    });
-  }
+  const cbdLineItem = buildCbdLineItem({ business, body });
+  if (cbdLineItem) items.push(cbdLineItem);
 
-  const totalAmount = asMoney(items.reduce((sum, it) => sum + asMoney(it?.total), 0));
+  const totalAmount = asMoney(items.reduce((sum, item) => sum + asMoney(item?.total), 0));
   return { line_items: items, total_amount: totalAmount };
 }
 
-function normalizeAddonIds(value) {
-  const list = Array.isArray(value) ? value : [];
-  const out = [];
-  for (const raw of list) {
-    const s = String(raw || "").trim();
-    if (!s) continue;
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) continue;
-    out.push(s);
+function buildPackageLineItemsAndTotal({ body, business, pkg, addons = [], travel }) {
+  const packageName = String(pkg?.name || body?.service_type || "Package").trim() || "Package";
+  const basePrice = asMoney(pkg?.price);
+  const items = [
+    {
+      description: packageName,
+      qty: 1,
+      unit_price: basePrice,
+      total: basePrice,
+    },
+  ];
+
+  if (travel?.lineItem?.amount && travel.lineItem.amount > 0) {
+    items.push({
+      description: travel.lineItem.description || "Travel charge",
+      qty: Number(travel.lineItem.qty || 1),
+      unit_price: asMoney(travel.lineItem.unit_price),
+      total: asMoney(travel.lineItem.amount),
+    });
   }
-  return Array.from(new Set(out)).slice(0, 20);
+
+  for (const addon of Array.isArray(addons) ? addons : []) {
+    const name = String(addon?.name || "").trim();
+    if (!name) continue;
+    const addonPrice = asMoney(addon?.price);
+    items.push({
+      description: name,
+      qty: 1,
+      unit_price: addonPrice,
+      total: addonPrice,
+    });
+  }
+
+  const cbdLineItem = buildCbdLineItem({ business, body });
+  if (cbdLineItem) items.push(cbdLineItem);
+
+  const total_amount = asMoney(items.reduce((sum, item) => sum + asMoney(item?.total), 0));
+  return { line_items: items, total_amount };
 }
 
 async function computeTravelFee({ business, body }) {
@@ -147,7 +228,7 @@ async function computeTravelFee({ business, body }) {
   const rate = asMoney(business?.travel_fee_rate_per_km ?? 0.4);
   if (!(rate > 0)) return null;
 
-  const eventAddress = String(body?.event_location || "").trim();
+  const eventAddress = String(body?.event_location || body?.full_address || "").trim();
   if (!eventAddress) return null;
   const businessAddress = String(business?.business_address || "").trim();
   if (!businessAddress) return null;
@@ -167,7 +248,12 @@ async function computeTravelFee({ business, body }) {
   const billableKm = Math.max(0, roundedKm - freeKm);
   const amount = Math.round(billableKm * rate * 100) / 100;
   if (!(amount > 0)) {
-    return { distance_km: Math.round(km * 100) / 100, travel_km_billable: 0, travel_fee_amount: 0, lineItem: null };
+    return {
+      distance_km: Math.round(km * 100) / 100,
+      travel_km_billable: 0,
+      travel_fee_amount: 0,
+      lineItem: null,
+    };
   }
 
   const label = String(business?.travel_fee_label || "Travel charge").trim() || "Travel charge";
@@ -179,46 +265,6 @@ async function computeTravelFee({ business, body }) {
     travel_fee_amount: amount,
     lineItem: { description, qty: billableKm, unit_price: rate, amount },
   };
-}
-
-function monthRangeUtc(date = new Date()) {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1, 0, 0, 0, 0));
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
-}
-
-function dueDateIsoFromBookingDate(bookingDateStr) {
-  const s = String(bookingDateStr || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const [y, m, d] = s.split("-").map((n) => Number(n));
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0)).toISOString();
-}
-
-function isYmd(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
-}
-
-function isHm(value) {
-  return /^\d{2}:\d{2}$/.test(String(value || "").trim());
-}
-
-function isValidEmail(value) {
-  const s = String(value || "").trim();
-  if (!s) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function normalizeCustomFields(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const out = {};
-  for (const [k, v] of Object.entries(value)) {
-    const key = String(k || "").trim();
-    if (!key) continue;
-    if (v === undefined) continue;
-    out[key] = v === null ? "" : v;
-  }
-  return out;
 }
 
 async function getActiveInvoiceTemplateSupabase(sb, businessId) {
@@ -234,46 +280,25 @@ async function getActiveInvoiceTemplateSupabase(sb, businessId) {
 
 function reject(request, status, detail, reason) {
   const ip = getClientIp(request);
-  const message = reason || detail;
-  console.error(`[reject] POST /api/bookings ip=${ip} reason=${message}`);
+  console.error(`[reject] POST /api/public/bookings ip=${ip} reason=${reason || detail}`);
   return NextResponse.json({ detail }, { status });
 }
 
-export async function GET(request) {
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
-  const { data, error } = await auth.supabase
-    .from("bookings")
-    .select("*, staff:staff_id (id,name,email,phone,is_active)")
-    .eq("business_id", auth.business.id)
-    .order("created_at", { ascending: false });
-
-  if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
-  return NextResponse.json(data || []);
-}
-
 export async function POST(request) {
-  // Require authentication: only logged-in business owners can create bookings
-  const auth = await requireSession(request);
-  if (auth.error) return auth.error;
-
   const limited = rateLimit({
     request,
-    keyPrefix: "bookings",
+    keyPrefix: "public-bookings",
     limit: 10,
     windowMs: 60 * 60 * 1000,
   });
   if (!limited.ok) {
-    console.error(`[reject] POST /api/bookings ip=${limited.ip} reason=rate_limited`);
     const res = NextResponse.json({ detail: "Too many requests" }, { status: 429 });
     res.headers.set("Retry-After", String(limited.retryAfter || 3600));
     return res;
   }
 
   const raw = await request.text();
-  const maxBytes = 50 * 1024;
-  if (Buffer.byteLength(raw || "", "utf8") > maxBytes) {
+  if (Buffer.byteLength(raw || "", "utf8") > 50 * 1024) {
     return reject(request, 413, "Payload too large", "payload_too_large");
   }
 
@@ -284,9 +309,7 @@ export async function POST(request) {
     return reject(request, 400, "Invalid JSON body", "invalid_json");
   }
 
-  const honeypotValue = String(body?.company_website || "").trim();
-  if (honeypotValue) {
-    console.error(`[reject] POST /api/bookings ip=${getClientIp(request)} reason=honeypot`);
+  if (String(body?.company_website || "").trim()) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -311,6 +334,15 @@ export async function POST(request) {
     "addon_ids",
     "apply_cbd_fee",
     "company_website",
+    "first_name",
+    "last_name",
+    "full_address",
+    "event_type",
+    "num_guests",
+    "referral_source",
+    "package_id",
+    "category_id",
+    "category_name",
   ]);
 
   for (const key of Object.keys(body || {})) {
@@ -319,29 +351,16 @@ export async function POST(request) {
     }
   }
 
-  const businessId = body?.business_id ? String(body.business_id) : null;
-
+  const businessId = String(body?.business_id || "").trim();
   if (!businessId) {
     return reject(request, 400, "business_id is required", "missing_business_id");
   }
 
-  // Verify the authenticated user owns this business
-  if (businessId !== auth.business.id) {
-    return reject(request, 403, "Unauthorized: you don't own this business", "unauthorized_business");
-  }
-
-  const customerName = String(body?.customer_name || "").trim();
+  const firstName = String(body?.first_name || "").trim();
+  const lastName = String(body?.last_name || "").trim();
+  const customerName = String(body?.customer_name || "").trim() || [firstName, lastName].filter(Boolean).join(" ");
   if (!customerName) {
     return reject(request, 400, "customer_name is required", "missing_customer_name");
-  }
-
-  const bookingDateStr = String(body?.booking_date || "").trim();
-  const bookingTimeStr = String(body?.booking_time || "").trim();
-  if (!bookingDateStr || !isYmd(bookingDateStr)) {
-    return reject(request, 400, "booking_date is required (YYYY-MM-DD)", "invalid_booking_date");
-  }
-  if (!bookingTimeStr || !isHm(bookingTimeStr)) {
-    return reject(request, 400, "booking_time is required (HH:MM)", "invalid_booking_time");
   }
 
   const customerEmail = String(body?.customer_email || "").trim();
@@ -358,6 +377,15 @@ export async function POST(request) {
     );
   }
 
+  const bookingDateStr = String(body?.booking_date || "").trim();
+  const bookingTimeStr = String(body?.booking_time || "08:00").trim();
+  if (!bookingDateStr || !isYmd(bookingDateStr)) {
+    return reject(request, 400, "booking_date is required (YYYY-MM-DD)", "invalid_booking_date");
+  }
+  if (!bookingTimeStr || !isHm(bookingTimeStr)) {
+    return reject(request, 400, "booking_time is required (HH:MM)", "invalid_booking_time");
+  }
+
   const eventDate = new Date(`${bookingDateStr}T${bookingTimeStr}:00`);
   if (Number.isNaN(eventDate.getTime())) {
     return reject(request, 400, "Invalid booking date/time", "invalid_datetime");
@@ -367,11 +395,14 @@ export async function POST(request) {
   }
 
   const sb = supabaseAdmin();
-  const business = auth.business;
+  const { data: business, error: businessError } = await sb
+    .from("businesses")
+    .select("*")
+    .eq("id", businessId)
+    .maybeSingle();
 
-  if (!business) {
-    return NextResponse.json({ detail: "Business not found" }, { status: 500 });
-  }
+  if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
+  if (!business) return reject(request, 404, "Business not found", "business_not_found");
 
   if (!hasProAccess(business)) {
     const { startIso, endIso } = monthRangeUtc(new Date());
@@ -392,6 +423,38 @@ export async function POST(request) {
     }
   }
 
+  const packageId = String(body?.package_id || "").trim() || null;
+  let pkg = null;
+  if (packageId) {
+    const { data: pkgData, error: pkgError } = await sb
+      .from("packages")
+      .select("id,name,price,duration_hours,category_id")
+      .eq("id", packageId)
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (pkgError) return NextResponse.json({ detail: pkgError.message }, { status: 500 });
+    if (!pkgData) return reject(request, 400, "Selected package is no longer available", "package_not_found");
+    pkg = pkgData;
+  }
+
+  const categoryId = String(body?.category_id || pkg?.category_id || "").trim() || null;
+  const addon_ids = normalizeAddonIds(body?.addon_ids);
+
+  let addons = [];
+  if (addon_ids.length) {
+    const { data, error } = await sb
+      .from("service_addons")
+      .select("id,name,price")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .in("id", addon_ids);
+    if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
+    addons = Array.isArray(data) ? data : [];
+  }
+
+  const custom_fields = normalizeCustomFields(body?.custom_fields);
+  const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
   const invoiceDate = new Date();
   const { data: invoiceRows, error: invoiceError } = await sb.rpc("next_invoice_id", {
     p_business_id: businessId,
@@ -399,26 +462,26 @@ export async function POST(request) {
   if (invoiceError) return NextResponse.json({ detail: invoiceError.message }, { status: 500 });
   const invoice_id = invoiceRows?.[0]?.invoice_id || null;
 
-  const custom_fields = normalizeCustomFields(body?.custom_fields);
-  const customerPhone = body?.customer_phone ? normalizePhone(body.customer_phone) : "";
   const travel = await computeTravelFee({ business, body });
-  const bodyWithComputed = {
-    ...body,
-    _computed_travel_fee: travel?.lineItem || null,
-  };
-  const addon_ids = normalizeAddonIds(body?.addon_ids);
-  let addons = [];
-  if (addon_ids.length) {
-    const { data } = await sb
-      .from("service_addons")
-      .select("id,name,price")
-      .eq("business_id", businessId)
-      .eq("is_active", true)
-      .in("id", addon_ids);
-    addons = Array.isArray(data) ? data : [];
-  }
+  const bodyWithComputed = { ...body, _computed_travel_fee: travel?.lineItem || null };
 
-  const { line_items, total_amount } = buildLineItemsAndTotal({ body: bodyWithComputed, business, addons });
+  const directServiceType = String(body?.service_type || "Service").trim() || "Service";
+  const directBoothType = String(body?.booth_type || "").trim();
+  const directPackageDuration = String(body?.package_duration || "").trim();
+  const directDurationMinutes = Math.max(1, Number(body?.duration_minutes || 60));
+
+  const service_type = pkg?.name || directServiceType;
+  const booth_type = String(body?.category_name || directBoothType).trim();
+  const packageHours = formatHours(pkg?.duration_hours);
+  const packageDuration =
+    packageHours ? `${packageHours} ${Number(packageHours) === 1 ? "Hour" : "Hours"}` : directPackageDuration;
+  const duration_minutes = pkg?.duration_hours
+    ? Math.max(1, Math.round(Number(pkg.duration_hours) * 60))
+    : directDurationMinutes;
+
+  const pricing = pkg
+    ? buildPackageLineItemsAndTotal({ body, business, pkg, addons, travel })
+    : buildDirectLineItemsAndTotal({ body: bodyWithComputed, business, addons });
 
   const booking = {
     id: randomUUID(),
@@ -426,20 +489,20 @@ export async function POST(request) {
     customer_name: customerName,
     customer_email: customerEmail,
     customer_phone: customerPhone,
-    service_type: String(body?.service_type || "Service"),
-    booth_type: body?.booth_type ? String(body.booth_type) : "",
-    package_duration: body?.package_duration ? String(body.package_duration) : "",
-    event_location: body?.event_location ? String(body.event_location) : "",
-    booking_date: bookingDateStr ? bookingDateStr : null,
-    booking_time: bookingTimeStr ? bookingTimeStr : null,
+    service_type,
+    booth_type,
+    package_duration: packageDuration,
+    event_location: String(body?.event_location || body?.full_address || "").trim(),
+    booking_date: bookingDateStr,
+    booking_time: bookingTimeStr,
     end_time: null,
-    duration_minutes: Number(body?.duration_minutes || 60),
-    parking_info: body?.parking_info ? String(body.parking_info) : "",
-    notes: body?.notes ? String(body.notes) : "",
-    price: body?.price !== undefined && body?.price !== "" ? Number(body.price) : 0,
-    quantity: body?.quantity !== undefined ? Number(body.quantity) : 1,
-    line_items,
-    total_amount,
+    duration_minutes,
+    parking_info: String(body?.parking_info || "").trim(),
+    notes: String(body?.notes || "").trim(),
+    price: pkg ? asMoney(pkg.price) : asMoney(body?.price),
+    quantity: pkg ? 1 : Math.max(1, Number(body?.quantity || 1)),
+    line_items: pricing.line_items,
+    total_amount: pricing.total_amount,
     distance_km: travel?.distance_km ?? null,
     travel_km_billable: travel?.travel_km_billable ?? null,
     travel_fee_amount: travel?.travel_fee_amount ?? null,
@@ -457,11 +520,17 @@ export async function POST(request) {
     reminder_5d_scheduled_at: null,
     reminder_1d_scheduled_at: null,
     reminder_sent_hours: [],
+    package_id: packageId,
+    category_id: categoryId,
+    is_enquiry: false,
+    event_type: String(body?.event_type || "").trim(),
+    num_guests: body?.num_guests ? Number(body.num_guests) : null,
+    referral_source: String(body?.referral_source || "").trim(),
     created_at: new Date().toISOString(),
   };
 
   const bookingForInsert = await pickExistingPublicColumns(sb, "bookings", booking, {
-    logPrefix: "[bookings/POST]",
+    logPrefix: "[public/bookings/POST]",
   });
 
   const { data: inserted, error: insertError } = await sb
@@ -469,40 +538,50 @@ export async function POST(request) {
     .insert(bookingForInsert)
     .select("*")
     .maybeSingle();
-  if (insertError || !inserted) return NextResponse.json({ detail: insertError?.message || "Failed to create booking" }, { status: 500 });
+  if (insertError || !inserted) {
+    return NextResponse.json({ detail: insertError?.message || "Failed to create booking" }, { status: 500 });
+  }
 
-  // booking_count is informational; don't fail booking creation if this increment fails.
   await sb
     .from("businesses")
     .update({ booking_count: Number(business.booking_count || 0) + 1 })
     .eq("id", businessId);
 
-  // Best-effort: send confirmation + invoice to customer and business.
   try {
     const template = await getActiveInvoiceTemplateSupabase(sb, businessId);
     const { data: fieldDefs } = await sb
       .from("booking_form_fields")
       .select("field_key,field_name,is_private")
       .eq("business_id", businessId);
-    const emailResults = await sendBookingCreatedEmails({ booking: inserted, business, template, fieldDefs: fieldDefs || [] });
+
+    const emailResults = await sendBookingCreatedEmails({
+      booking: inserted,
+      business,
+      template,
+      fieldDefs: fieldDefs || [],
+    });
+
     const updates = {};
     if (emailResults?.customer?.ok) updates.confirmation_sent_at = new Date().toISOString();
     if (emailResults?.business?.ok) updates.business_notice_sent_at = new Date().toISOString();
 
     const scheduled = await scheduleBookingRemindersViaResend({ booking: inserted, business });
     if (scheduled?.ok && scheduled?.scheduled) {
-      if (scheduled.scheduled.reminder_5d_scheduled_at) updates.reminder_5d_scheduled_at = scheduled.scheduled.reminder_5d_scheduled_at;
-      if (scheduled.scheduled.reminder_1d_scheduled_at) updates.reminder_1d_scheduled_at = scheduled.scheduled.reminder_1d_scheduled_at;
+      if (scheduled.scheduled.reminder_5d_scheduled_at) {
+        updates.reminder_5d_scheduled_at = scheduled.scheduled.reminder_5d_scheduled_at;
+      }
+      if (scheduled.scheduled.reminder_1d_scheduled_at) {
+        updates.reminder_1d_scheduled_at = scheduled.scheduled.reminder_1d_scheduled_at;
+      }
     }
 
     if (Object.keys(updates).length) {
       await sb.from("bookings").update(updates).eq("id", inserted.id).eq("business_id", businessId);
     }
   } catch {
-    // ignore email failures
+    // ignore email/reminder failures
   }
 
-  // Best-effort: send SMS confirmation (Pro only, non-blocking).
   if (hasProAccess(business) && business.sms_confirmations_enabled !== false && inserted.customer_phone) {
     setTimeout(() => {
       (async () => {
@@ -518,19 +597,23 @@ export async function POST(request) {
             }),
           });
           if (sid) {
-            await sb.from("bookings").update({ sms_confirmation_sent_at: new Date().toISOString() }).eq("id", inserted.id);
+            await sb
+              .from("bookings")
+              .update({ sms_confirmation_sent_at: new Date().toISOString() })
+              .eq("id", inserted.id);
           }
         } catch (e) {
-          console.error(`[bookings/POST] SMS confirmation failed for booking ${inserted.id}:`, e?.message);
+          console.error(`[public/bookings/POST] SMS confirmation failed for booking ${inserted.id}:`, e?.message);
         }
-      })().catch((e) => console.error(`[bookings/POST] SMS background task failed for booking ${inserted.id}:`, e?.message));
+      })().catch((e) => {
+        console.error(`[public/bookings/POST] SMS background task failed for booking ${inserted.id}:`, e?.message);
+      });
     }, 0);
   }
 
-  // Best-effort: sync to Google Calendar without blocking the response.
   setTimeout(() => {
     createCalendarEvent(businessId, inserted).catch((e) => {
-      console.error(`[bookings/POST] Google Calendar sync failed for booking ${inserted.id}:`, e?.message);
+      console.error(`[public/bookings/POST] Google Calendar sync failed for booking ${inserted.id}:`, e?.message);
     });
   }, 0);
 
