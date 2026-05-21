@@ -5604,6 +5604,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
+  const bookingUrl = business?.id ? `/book/${business.id}` : '';
 
   const boothTypes = Array.isArray(business?.booth_types) && business.booth_types.length
     ? business.booth_types
@@ -5677,6 +5678,11 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
     onPrefillApplied?.();
   }, [prefillBooking]);
 
+  const openBookingLink = () => {
+    if (!bookingUrl || typeof window === 'undefined') return;
+    window.open(bookingUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <>
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -5684,7 +5690,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           <h2 className="text-[clamp(1.35rem,1.18rem+0.6vw,1.75rem)] font-semibold">All Bookings</h2>
           <p className="text-[clamp(0.92rem,0.88rem+0.12vw,1rem)] text-muted-foreground">Manage your appointments</p>
         </div>
-        <Button type="button" onClick={openCreate} className="h-10 w-full gap-2 px-4 sm:w-auto">
+        <Button type="button" onClick={openBookingLink} disabled={!bookingUrl} className="h-10 w-full gap-2 px-4 sm:w-auto">
           <Plus className="h-4 w-4" />
           Add booking
         </Button>
