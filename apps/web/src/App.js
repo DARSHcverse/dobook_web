@@ -9750,11 +9750,11 @@ const WidgetTab = ({ businessId, business }) => {
         </CardContent>
       </Card>
 
-      {/* Legacy Booking Widget */}
+      {/* Booking Widget */}
       <Card data-testid="widget-config-card" className="bg-white border border-zinc-200 shadow-sm rounded-xl">
         <CardHeader>
-          <CardTitle style={{fontFamily: 'Manrope'}}>Booking Widget (legacy)</CardTitle>
-          <CardDescription>Direct booking flow by business ID</CardDescription>
+          <CardTitle style={{fontFamily: 'Manrope'}}>Booking Widget</CardTitle>
+          <CardDescription>Direct booking form by business ID</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
