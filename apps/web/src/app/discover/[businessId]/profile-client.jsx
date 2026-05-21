@@ -160,9 +160,15 @@ export default function BusinessProfileClient({ businessId }) {
 	                  </div>
 
                   <div className="grid gap-2">
-                    <Button className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl" onClick={() => router.push(`/book/${business.id}`)}>
-                      Book now
-                    </Button>
+                    {business?.public_booking_url ? (
+                      <Button asChild className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl">
+                        <a href={business.public_booking_url} target="_blank" rel="noopener noreferrer">Book now</a>
+                      </Button>
+                    ) : (
+                      <Button className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl" onClick={() => router.push(`/book/${business.id}`)}>
+                        Book now
+                      </Button>
+                    )}
                     {websiteUrl ? (
                       <Button asChild variant="outline" className="h-11 rounded-xl">
                         <a href={websiteUrl} target="_blank" rel="noopener noreferrer">

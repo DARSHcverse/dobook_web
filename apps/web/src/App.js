@@ -7947,6 +7947,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
     public_postcode: business?.public_postcode || '',
     public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
     public_website: business?.public_website || '',
+    public_booking_url: business?.public_booking_url || '',
     public_services: Array.isArray(business?.public_services) ? business.public_services : [],
   });
 
@@ -7957,6 +7958,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
       public_postcode: business?.public_postcode || '',
       public_photos: Array.isArray(business?.public_photos) ? business.public_photos : [],
       public_website: business?.public_website || '',
+      public_booking_url: business?.public_booking_url || '',
       public_services: Array.isArray(business?.public_services) ? business.public_services : [],
     });
   }, [business]);
@@ -7986,6 +7988,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
         public_enabled: Boolean(formData.public_enabled),
         public_postcode: String(formData.public_postcode || ''),
         public_website: String(formData.public_website || ''),
+        public_booking_url: String(formData.public_booking_url || ''),
         public_description: String(formData.public_description || ''),
         public_photos: Array.isArray(formData.public_photos) ? formData.public_photos : [],
         public_services: Array.isArray(formData.public_services) ? formData.public_services : [],
@@ -8040,13 +8043,24 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                 <div className="text-sm font-semibold">Preview link</div>
                 <div className="text-xs text-muted-foreground truncate">{profileUrl}</div>
               </div>
-              <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={() => router.push(`/discover/${business.id}`)}>
-                Preview
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={() => router.push(`/discover/${business.id}`)}>
+                  Preview
+                </Button>
+                {formData.public_booking_url ? (
+                  <Button asChild type="button" className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white">
+                    <a href={formData.public_booking_url} target="_blank" rel="noopener noreferrer">Book</a>
+                  </Button>
+                ) : (
+                  <Button type="button" className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(`/book/${business.id}`)}>
+                    Book
+                  </Button>
+                )}
+              </div>
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="grid gap-2 mb-4">
               <Label htmlFor="public_postcode">Postcode (optional)</Label>
               <Input
@@ -8066,6 +8080,17 @@ const PublicProfileTab = ({ business, onUpdate }) => {
                 onChange={(e) => setFormData({ ...formData, public_website: e.target.value })}
                 placeholder="https://yourwebsite.com"
               />
+            </div>
+
+            <div className="grid gap-2 mb-4">
+              <Label htmlFor="public_booking_url">Booking link (optional)</Label>
+              <Input
+                id="public_booking_url"
+                value={formData.public_booking_url || ''}
+                onChange={(e) => setFormData({ ...formData, public_booking_url: e.target.value })}
+                placeholder="https://yourbookingpage.com or leave blank to use DoBook"
+              />
+              <p className="text-xs text-muted-foreground mt-1">If set, the public profile will link to this booking URL; otherwise customers use the DoBook booking page.</p>
             </div>
           </div>
 

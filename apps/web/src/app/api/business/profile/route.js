@@ -64,6 +64,7 @@ export async function PUT(request) {
     "public_description",
     "public_postcode",
     "public_photos",
+    "public_booking_url",
     "public_website",
     "public_services",
     "onboarding_tour_completed_at",
@@ -126,6 +127,10 @@ export async function PUT(request) {
       }
       if (key === "public_website") {
         updates.public_website = String(body.public_website || "").trim().slice(0, 200);
+        continue;
+      }
+      if (key === "public_booking_url") {
+        updates.public_booking_url = String(body.public_booking_url || "").trim().slice(0, 500);
         continue;
       }
       if (key === "public_photos") {
@@ -267,6 +272,10 @@ export async function PUT(request) {
     }
     if (key === "public_website") {
       auth.business.public_website = String(body.public_website || "").trim().slice(0, 200);
+      continue;
+    }
+    if (key === "public_booking_url") {
+      auth.business.public_booking_url = String(body.public_booking_url || "").trim().slice(0, 500);
       continue;
     }
     if (key === "public_photos") {
