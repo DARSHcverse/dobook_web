@@ -80,12 +80,81 @@ const DOBOOK_LOGO_SVG = '/brand/dobook-logo.svg';
 
 const bookingStatusBadgeClass = (status) =>
   cn(
-    "rounded-full px-3 py-0.5 text-xs font-medium capitalize",
+    "rounded-full px-3 py-1 text-xs font-medium capitalize",
     status === 'confirmed' && "border-green-200 bg-green-50 text-green-700",
     status === 'cancelled' && "border-red-200 bg-red-50 text-red-700",
     status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700",
-    status === 'completed' && "border-gray-200 bg-gray-50 text-gray-600",
+    status === 'completed' && "border-[#E1BEE7] bg-[#F3E5F5] text-[#6A1B9A]",
   );
+
+const normalizePaymentStatus = (raw) => {
+  const v = String(raw || '').trim().toLowerCase();
+  if (!v) return 'unpaid';
+  if (v === 'paid' || v === 'paid_in_full' || v === 'paid in full' || v === 'paidinfull') return 'paid_in_full';
+  if (v === 'deposit' || v === 'deposit_paid' || v === 'deposit paid' || v === 'partial' || v === 'partially_paid') return 'deposit_paid';
+  return 'unpaid';
+};
+
+const paymentStatusLabel = (raw) => {
+  const v = normalizePaymentStatus(raw);
+  if (v === 'paid_in_full') return 'Paid in Full';
+  if (v === 'deposit_paid') return 'Deposit Paid';
+  return 'Unpaid';
+};
+
+const paymentBadgeStyle = (raw) => {
+  const v = normalizePaymentStatus(raw);
+  if (v === 'paid_in_full') {
+    return { backgroundColor: '#E8F5E9', color: '#2E7D32', borderColor: '#C8E6C9' };
+  }
+  if (v === 'deposit_paid') {
+    return { backgroundColor: '#E3F2FD', color: '#1565C0', borderColor: '#BBDEFB' };
+  }
+  return { backgroundColor: '#FFF3CD', color: '#856404', borderColor: '#FFEAA7' };
+};
+
+const isBookingCompleted = (booking) => {
+  if (String(booking?.status || 'confirmed').toLowerCase() !== 'confirmed') return false;
+  const start = bookingDateTime(booking, 'start');
+  if (!start) return false;
+  let durationHours = Number(booking?.duration_hours);
+  if (!Number.isFinite(durationHours) || durationHours <= 0) {
+    const mins = Number(booking?.duration_minutes);
+    durationHours = Number.isFinite(mins) && mins > 0 ? mins / 60 : 2;
+  }
+  const endTime = new Date(start);
+  endTime.setHours(endTime.getHours() + durationHours);
+  return endTime < new Date();
+};
+
+const displayBookingStatus = (booking) => {
+  const raw = String(booking?.status || 'confirmed').toLowerCase();
+  if (raw === 'cancelled') return 'cancelled';
+  if (raw === 'confirmed' && isBookingCompleted(booking)) return 'completed';
+  return raw;
+};
+
+const formatBookingDateLong = (dateStr) => {
+  const s = String(dateStr || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  try {
+    return format(parseISO(s), 'd MMM yyyy');
+  } catch {
+    return s;
+  }
+};
+
+const formatBookingTime12h = (timeStr) => {
+  const s = String(timeStr || '').trim();
+  if (!s) return '';
+  const [hRaw, mRaw] = s.split(':');
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return s;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = ((h % 12) || 12);
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+};
 
 const isVipClient = (client) => Number(client?.total_bookings || 0) > 4;
 
@@ -3139,21 +3208,21 @@ const Dashboard = () => {
         {activeTab === 'overview' && (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card data-testid="total-bookings-card">
+              <Card data-testid="total-bookings-card" className="border-l-4 border-l-blue-500">
                 <CardContent className="pt-6">
                   <div className="text-3xl font-bold text-primary">{stats.totalBookings}</div>
                   <div className="text-sm text-muted-foreground mt-1">Total Bookings</div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="upcoming-bookings-card">
+              <Card data-testid="upcoming-bookings-card" className="border-l-4 border-l-green-500">
                 <CardContent className="pt-6">
                   <div className="text-3xl font-bold text-primary">{stats.upcomingBookings}</div>
                   <div className="text-sm text-muted-foreground mt-1">Upcoming Bookings</div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="revenue-card">
+              <Card data-testid="revenue-card" className="border-l-4 border-l-rose-600">
                 <CardContent className="pt-6">
                   <div className="text-3xl font-bold text-primary">${stats.revenue.toFixed(2)}</div>
                   <div className="text-sm text-muted-foreground mt-1">Revenue</div>
@@ -3162,49 +3231,50 @@ const Dashboard = () => {
             </div>
 
             <Card data-testid="monthly-trends-card" className="mb-6">
-              <CardContent className="pt-6">
-                <h3 className="font-semibold mb-4">Monthly Trends</h3>
-                {monthlyTrends.every((m) => m.bookings === 0 && m.revenue === 0) ? (
-                  <p className="text-muted-foreground text-center py-10">No booking data yet</p>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="border border-border rounded-xl p-4">
-                      <p className="text-sm font-semibold mb-3">Bookings</p>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={monthlyTrends}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                            <Tooltip
-                              formatter={(value) => [value, 'Bookings']}
-                              labelStyle={{ fontWeight: 600 }}
-                            />
-                            <Bar dataKey="bookings" fill="#e11d48" radius={[8, 8, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    <div className="border border-border rounded-xl p-4">
-                      <p className="text-sm font-semibold mb-3">Revenue</p>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={monthlyTrends}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
-                            <Tooltip
-                              formatter={(value) => [`$${Number(value || 0).toFixed(2)}`, 'Revenue']}
-                              labelStyle={{ fontWeight: 600 }}
-                            />
-                            <Bar dataKey="revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+              <CardContent className="pt-6" style={{ minWidth: 0 }}>
+                <h3 className="font-semibold">Monthly Trends</h3>
+                <p className="text-xs text-muted-foreground mb-4">Last 6 months</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ minWidth: 0 }}>
+                  <div className="border border-border rounded-xl p-4" style={{ minWidth: 0 }}>
+                    <p className="text-sm font-semibold mb-3">Bookings</p>
+                    <div style={{ width: '100%', minHeight: '200px' }}>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={monthlyTrends}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                          <Tooltip
+                            formatter={(value) => [value, 'Bookings']}
+                            labelStyle={{ fontWeight: 600 }}
+                          />
+                          <Bar dataKey="bookings" fill="#e11d48" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
-                )}
+
+                  <div className="border border-border rounded-xl p-4" style={{ minWidth: 0 }}>
+                    <p className="text-sm font-semibold mb-3">Revenue</p>
+                    <div style={{ width: '100%', minHeight: '200px' }}>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={monthlyTrends}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
+                          <Tooltip
+                            formatter={(value) => [`$${Number(value || 0).toFixed(2)}`, 'Revenue']}
+                            labelStyle={{ fontWeight: 600 }}
+                          />
+                          <Bar dataKey="revenue" fill="#e11d48" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  {monthlyTrends.reduce((s, m) => s + (m.bookings || 0), 0)} bookings · $
+                  {monthlyTrends.reduce((s, m) => s + (m.revenue || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} total revenue
+                </p>
               </CardContent>
             </Card>
 
@@ -3215,18 +3285,33 @@ const Dashboard = () => {
                   <p className="text-muted-foreground text-center py-8">No bookings yet</p>
                 ) : (
                   <div className="space-y-4">
-                    {activeBookings.slice(0, 5).map((booking) => (
-                      <div key={booking.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                        <div>
-                          <p className="font-semibold">{booking.customer_name}</p>
-                          <p className="text-sm text-muted-foreground">{booking.service_type}</p>
+                    {activeBookings.slice(0, 5).map((booking) => {
+                      const displayStatus = displayBookingStatus(booking);
+                      const dateLabel = (() => {
+                        const s = String(booking.booking_date || '').trim();
+                        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                        try { return format(parseISO(s), 'd MMM'); } catch { return s; }
+                      })();
+                      const timeLabel = formatBookingTime12h(booking.booking_time);
+                      return (
+                        <div key={booking.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-semibold">{booking.customer_name}</p>
+                            <p className="text-sm text-muted-foreground">{booking.service_type}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-sm font-medium">
+                                {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={bookingStatusBadgeClass(displayStatus)}>
+                              {displayStatus}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{booking.booking_date}</p>
-                          <p className="text-sm text-muted-foreground">{booking.booking_time}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -5672,6 +5757,26 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
     });
   }, [bookings, search, statusFilter]);
 
+  const { upcomingBookings, pastBookings } = useMemo(() => {
+    const nowTs = Date.now();
+    const upcoming = [];
+    const past = [];
+    for (const b of filteredBookings) {
+      const status = String(b?.status || 'confirmed').toLowerCase();
+      const ts = bookingDateTime(b, 'start')?.getTime?.() ?? 0;
+      if (status === 'cancelled') {
+        past.push(b);
+      } else if (ts >= nowTs) {
+        upcoming.push(b);
+      } else {
+        past.push(b);
+      }
+    }
+    upcoming.sort((a, b) => (bookingDateTime(a, 'start')?.getTime?.() ?? 0) - (bookingDateTime(b, 'start')?.getTime?.() ?? 0));
+    past.sort((a, b) => (bookingDateTime(b, 'start')?.getTime?.() ?? 0) - (bookingDateTime(a, 'start')?.getTime?.() ?? 0));
+    return { upcomingBookings: upcoming, pastBookings: past };
+  }, [filteredBookings]);
+
   useEffect(() => {
     if (!prefillBooking) return;
     openCreate(prefillBooking);
@@ -5696,7 +5801,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
         </Button>
       </div>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -5719,6 +5824,10 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
         </div>
       </div>
 
+      <p className="mb-4 text-xs text-muted-foreground">
+        Showing {filteredBookings.length} {filteredBookings.length === 1 ? 'booking' : 'bookings'}
+      </p>
+
       <Card data-testid="bookings-list-card" className="mt-6 overflow-hidden">
         <Table>
           <TableHeader>
@@ -5727,6 +5836,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
               <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Service</TableHead>
               <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Date</TableHead>
               <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Price</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Payment</TableHead>
               <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Status</TableHead>
               <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Actions</TableHead>
             </TableRow>
@@ -5734,48 +5844,128 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           <TableBody>
             {filteredBookings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No bookings found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredBookings.map((booking) => {
-                const status = String(booking.status || 'confirmed').toLowerCase();
-                return (
-                  <TableRow key={booking.id}>
-                    <TableCell className="px-4 py-4 align-top whitespace-normal">
-                      <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
-                      <div className="mt-1 break-all text-sm text-muted-foreground">
-                        {booking.customer_email}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
-                    <TableCell className="hidden px-4 py-4 sm:table-cell">
-                      <div className="font-medium">{booking.booking_date}</div>
-                      <div className="text-sm text-muted-foreground">{booking.booking_time}</div>
-                    </TableCell>
-                    <TableCell className="hidden px-4 py-4 text-primary font-medium sm:table-cell">
-                      ${bookingTotalAmount(booking).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="px-4 py-4 align-top">
-                      <Badge variant="outline" className={bookingStatusBadgeClass(status)}>
-                        {status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-4 py-4 align-top">
-                      <Button
-                        data-testid={`view-booking-${booking.id}`}
-                        onClick={() => handleViewBooking(booking)}
-                        size="sm"
-                        variant="outline"
-                        className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
-                      >
-                        View Details
-                      </Button>
+              <>
+                {upcomingBookings.map((booking, idx) => {
+                  const displayStatus = displayBookingStatus(booking);
+                  const payLabel = paymentStatusLabel(booking.payment_status);
+                  const payStyle = paymentBadgeStyle(booking.payment_status);
+                  const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]';
+                  return (
+                    <TableRow
+                      key={booking.id}
+                      onClick={() => handleViewBooking(booking)}
+                      className={cn(rowBg, 'cursor-pointer transition-colors hover:bg-[#FFF5F5]')}
+                    >
+                      <TableCell className="px-4 py-4 align-top whitespace-normal">
+                        <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
+                        <div className="mt-1 break-all text-sm text-muted-foreground">
+                          {booking.customer_email}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell">
+                        <div className="font-medium">{formatBookingDateLong(booking.booking_date)}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{formatBookingTime12h(booking.booking_time)}</div>
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 text-primary font-bold sm:table-cell">
+                        ${bookingTotalAmount(booking).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 align-top sm:table-cell">
+                        <span
+                          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium"
+                          style={payStyle}
+                        >
+                          {payLabel}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 align-top">
+                        <Badge variant="outline" className={bookingStatusBadgeClass(displayStatus)}>
+                          {displayStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          data-testid={`view-booking-${booking.id}`}
+                          onClick={() => handleViewBooking(booking)}
+                          size="sm"
+                          variant="outline"
+                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {pastBookings.length > 0 && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="px-4 pt-6 pb-2 border-t border-zinc-200">
+                      <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Past Events
+                      </span>
                     </TableCell>
                   </TableRow>
-                );
-              })
+                )}
+
+                {pastBookings.map((booking, idx) => {
+                  const displayStatus = displayBookingStatus(booking);
+                  const payLabel = paymentStatusLabel(booking.payment_status);
+                  const payStyle = paymentBadgeStyle(booking.payment_status);
+                  const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]';
+                  return (
+                    <TableRow
+                      key={booking.id}
+                      onClick={() => handleViewBooking(booking)}
+                      className={cn(rowBg, 'cursor-pointer transition-colors hover:bg-[#FFF5F5]')}
+                    >
+                      <TableCell className="px-4 py-4 align-top whitespace-normal">
+                        <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
+                        <div className="mt-1 break-all text-sm text-muted-foreground">
+                          {booking.customer_email}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell">
+                        <div className="font-medium">{formatBookingDateLong(booking.booking_date)}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{formatBookingTime12h(booking.booking_time)}</div>
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 text-primary font-bold sm:table-cell">
+                        ${bookingTotalAmount(booking).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="hidden px-4 py-4 align-top sm:table-cell">
+                        <span
+                          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium"
+                          style={payStyle}
+                        >
+                          {payLabel}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 align-top">
+                        <Badge variant="outline" className={bookingStatusBadgeClass(displayStatus)}>
+                          {displayStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          data-testid={`view-booking-${booking.id}`}
+                          onClick={() => handleViewBooking(booking)}
+                          size="sm"
+                          variant="outline"
+                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </>
             )}
           </TableBody>
         </Table>
