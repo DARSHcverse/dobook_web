@@ -1,4 +1,4 @@
-import { sendEmailViaResend } from "./email";
+import { buildBusinessFrom, sendEmailViaResend } from "./email";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
 import { hasProAccess, isOwnerBusiness } from "./entitlements";
 import {
@@ -242,9 +242,8 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
     }
   }
 
-  const subject = includeInvoicePdf
-    ? `Thanks for booking${booking?.invoice_id ? ` • Invoice ${booking.invoice_id}` : ""}`
-    : `Thanks for booking ${businessName}`;
+  const customerSubject = `Your booking with ${businessName} is confirmed 🎉`;
+  const businessSubject = `New booking • ${String(booking?.customer_name || "").trim() || "Customer"}`;
   const lines = bookingSummaryLines({ booking });
   const summaryText = lines.join("\n");
 
@@ -273,6 +272,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
     preheader: `Your booking with ${businessName} is confirmed.`,
     logoUrl,
     logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
       ${bookingSummaryTableHtml({ booking })}
@@ -314,10 +314,11 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   if (customerEmail && confirmationEnabled) {
     results.customer = await sendEmailViaResend({
       to: customerEmail,
-      subject,
+      subject: customerSubject,
       html: customerHtml,
       text: customerText,
       attachments,
+      from: buildBusinessFrom(business),
       replyTo: businessEmail || undefined,
     });
   } else if (customerEmail && !confirmationEnabled) {
@@ -327,7 +328,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   if (businessEmail) {
     results.business = await sendEmailViaResend({
       to: businessEmail,
-      subject: `New booking • ${String(booking?.customer_name || "").trim() || "Customer"}`,
+      subject: businessSubject,
       html: businessHtml,
       text: businessText,
       attachments,
@@ -454,7 +455,9 @@ export async function sendBookingReminderEmail({
 
   const resolvedHours = Number.isFinite(Number(hoursBefore)) ? Number(hoursBefore) : Number(daysBefore || 0) * 24;
   const label = formatReminderLabel(resolvedHours);
-  const subject = `Reminder: your event is in ${label.label}`;
+  const businessName = safeName(business?.business_name) || "DoBook";
+  const whenPhrase = resolvedHours === 24 ? "tomorrow" : `in ${label.label}`;
+  const subject = `Reminder: Your ${businessName} booking is ${whenPhrase}`;
   const lines = includeDetails ? bookingSummaryLines({ booking }) : [];
   const summaryText = lines.join("\n");
   const paymentLink = String(business?.payment_link || "").trim();
@@ -462,11 +465,12 @@ export async function sendBookingReminderEmail({
 
   const html = emailLayout({
     title: "Event reminder",
-    preheader: `Your event is in ${label.label}.`,
+    preheader: `Your event is ${whenPhrase}.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
-    logoAlt: safeName(business?.business_name) || "DoBook",
+    logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
-      ${paragraphHtml(`Just a reminder your event is coming up in <strong style="color:#18181b;">${escapeHtml(label.label)}</strong>.`)}
+      ${paragraphHtml(`Just a reminder your event is coming up <strong style="color:#18181b;">${escapeHtml(whenPhrase)}</strong>.`)}
       ${customNote ? paragraphHtml(escapeHtml(customNote)) : ""}
       ${includeDetails ? bookingSummaryTableHtml({ booking }) : ""}
       ${includePaymentLink && paymentLink
@@ -482,7 +486,7 @@ export async function sendBookingReminderEmail({
     `,
   });
   const text =
-    `Event Reminder\n\nYour event is in ${label.label}.\n` +
+    `Event Reminder\n\nYour event is ${whenPhrase}.\n` +
     (customNote ? `\n${customNote}\n` : "") +
     (includeDetails && summaryText ? `\n${summaryText}\n` : "") +
     (includePaymentLink && paymentLink ? `\nPayment link: ${paymentLink}\n` : "");
@@ -493,6 +497,7 @@ export async function sendBookingReminderEmail({
     html,
     text,
     scheduledAt,
+    from: buildBusinessFrom(business),
     replyTo: safeEmail(business?.email) || undefined,
   });
 }
@@ -546,12 +551,13 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
   const referenceNum = safeName(booking?.invoice_id) || safeName(booking?.id)?.slice(0, 8).toUpperCase() || "";
 
   // Customer confirmation email
-  const customerSubject = `We received your enquiry — ${businessName}`;
+  const customerSubject = `Your quote from ${businessName} 📋`;
   const customerHtml = emailLayout({
     title: "Enquiry Received",
     preheader: `Thanks ${customerName}! We received your enquiry and will be in touch within 24 hours.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — thanks for your enquiry with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>!`)}
       ${paragraphHtml("We've received your details and will be in touch within <strong>24 hours</strong> to confirm availability and finalise your booking.")}
@@ -624,6 +630,7 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
       subject: customerSubject,
       html: customerHtml,
       text: customerText,
+      from: buildBusinessFrom(business),
       replyTo: businessEmail || undefined,
     });
   }
@@ -652,12 +659,13 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
   const message = String(quoteMessage || "").trim();
   const bookingDate = safeName(booking?.booking_date) || "TBD";
 
-  const subject = `Your Quote from ${businessName}`;
+  const subject = `Your quote from ${businessName} 📋`;
   const html = emailLayout({
     title: "Your Quote",
     preheader: `${businessName} has sent you a quote for your event on ${bookingDate}.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> has sent you a quote for your event.`)}
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7; border-radius:12px; overflow:hidden; background:#fff; margin-top:12px;">
@@ -690,6 +698,7 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
     subject,
     html,
     text,
+    from: buildBusinessFrom(business),
     replyTo: businessEmail || undefined,
   });
 }
@@ -709,6 +718,7 @@ export async function sendDeclineEmail({ booking, business, message }) {
     preheader: `An update regarding your enquiry with ${businessName}.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong>,`)}
       ${paragraphHtml(`Thank you for your interest in <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>. Unfortunately we are unable to accommodate your request at this time.`)}
@@ -729,6 +739,7 @@ export async function sendDeclineEmail({ booking, business, message }) {
     subject,
     html,
     text,
+    from: buildBusinessFrom(business),
     replyTo: businessEmail || undefined,
   });
 }
@@ -741,7 +752,7 @@ export async function sendBookingCancelledEmail({ booking, business }) {
   const customerName = safeName(booking?.customer_name) || "there";
   const businessEmail = safeEmail(business?.email);
 
-  const subject = `Booking cancelled • ${businessName}`;
+  const subject = `Your booking with ${businessName} has been cancelled`;
   const lines = bookingSummaryLines({ booking });
   const summaryText = lines.join("\n");
 
@@ -750,6 +761,7 @@ export async function sendBookingCancelledEmail({ booking, business }) {
     preheader: `Your booking with ${businessName} has been cancelled.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: businessName,
+    senderName: businessName,
     contentHtml: `
       ${paragraphHtml(
       `Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(
@@ -774,6 +786,7 @@ export async function sendBookingCancelledEmail({ booking, business }) {
     subject,
     html,
     text,
+    from: buildBusinessFrom(business),
     replyTo: businessEmail || undefined,
   });
 }

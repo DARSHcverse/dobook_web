@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "../../../_utils/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateInvoicePdfBase64 } from "@/lib/invoicePdf";
-import { sendEmailViaResend } from "@/lib/email";
+import { buildBusinessFrom, sendEmailViaResend } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -65,7 +65,7 @@ export async function POST(request, { params }) {
   const filename = `${booking?.invoice_id || "invoice"}.pdf`;
 
   const businessName = String(auth.business?.business_name || auth.business?.email || "DoBook").trim() || "DoBook";
-  const subject = `Invoice from ${businessName}`;
+  const subject = `Your invoice from ${businessName}`;
   const html = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#18181b;">
       <p style="font-size:14px;">Hi ${escapeHtml(booking?.customer_name || "there")},</p>
@@ -90,6 +90,7 @@ export async function POST(request, { params }) {
         content: pdfBase64,
       },
     ],
+    from: buildBusinessFrom(auth.business),
     replyTo: safeEmail(auth.business?.email) || undefined,
   });
 

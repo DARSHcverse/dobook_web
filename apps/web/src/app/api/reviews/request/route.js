@@ -94,6 +94,7 @@ export async function POST(request) {
         const email = await sendReviewInviteEmail({
           request,
           to: customerEmail,
+          business: auth.business,
           businessName,
           customerName,
           inviteUrl: url,
@@ -121,7 +122,7 @@ export async function POST(request) {
       throw error;
     }
 
-    const email = await sendReviewInviteEmail({ request, to: customerEmail, businessName, customerName, inviteUrl });
+    const email = await sendReviewInviteEmail({ request, to: customerEmail, business: auth.business, businessName, customerName, inviteUrl });
     return NextResponse.json({ url: inviteUrl, email }, { status: 201 });
   } catch (error) {
     console.error("Error requesting review:", error);

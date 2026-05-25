@@ -100,17 +100,17 @@ export function bookingSummaryTableHtml({ booking }) {
   `;
 }
 
-export function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt }) {
-    const brand = "#e11d48";
+export function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt, senderName, brandColor }) {
+    const brand = String(brandColor || "").trim() || "#e11d48";
     const bg = "#f4f4f5";
     const site = resolveSiteUrl();
     const defaultLogo = `${site}/brand/dobook-logo.png`;
 
     const resolveLogo = (raw, businessId) => {
         const s = String(raw || "").trim();
-        if (!s) return defaultLogo;
+        if (!s) return null;
         if (/^data:image\//i.test(s)) {
-            if (!businessId) return defaultLogo;
+            if (!businessId) return null;
             return `${site}/api/public/business-logo?business_id=${encodeURIComponent(String(businessId))}`;
         }
         if (/^https?:\/\//i.test(s)) return s;
@@ -118,8 +118,42 @@ export function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt })
         return `${site}/${s}`;
     };
 
+    const senderDisplay = String(senderName || "").trim();
+    const hasSender = Boolean(senderDisplay);
     const logo = resolveLogo(logoUrl?.url, logoUrl?.businessId);
-    const alt = String(logoAlt || "DoBook").trim() || "DoBook";
+    const alt = String(logoAlt || senderDisplay || "DoBook").trim() || "DoBook";
+
+    const headerHtml = logo
+        ? `
+          <a href="${site}" style="text-decoration:none;">
+            <img src="${escapeHtml(logo)}" width="140" alt="${escapeHtml(alt)}" style="display:block; height:auto;" />
+          </a>
+        `
+        : hasSender
+        ? `
+          <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:24px; font-weight:800; color:${brand}; line-height:1.2;">
+            ${escapeHtml(senderDisplay)}
+          </div>
+        `
+        : `
+          <a href="${site}" style="text-decoration:none;">
+            <img src="${escapeHtml(defaultLogo)}" width="140" alt="${escapeHtml(alt)}" style="display:block; height:auto;" />
+          </a>
+        `;
+
+    const footerHtml = hasSender
+        ? `
+          <div style="border-top:1px solid #e4e4e7; padding-top:12px;">
+            <div style="margin-bottom:6px;">Sent by ${escapeHtml(senderDisplay)}</div>
+            <div style="font-size:10px; color:#a1a1aa;">Powered by DoBook</div>
+          </div>
+        `
+        : `
+          <div style="border-top:1px solid #e4e4e7; padding-top:12px;">
+            <div style="margin-bottom:6px;">Sent by DoBook • <a href="${site}" style="color:${brand}; text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></div>
+            <div>Need help? Reply to this email.</div>
+          </div>
+        `;
 
     return `
     <!doctype html>
@@ -139,9 +173,7 @@ export function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt })
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;">
                 <tr>
                   <td style="padding:12px 4px 18px;">
-                    <a href="${site}" style="text-decoration:none;">
-                      <img src="${escapeHtml(logo)}" width="140" alt="${escapeHtml(alt)}" style="display:block; height:auto;" />
-                    </a>
+                    ${headerHtml}
                   </td>
                 </tr>
                 <tr>
@@ -154,10 +186,7 @@ export function emailLayout({ title, preheader, contentHtml, logoUrl, logoAlt })
                 </tr>
                 <tr>
                   <td style="padding:14px 6px 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; line-height:1.5; color:#71717a;">
-                    <div style="border-top:1px solid #e4e4e7; padding-top:12px;">
-                      <div style="margin-bottom:6px;">Sent by DoBook • <a href="${site}" style="color:${brand}; text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></div>
-                      <div>Need help? Reply to this email.</div>
-                    </div>
+                    ${footerHtml}
                   </td>
                 </tr>
               </table>

@@ -1,3 +1,31 @@
+function defaultFromString() {
+  return process.env.RESEND_FROM || "DoBook <onboarding@resend.dev>";
+}
+
+function parseFromAddress(fromStr) {
+  const s = String(fromStr || "").trim();
+  const m = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (m) return { name: (m[1] || "").trim().replace(/^"|"$/g, ""), email: m[2].trim() };
+  return { name: "", email: s };
+}
+
+function quoteFromName(name) {
+  const n = String(name || "").trim();
+  if (!n) return "";
+  // Wrap names that contain characters that confuse RFC 5322 parsers.
+  if (/[",<>@]/.test(n)) return `"${n.replace(/"/g, '\\"')}"`;
+  return n;
+}
+
+export function buildBusinessFrom(business) {
+  const fallback = defaultFromString();
+  const displayName = String(business?.business_name || "").trim();
+  if (!displayName) return fallback;
+  const { email } = parseFromAddress(fallback);
+  if (!email) return fallback;
+  return `${quoteFromName(displayName)} <${email}>`;
+}
+
 export async function sendEmailViaResend({
   to,
   subject,
@@ -6,6 +34,7 @@ export async function sendEmailViaResend({
   attachments,
   replyTo,
   scheduledAt,
+  from: fromOverride,
 }) {
   const parseEmailList = (raw) =>
     String(raw || "")
@@ -16,7 +45,7 @@ export async function sendEmailViaResend({
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, skipped: true, error: "RESEND_API_KEY not set" };
 
-  const from = process.env.RESEND_FROM || "DoBook <onboarding@resend.dev>";
+  const from = String(fromOverride || "").trim() || defaultFromString();
   const fromDomain = String(from).split("@")[1]?.replace(">", "")?.trim()?.toLowerCase() || "";
 
   const recipients = Array.isArray(to) ? to : [to];
