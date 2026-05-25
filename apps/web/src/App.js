@@ -81,10 +81,10 @@ const DOBOOK_LOGO_SVG = '/brand/dobook-logo.svg';
 const bookingStatusBadgeClass = (status) =>
   cn(
     "rounded-full px-3 py-1 text-xs font-medium capitalize",
-    status === 'confirmed' && "border-green-200 bg-green-50 text-green-700",
-    status === 'cancelled' && "border-red-200 bg-red-50 text-red-700",
-    status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700",
-    status === 'completed' && "border-[#E1BEE7] bg-[#F3E5F5] text-[#6A1B9A]",
+    status === 'confirmed' && "border-green-200 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-400",
+    status === 'cancelled' && "border-red-200 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-400",
+    status === 'pending' && "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    status === 'completed' && "border-[#E1BEE7] bg-[#F3E5F5] text-[#6A1B9A] dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   );
 
 const normalizePaymentStatus = (raw) => {
@@ -111,6 +111,13 @@ const paymentBadgeStyle = (raw) => {
     return { backgroundColor: '#E3F2FD', color: '#1565C0', borderColor: '#BBDEFB' };
   }
   return { backgroundColor: '#FFF3CD', color: '#856404', borderColor: '#FFEAA7' };
+};
+
+const paymentBadgeDarkClass = (raw) => {
+  const v = normalizePaymentStatus(raw);
+  if (v === 'paid_in_full') return "dark:!bg-green-900/30 dark:!text-green-400 dark:!border-green-700";
+  if (v === 'deposit_paid') return "dark:!bg-blue-900/30 dark:!text-blue-400 dark:!border-blue-700";
+  return "dark:!bg-amber-900/30 dark:!text-amber-400 dark:!border-amber-700";
 };
 
 const isBookingCompleted = (booking) => {
@@ -5795,7 +5802,12 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           <h2 className="text-[clamp(1.35rem,1.18rem+0.6vw,1.75rem)] font-semibold">All Bookings</h2>
           <p className="text-[clamp(0.92rem,0.88rem+0.12vw,1rem)] text-muted-foreground">Manage your appointments</p>
         </div>
-        <Button type="button" onClick={openBookingLink} disabled={!bookingUrl} className="h-10 w-full gap-2 px-4 sm:w-auto">
+        <Button
+          type="button"
+          onClick={openBookingLink}
+          disabled={!bookingUrl}
+          className="h-10 w-full gap-2 px-4 sm:w-auto bg-[#E8193C] text-white hover:bg-[#C0001F] dark:hover:bg-[#FF2040]"
+        >
           <Plus className="h-4 w-4" />
           Add booking
         </Button>
@@ -5806,7 +5818,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search bookings..."
-          className="w-full sm:max-w-sm"
+          className="w-full sm:max-w-sm dark:bg-[#1E1E2E] dark:border-[#2E2E3E] dark:text-white dark:placeholder:text-gray-500 dark:focus-visible:border-[#E8193C] dark:focus-visible:ring-[#E8193C]/30"
         />
 
         <div className="w-full sm:w-56">
@@ -5828,17 +5840,20 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
         Showing {filteredBookings.length} {filteredBookings.length === 1 ? 'booking' : 'bookings'}
       </p>
 
-      <Card data-testid="bookings-list-card" className="mt-6 overflow-hidden">
+      <Card
+        data-testid="bookings-list-card"
+        className="mt-6 overflow-hidden bg-white border border-gray-200 shadow-sm dark:bg-[#12121A] dark:border-[#2E2E3E] dark:shadow-none"
+      >
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Customer</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Service</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Date</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Price</TableHead>
-              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:table-cell sm:text-[0.78rem]">Payment</TableHead>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Status</TableHead>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:text-[0.78rem]">Actions</TableHead>
+            <TableRow className="bg-gray-50 border-b border-gray-200 dark:bg-[#12121A] dark:border-[#2E2E3E]">
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:text-[0.78rem]">Customer</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Service</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Date</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Price</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Payment</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:text-[0.78rem]">Status</TableHead>
+              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:text-[0.78rem]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -5854,30 +5869,31 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                   const displayStatus = displayBookingStatus(booking);
                   const payLabel = paymentStatusLabel(booking.payment_status);
                   const payStyle = paymentBadgeStyle(booking.payment_status);
-                  const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]';
+                  const payDark = paymentBadgeDarkClass(booking.payment_status);
+                  const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E2E]' : 'bg-[#FAFAFA] dark:bg-[#16161E]';
                   return (
                     <TableRow
                       key={booking.id}
                       onClick={() => handleViewBooking(booking)}
-                      className={cn(rowBg, 'cursor-pointer transition-colors hover:bg-[#FFF5F5]')}
+                      className={cn(rowBg, 'cursor-pointer transition-colors border-b border-gray-200 dark:border-[#2E2E3E] hover:bg-[#FFF5F5] dark:hover:bg-[#2A1F2E]')}
                     >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
-                        <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
-                        <div className="mt-1 break-all text-sm text-muted-foreground">
+                        <div className="font-medium text-[0.98rem] text-gray-900 dark:text-white">{booking.customer_name}</div>
+                        <div className="mt-1 break-all text-sm text-gray-500 dark:text-gray-400">
                           {booking.customer_email}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell text-gray-700 dark:text-gray-300">{booking.booth_type || booking.service_type}</TableCell>
                       <TableCell className="hidden px-4 py-4 sm:table-cell">
-                        <div className="font-medium">{formatBookingDateLong(booking.booking_date)}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{formatBookingTime12h(booking.booking_time)}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{formatBookingDateLong(booking.booking_date)}</div>
+                        <div className="text-xs mt-0.5 text-gray-500 dark:text-gray-400">{formatBookingTime12h(booking.booking_time)}</div>
                       </TableCell>
-                      <TableCell className="hidden px-4 py-4 text-primary font-bold sm:table-cell">
+                      <TableCell className="hidden px-4 py-4 font-bold sm:table-cell text-[#E8193C] dark:text-[#FF4D6D]">
                         ${bookingTotalAmount(booking).toFixed(2)}
                       </TableCell>
                       <TableCell className="hidden px-4 py-4 align-top sm:table-cell">
                         <span
-                          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium"
+                          className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", payDark)}
                           style={payStyle}
                         >
                           {payLabel}
@@ -5894,7 +5910,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                           onClick={() => handleViewBooking(booking)}
                           size="sm"
                           variant="outline"
-                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm bg-white border-gray-200 text-gray-700 dark:bg-[#2E2E3E] dark:border-[#3E3E4E] dark:text-gray-200 dark:hover:bg-[#3E3E4E]"
                         >
                           View Details
                         </Button>
@@ -5904,9 +5920,9 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                 })}
 
                 {pastBookings.length > 0 && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={7} className="px-4 pt-6 pb-2 border-t border-zinc-200">
-                      <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                    <TableCell colSpan={7} className="px-4 pt-6 pb-2 border-t border-gray-200 dark:border-[#2E2E3E]">
+                      <span className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
                         Past Events
                       </span>
                     </TableCell>
@@ -5917,30 +5933,31 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                   const displayStatus = displayBookingStatus(booking);
                   const payLabel = paymentStatusLabel(booking.payment_status);
                   const payStyle = paymentBadgeStyle(booking.payment_status);
-                  const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]';
+                  const payDark = paymentBadgeDarkClass(booking.payment_status);
+                  const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-[#1E1E2E]' : 'bg-[#FAFAFA] dark:bg-[#16161E]';
                   return (
                     <TableRow
                       key={booking.id}
                       onClick={() => handleViewBooking(booking)}
-                      className={cn(rowBg, 'cursor-pointer transition-colors hover:bg-[#FFF5F5]')}
+                      className={cn(rowBg, 'cursor-pointer transition-colors border-b border-gray-200 dark:border-[#2E2E3E] hover:bg-[#FFF5F5] dark:hover:bg-[#2A1F2E]')}
                     >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
-                        <div className="font-medium text-[0.98rem]">{booking.customer_name}</div>
-                        <div className="mt-1 break-all text-sm text-muted-foreground">
+                        <div className="font-medium text-[0.98rem] text-gray-900 dark:text-white">{booking.customer_name}</div>
+                        <div className="mt-1 break-all text-sm text-gray-500 dark:text-gray-400">
                           {booking.customer_email}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden px-4 py-4 sm:table-cell">{booking.booth_type || booking.service_type}</TableCell>
+                      <TableCell className="hidden px-4 py-4 sm:table-cell text-gray-700 dark:text-gray-300">{booking.booth_type || booking.service_type}</TableCell>
                       <TableCell className="hidden px-4 py-4 sm:table-cell">
-                        <div className="font-medium">{formatBookingDateLong(booking.booking_date)}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{formatBookingTime12h(booking.booking_time)}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{formatBookingDateLong(booking.booking_date)}</div>
+                        <div className="text-xs mt-0.5 text-gray-500 dark:text-gray-400">{formatBookingTime12h(booking.booking_time)}</div>
                       </TableCell>
-                      <TableCell className="hidden px-4 py-4 text-primary font-bold sm:table-cell">
+                      <TableCell className="hidden px-4 py-4 font-bold sm:table-cell text-[#E8193C] dark:text-[#FF4D6D]">
                         ${bookingTotalAmount(booking).toFixed(2)}
                       </TableCell>
                       <TableCell className="hidden px-4 py-4 align-top sm:table-cell">
                         <span
-                          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium"
+                          className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", payDark)}
                           style={payStyle}
                         >
                           {payLabel}
@@ -5957,7 +5974,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                           onClick={() => handleViewBooking(booking)}
                           size="sm"
                           variant="outline"
-                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm"
+                          className="w-full rounded-full px-4 text-xs sm:w-auto sm:text-sm bg-white border-gray-200 text-gray-700 dark:bg-[#2E2E3E] dark:border-[#3E3E4E] dark:text-gray-200 dark:hover:bg-[#3E3E4E]"
                         >
                           View Details
                         </Button>
