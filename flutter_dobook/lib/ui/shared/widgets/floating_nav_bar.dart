@@ -104,22 +104,26 @@ class _NavTab extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(item.icon, color: iconColor, size: 24),
+              Icon(item.icon, color: iconColor, size: 22),
               AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 child: isSelected
                     ? Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          item.label.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                            color: selectedColor,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            item.label.toUpperCase(),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                              color: selectedColor,
+                            ),
                           ),
                         ),
                       )

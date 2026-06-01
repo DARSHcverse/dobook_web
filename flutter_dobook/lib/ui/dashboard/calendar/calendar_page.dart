@@ -4,6 +4,7 @@ import 'package:dobook/data/models/booking.dart';
 import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/utils/booking_calculations.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -83,9 +84,10 @@ class _CalendarPageState extends State<CalendarPage> {
             return const _CalendarLoadingState();
           }
 
-          final bookings = snapshot.data!;
+          final calendarBookings =
+              BookingCalculations.realBookings(snapshot.data!);
           final byDay = <DateTime, List<Booking>>{};
-          for (final booking in bookings) {
+          for (final booking in calendarBookings) {
             final date = DateTime.tryParse(booking.bookingDate);
             if (date == null) continue;
             final key = DateTime(date.year, date.month, date.day);
@@ -301,7 +303,9 @@ class _CalendarPageState extends State<CalendarPage> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '#${selectedBookings.length} Scheduled',
+                        selectedBookings.isEmpty
+                            ? 'No Bookings'
+                            : '${selectedBookings.length} ${selectedBookings.length == 1 ? 'Booking' : 'Bookings'}',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: const Color(0xFF004F51),
                           fontWeight: FontWeight.w700,

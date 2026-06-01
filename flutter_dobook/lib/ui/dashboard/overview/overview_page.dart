@@ -8,6 +8,7 @@ import 'package:dobook/ui/shared/widgets/booking_card.dart';
 import 'package:dobook/ui/shared/widgets/empty_state.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/utils/booking_calculations.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -199,85 +200,49 @@ class _OverviewPageState extends State<OverviewPage> {
     return 'Good evening,';
   }
 
-  String _greetingName(String businessName) {
-    final raw = businessName.trim();
+  String _greetingName(String? businessName) {
+    final raw = (businessName ?? '').trim();
     if (raw.isEmpty) return 'there';
-    final cleaned = raw
+    var name = raw
         .replaceFirst(RegExp(r'^owner\s*-\s*', caseSensitive: false), '')
         .trim();
-    if (cleaned.isEmpty) return 'there';
-    return cleaned;
+    if (name.isEmpty) return 'there';
+    if (name.length > 20) {
+      final words = name.split(RegExp(r'\s+'));
+      if (words.length >= 2) {
+        name = '${words[0]} ${words[1]}';
+      } else {
+        name = '${name.substring(0, 20)}...';
+      }
+    }
+    return name;
   }
 
   _OverviewStats _computeStats(List<Booking> bookings) {
-    var revenue = 0.0;
-    var upcoming = 0;
-    var total = 0;
-    final today = DateTime.now();
-    final todayOnly = DateTime(today.year, today.month, today.day);
-
-    for (final booking in bookings) {
-      if (booking.isEnquiry) continue;
-      total += 1;
-
-      final cancelled = _isCancelled(booking);
-      if (!cancelled) {
-        revenue += booking.total;
-      }
-
-      final date = DateTime.tryParse(booking.bookingDate);
-      if (date == null || cancelled) continue;
-      final dateOnly = DateTime(date.year, date.month, date.day);
-      if (!dateOnly.isBefore(todayOnly)) {
-        upcoming += 1;
-      }
-    }
-
     return _OverviewStats(
-      totalBookings: total,
-      upcoming: upcoming,
-      revenue: revenue,
+      totalBookings: BookingCalculations.totalCount(bookings),
+      upcoming: BookingCalculations.upcomingCount(bookings),
+      revenue: BookingCalculations.totalRevenue(bookings),
     );
   }
 
   List<_MonthlySeries> _buildMonthlySeries(List<Booking> bookings) {
-    final buckets = _buildMonthBuckets();
-    final byKey = {for (final bucket in buckets) bucket.key: bucket};
-
-    for (final booking in bookings) {
-      if (booking.isEnquiry) continue;
-      if (_isCancelled(booking)) continue;
-      final date = DateTime.tryParse(booking.bookingDate);
-      if (date == null) continue;
-
-      final bucket = byKey[_monthKey(date)];
-      if (bucket == null) continue;
-
-      bucket.bookings += 1;
-      bucket.revenue += booking.total;
-    }
-
-    return buckets;
-  }
-
-  List<_MonthlySeries> _buildMonthBuckets() {
-    final now = DateTime.now();
-    return List<_MonthlySeries>.generate(6, (index) {
-      final date = DateTime(now.year, now.month - (5 - index), 1);
-      return _MonthlySeries(
-        key: _monthKey(date),
-        label: DateFormat('MMM').format(date),
-      );
-    });
-  }
-
-  String _monthKey(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    return '${date.year}-$month';
+    final revenue = BookingCalculations.monthlyRevenue(bookings);
+    final counts = BookingCalculations.monthlyCount(bookings);
+    final labels = revenue.keys.toList();
+    return [
+      for (final label in labels)
+        _MonthlySeries(
+          key: label,
+          label: label,
+          revenue: revenue[label] ?? 0,
+          bookings: counts[label] ?? 0,
+        ),
+    ];
   }
 
   List<Booking> _recentBookings(List<Booking> bookings) {
-    final sorted = List<Booking>.from(bookings)
+    final sorted = BookingCalculations.realBookings(bookings)
       ..sort((a, b) => _sortDate(b).compareTo(_sortDate(a)));
     return sorted.take(5).toList();
   }
@@ -293,10 +258,6 @@ class _OverviewPageState extends State<OverviewPage> {
 
     final date = DateTime.tryParse(booking.bookingDate);
     return date ?? DateTime.fromMillisecondsSinceEpoch(0);
-  }
-
-  bool _isCancelled(Booking booking) {
-    return booking.status.trim().toLowerCase() == 'cancelled';
   }
 
   Future<List<Booking>> _load() async {
@@ -804,8 +765,9 @@ class _MonthlySeries {
   _MonthlySeries({
     required this.key,
     required this.label,
-  })  : revenue = 0,
-        bookings = 0;
+    this.revenue = 0,
+    this.bookings = 0,
+  });
 
   final String key;
   final String label;

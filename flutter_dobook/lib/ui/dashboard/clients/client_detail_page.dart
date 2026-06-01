@@ -6,6 +6,7 @@ import 'package:dobook/ui/dashboard/bookings/booking_details_screen.dart';
 import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/utils/booking_calculations.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -74,7 +75,16 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       body: FutureBuilder<List<Booking>>(
         future: _future,
         builder: (context, snapshot) {
-          final bookings = _sortedBookings(snapshot.data ?? const <Booking>[]);
+          final realBookings =
+              BookingCalculations.realBookings(snapshot.data ?? const <Booking>[]);
+          final bookings = _sortedBookings(realBookings);
+          final activeBookings = BookingCalculations.activeBookings(realBookings);
+          final displayedTotalBookings = bookings.isEmpty
+              ? _client.totalBookings
+              : bookings.length;
+          final displayedTotalSpent = activeBookings.isEmpty
+              ? _client.totalSpent
+              : activeBookings.fold<double>(0, (s, b) => s + b.total);
 
           return SingleChildScrollView(
             controller: _scrollController,
@@ -89,14 +99,14 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                     Expanded(
                       child: _ClientMetricCard(
                         label: 'Bookings',
-                        value: _client.totalBookings.toString(),
+                        value: displayedTotalBookings.toString(),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: _ClientMetricCard(
                         label: 'Total Spent',
-                        value: _formatSpend(_client.totalSpent),
+                        value: _formatSpend(displayedTotalSpent),
                         valueColor: const Color(0xFFBE002B),
                       ),
                     ),

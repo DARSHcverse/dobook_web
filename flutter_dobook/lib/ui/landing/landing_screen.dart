@@ -42,10 +42,10 @@ class _LandingScreenState extends State<LandingScreen> {
                       minHeight: constraints.maxHeight - 48,
                     ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        const SizedBox(height: 24),
                         const _LandingHeader(),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 40),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
@@ -178,8 +178,9 @@ class _LandingScreenState extends State<LandingScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 40),
-                        const _DecorativeLines(),
+                        const Spacer(),
+                        const SizedBox(height: 24),
+                        const _LandingFooter(),
                       ],
                     ),
                   ),
@@ -233,33 +234,56 @@ class _LandingHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFE8193C).withValues(alpha: 0.3),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Image.asset(
-            'assets/brand/dobook-logo.png',
-            width: 80,
-            fit: BoxFit.contain,
-          ),
+        Image.asset(
+          'assets/icon/app_icon.png',
+          width: 120,
+          fit: BoxFit.contain,
         ),
         const SizedBox(height: 16),
+        Text(
+          'DoBook',
+          style: GoogleFonts.manrope(
+            fontSize: 32,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFBE002B),
+            letterSpacing: -1,
+          ),
+        ),
+        const SizedBox(height: 6),
         Text(
           'Smart booking for your business',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF5D3F3F).withValues(alpha: 0.7),
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6B7280),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _LandingFooter extends StatelessWidget {
+  const _LandingFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.inter(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: const Color(0xFF9CA3AF),
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('🇦🇺', style: TextStyle(fontSize: 14)),
+        const SizedBox(width: 6),
+        Text('Made in Australia', style: style),
+        const SizedBox(width: 8),
+        Text('•', style: style),
+        const SizedBox(width: 8),
+        Text('Version 1.0.0', style: style),
       ],
     );
   }
@@ -325,43 +349,6 @@ class _EditorialButton extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DecorativeLines extends StatelessWidget {
-  const _DecorativeLines();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: const [
-        _DecorativeLine(widthFactor: 0.88),
-        SizedBox(height: 10),
-        _DecorativeLine(widthFactor: 0.66),
-        SizedBox(height: 10),
-        _DecorativeLine(widthFactor: 0.42),
-      ],
-    );
-  }
-}
-
-class _DecorativeLine extends StatelessWidget {
-  const _DecorativeLine({required this.widthFactor});
-
-  final double widthFactor;
-
-  @override
-  Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      child: Container(
-        height: 8,
-        decoration: BoxDecoration(
-          color: const Color(0xFFBE002B).withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(999),
         ),
       ),
     );

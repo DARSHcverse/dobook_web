@@ -5,6 +5,7 @@ import 'package:dobook/ui/dashboard/clients/client_detail_page.dart';
 import 'package:dobook/ui/shared/widgets/avatar_widget.dart';
 import 'package:dobook/ui/shared/widgets/loading_shimmer.dart';
 import 'package:dobook/ui/shared/widgets/page_transitions.dart';
+import 'package:dobook/utils/booking_calculations.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +20,7 @@ class ClientsPage extends StatefulWidget {
 enum ClientFilter { all, active, inactive }
 
 class _ClientsPageState extends State<ClientsPage> {
-  Future<List<Client>>? _future;
+  Future<_ClientsLoad>? _future;
   String _searchQuery = '';
   ClientFilter _filter = ClientFilter.all;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -45,7 +46,7 @@ class _ClientsPageState extends State<ClientsPage> {
         scrolledUnderElevation: 0,
         title: const Text('Clients'),
       ),
-      body: FutureBuilder<List<Client>>(
+      body: FutureBuilder<_ClientsLoad>(
         future: _future,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -60,8 +61,8 @@ class _ClientsPageState extends State<ClientsPage> {
             return const _ClientsLoadingState();
           }
 
-          final clients = snapshot.data!;
-          final stats = _computeStats(clients);
+          final clients = snapshot.data!.clients;
+          final stats = snapshot.data!.stats;
           final filtered = _applyFilters(clients);
 
           return RefreshIndicator(
@@ -161,10 +162,25 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Future<List<Client>> _load() async {
+  Future<_ClientsLoad> _load() async {
     final repo = context.read<DobookRepository>();
     final token = context.read<AppSession>().token!;
-    return repo.getClients(token: token);
+    final bookings = await repo.getBookings(token);
+    final clients = BookingCalculations.buildClientList(bookings);
+    final now = DateTime.now();
+    final bookingsThisMonth = BookingCalculations.activeBookings(bookings)
+        .where((b) {
+          final d = DateTime.tryParse(b.bookingDate);
+          return d != null && d.year == now.year && d.month == now.month;
+        })
+        .length;
+    final stats = _ClientStats(
+      totalRevenue: BookingCalculations.totalRevenue(bookings),
+      totalClients: clients.length,
+      repeatClients: BookingCalculations.repeatClientCount(bookings),
+      bookingsThisMonth: bookingsThisMonth,
+    );
+    return _ClientsLoad(clients: clients, stats: stats);
   }
 
   Future<void> _refresh() async {
@@ -191,32 +207,13 @@ class _ClientsPageState extends State<ClientsPage> {
       return true;
     }).toList();
   }
+}
 
-  _ClientStats _computeStats(List<Client> clients) {
-    final now = DateTime.now();
-    var totalRevenue = 0.0;
-    var repeatClients = 0;
-    var bookingsThisMonth = 0;
+class _ClientsLoad {
+  const _ClientsLoad({required this.clients, required this.stats});
 
-    for (final client in clients) {
-      totalRevenue += client.totalSpent;
-      if (client.totalBookings > 1) {
-        repeatClients += 1;
-      }
-      if (client.lastBooking.year == now.year &&
-          client.lastBooking.month == now.month &&
-          client.lastBooking.year > 1971) {
-        bookingsThisMonth += 1;
-      }
-    }
-
-    return _ClientStats(
-      totalRevenue: totalRevenue,
-      totalClients: clients.length,
-      repeatClients: repeatClients,
-      bookingsThisMonth: bookingsThisMonth,
-    );
-  }
+  final List<Client> clients;
+  final _ClientStats stats;
 }
 
 class _RevenueHeroCard extends StatelessWidget {
