@@ -28,6 +28,7 @@ class Booking {
     required this.invoiceDate,
     required this.dueDate,
     required this.createdAt,
+    this.isEnquiry = false,
   });
 
   final String id;
@@ -58,6 +59,7 @@ class Booking {
   final String invoiceDate; // ISO
   final String dueDate; // ISO
   final String createdAt; // ISO
+  final bool isEnquiry;
 
   double get total => totalAmount ?? (price * quantity);
 
@@ -91,6 +93,7 @@ class Booking {
       'invoice_date': invoiceDate,
       'due_date': dueDate,
       'created_at': createdAt,
+      'is_enquiry': isEnquiry,
     };
   }
 
@@ -143,6 +146,7 @@ class Booking {
       invoiceDate: json['invoice_date']?.toString() ?? '',
       dueDate: json['due_date']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
+      isEnquiry: json['is_enquiry'] == true,
     );
   }
 }

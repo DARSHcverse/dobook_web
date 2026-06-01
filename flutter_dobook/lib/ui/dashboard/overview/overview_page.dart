@@ -57,7 +57,7 @@ class _OverviewPageState extends State<OverviewPage> {
             children: [
               _HeroSection(
                 greeting: _greetingLine(),
-                firstName: _firstName(business.businessName),
+                firstName: _greetingName(business.businessName),
                 stats: stats,
               ),
               Padding(
@@ -199,21 +199,27 @@ class _OverviewPageState extends State<OverviewPage> {
     return 'Good evening,';
   }
 
-  String _firstName(String businessName) {
-    final cleaned = businessName
-        .trim()
-        .replaceFirst(RegExp(r'^owner\s*-\s*', caseSensitive: false), '');
+  String _greetingName(String businessName) {
+    final raw = businessName.trim();
+    if (raw.isEmpty) return 'there';
+    final cleaned = raw
+        .replaceFirst(RegExp(r'^owner\s*-\s*', caseSensitive: false), '')
+        .trim();
     if (cleaned.isEmpty) return 'there';
-    return cleaned.split(RegExp(r'\s+')).first;
+    return cleaned;
   }
 
   _OverviewStats _computeStats(List<Booking> bookings) {
     var revenue = 0.0;
     var upcoming = 0;
+    var total = 0;
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
 
     for (final booking in bookings) {
+      if (booking.isEnquiry) continue;
+      total += 1;
+
       final cancelled = _isCancelled(booking);
       if (!cancelled) {
         revenue += booking.total;
@@ -228,7 +234,7 @@ class _OverviewPageState extends State<OverviewPage> {
     }
 
     return _OverviewStats(
-      totalBookings: bookings.length,
+      totalBookings: total,
       upcoming: upcoming,
       revenue: revenue,
     );
@@ -239,6 +245,8 @@ class _OverviewPageState extends State<OverviewPage> {
     final byKey = {for (final bucket in buckets) bucket.key: bucket};
 
     for (final booking in bookings) {
+      if (booking.isEnquiry) continue;
+      if (_isCancelled(booking)) continue;
       final date = DateTime.tryParse(booking.bookingDate);
       if (date == null) continue;
 
@@ -246,9 +254,7 @@ class _OverviewPageState extends State<OverviewPage> {
       if (bucket == null) continue;
 
       bucket.bookings += 1;
-      if (!_isCancelled(booking)) {
-        bucket.revenue += booking.total;
-      }
+      bucket.revenue += booking.total;
     }
 
     return buckets;
@@ -596,9 +602,13 @@ class _RevenueChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1,
               getTitlesWidget: (value, _) {
                 final index = value.toInt();
                 if (index < 0 || index >= series.length) {
+                  return const SizedBox.shrink();
+                }
+                if ((value - index).abs() > 0.001) {
                   return const SizedBox.shrink();
                 }
                 return Padding(
@@ -631,7 +641,7 @@ class _RevenueChart extends StatelessWidget {
                 width: 18,
                 color: hasRevenue
                     ? const Color(0xFFBE002B)
-                    : const Color(0xFFF3F4F5),
+                    : const Color(0xFFEEEEEE),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(4),
@@ -704,9 +714,13 @@ class _BookingsTrendChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              interval: 1,
               getTitlesWidget: (value, _) {
                 final index = value.toInt();
                 if (index < 0 || index >= series.length) {
+                  return const SizedBox.shrink();
+                }
+                if ((value - index).abs() > 0.001) {
                   return const SizedBox.shrink();
                 }
                 return Padding(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:dobook/app/config.dart';
@@ -258,6 +259,17 @@ class DobookRepository {
           '${b.bookingDate} ${b.bookingTime}',
         ),
       );
+      // Temporary debug logging — compare with web dashboard totals.
+      final cancelled =
+          bookings.where((b) => b.status.toLowerCase() == 'cancelled').length;
+      final revenue = bookings
+          .where((b) => b.status.toLowerCase() != 'cancelled' && !b.isEnquiry)
+          .fold<double>(0, (sum, b) => sum + b.total);
+      developer.log('Total bookings fetched: ${bookings.length}',
+          name: 'dobook.repo');
+      developer.log('Cancelled: $cancelled', name: 'dobook.repo');
+      developer.log('Revenue (non-cancelled, non-enquiry): $revenue',
+          name: 'dobook.repo');
       return bookings;
     } else {
       throw Exception('Failed to fetch bookings');

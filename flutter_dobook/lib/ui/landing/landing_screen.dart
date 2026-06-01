@@ -234,29 +234,23 @@ class _LandingHeader extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 64,
-          height: 64,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8193C),
             borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE8193C).withValues(alpha: 0.3),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
           ),
-          child: const Icon(
-            Icons.book_online_rounded,
-            color: Colors.white,
-            size: 32,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'DoBook',
-          style: GoogleFonts.manrope(
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFFBE002B),
-            letterSpacing: -1.4,
+          child: Image.asset(
+            'assets/brand/dobook-logo.png',
+            width: 80,
+            fit: BoxFit.contain,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Text(
           'Smart booking for your business',
           textAlign: TextAlign.center,
