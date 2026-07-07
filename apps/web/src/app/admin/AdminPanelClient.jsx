@@ -30,6 +30,10 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [editingBusiness, setEditingBusiness] = useState(null);
+  const [passwordResetSending, setPasswordResetSending] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createDraft, setCreateDraft] = useState({ business_name: "", email: "", phone: "", country_code: "AU", subscription_plan: "free", business_type: "" });
   const [businessDetail, setBusinessDetail] = useState(null);
   const [businessDetailLoading, setBusinessDetailLoading] = useState(false);
   const [businessDraft, setBusinessDraft] = useState(null);
@@ -543,7 +547,6 @@ export default function AdminPanel() {
     }
   };
 
-  const [passwordResetSending, setPasswordResetSending] = useState(false);
   const handleSendPasswordReset = async () => {
     if (!editingBusiness?.id) return;
     if (!window.confirm(`Send a password reset link to ${businessDraft?.email || "this business"}?`)) return;
@@ -566,10 +569,7 @@ export default function AdminPanel() {
     }
   };
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
   const emptyCreateDraft = { business_name: "", email: "", phone: "", country_code: "AU", subscription_plan: "free", business_type: "" };
-  const [createDraft, setCreateDraft] = useState(emptyCreateDraft);
   const handleCreateBusiness = async () => {
     if (!createDraft.business_name.trim() || !createDraft.email.trim()) {
       toast.error("Business name and email are required.");
