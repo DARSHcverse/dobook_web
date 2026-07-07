@@ -1,7 +1,7 @@
 import { buildBusinessFrom, sendEmailViaResend } from "./email";
 import { formatMoney } from "./money";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
-import { hasProAccess, isOwnerBusiness } from "./entitlements";
+import { hasProAccess, isOwnerBusiness, FREE_PLAN_MAX_BOOKINGS_PER_MONTH } from "./entitlements";
 import {
   bookingSummaryLines,
   bookingSummaryTableHtml,
@@ -795,5 +795,50 @@ export async function sendBookingCancelledEmail({ booking, business }) {
     text,
     from: buildBusinessFrom(business),
     replyTo: businessEmail || undefined,
+  });
+}
+
+// Sent to the business owner when they cancel their Pro subscription.
+// Confirms Pro access continues until the end of the current period.
+export async function sendSubscriptionCancelledEmail({ business, cancelAt }) {
+  const ownerEmail = safeEmail(business?.email);
+  if (!ownerEmail) return { ok: false, skipped: true, error: "No business email" };
+
+  const businessName = safeName(business?.business_name) || "your business";
+  const site = resolveSiteUrl();
+  const endDate = cancelAt
+    ? new Date(cancelAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+    : null;
+  const whenText = endDate ? `on <strong>${escapeHtml(endDate)}</strong>` : "at the end of your current billing period";
+
+  const subject = "Your DoBook Pro plan is set to cancel";
+  const html = emailLayout({
+    title: "Subscription cancellation confirmed",
+    preheader: `Your Pro plan will end ${endDate ? endDate : "at the end of the period"}. You keep Pro access until then.`,
+    contentHtml: `
+      ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> — we've received your request to cancel DoBook Pro.`)}
+      ${paragraphHtml(`Your Pro access continues ${whenText}. You won't be charged again. After that, your account moves to the Free plan (up to ${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings/month).`)}
+      ${paragraphHtml("Changed your mind? You can resubscribe any time from your dashboard.")}
+      <div style="margin-top:16px;">
+        <a href="${escapeHtml(`${site}/dashboard`)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 18px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          Go to Dashboard →
+        </a>
+      </div>
+    `,
+  });
+
+  const text =
+    `Subscription cancellation confirmed\n\n` +
+    `Hi ${businessName} — we've received your request to cancel DoBook Pro.\n\n` +
+    `Your Pro access continues ${endDate ? `until ${endDate}` : "until the end of your current billing period"}. ` +
+    `You won't be charged again. After that, your account moves to the Free plan (up to ${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings/month).\n\n` +
+    `Changed your mind? Resubscribe any time: ${site}/dashboard\n`;
+
+  return sendEmailViaResend({
+    to: ownerEmail,
+    subject,
+    html,
+    text,
+    from: buildBusinessFrom(business),
   });
 }

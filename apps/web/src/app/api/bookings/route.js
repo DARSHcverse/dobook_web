@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { requireSession } from "../_utils/auth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
-import { hasProAccess } from "@/lib/entitlements";
+import { hasProAccess, FREE_PLAN_MAX_BOOKINGS_PER_MONTH } from "@/lib/entitlements";
 import { createCalendarEvent } from "@/lib/googleCalendar";
 import { sendSMS, formatSMSDate, formatSMSTime } from "@/lib/sms";
 import { bookingConfirmationSMS } from "@/lib/smsTemplates";
@@ -19,8 +19,6 @@ import {
   haversineDistanceKm,
 } from "@/lib/geoapify";
 
-const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 50;
-const FREE_PLAN_SOFT_WARNING_THRESHOLD = 40;
 
 function asMoney(value) {
   const n = Number(value);

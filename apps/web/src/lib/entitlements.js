@@ -25,3 +25,26 @@ export function hasProAccess(business) {
   return String(business.subscription_plan || "free").trim().toLowerCase() === "pro";
 }
 
+// Free plan cap. Single source of truth — imported by the booking routes
+// (enforcement) and the dashboard (display) so they can never drift.
+export const FREE_PLAN_MAX_BOOKINGS_PER_MONTH = 50;
+
+// Given the count of bookings created this month, summarize free-plan usage.
+// Pro/owner accounts are unlimited.
+export function getFreePlanUsage(business, bookingsThisMonth) {
+  const used = Math.max(0, Number(bookingsThisMonth) || 0);
+  if (hasProAccess(business)) {
+    return { unlimited: true, used, limit: null, remaining: null, atLimit: false, nearLimit: false };
+  }
+  const limit = FREE_PLAN_MAX_BOOKINGS_PER_MONTH;
+  const remaining = Math.max(0, limit - used);
+  return {
+    unlimited: false,
+    used,
+    limit,
+    remaining,
+    atLimit: used >= limit,
+    nearLimit: used >= Math.floor(limit * 0.8), // 80%
+  };
+}
+

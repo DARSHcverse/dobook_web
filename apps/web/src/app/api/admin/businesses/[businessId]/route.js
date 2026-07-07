@@ -3,6 +3,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdminAuth } from "@/lib/adminAuth";
 import { sendEmailViaResend } from "@/lib/email";
 import { logAdminActivity } from "@/lib/adminActivity";
+import { normalizeCountryCode, getCountryProfile } from "@/lib/countries";
+import { normalizeCurrency } from "@/lib/money";
+import { normalizeDistanceUnit } from "@/lib/distance";
+import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 
 function logAdminError(message, error, context) {
   console.error(message, {
@@ -68,6 +72,28 @@ export async function PUT(request, { params }) {
     if (updateData.business_address !== undefined) updates.business_address = updateData.business_address || "";
     if (updateData.abn !== undefined) updates.abn = updateData.abn || "";
     if (updateData.admin_notes !== undefined) updates.admin_notes = String(updateData.admin_notes || "");
+
+    // Region fields. Setting country_code pre-fills currency/unit/timezone unless
+    // those are also provided explicitly.
+    if (updateData.country_code !== undefined) {
+      const code = normalizeCountryCode(updateData.country_code);
+      if (code) {
+        const profile = getCountryProfile(code);
+        updates.country_code = code;
+        if (updateData.currency === undefined) updates.currency = profile.currency;
+        if (updateData.distance_unit === undefined) updates.distance_unit = profile.distance_unit;
+        if (updateData.timezone === undefined) updates.timezone = profile.timezone;
+      }
+    }
+    if (updateData.currency !== undefined) updates.currency = normalizeCurrency(updateData.currency);
+    if (updateData.distance_unit !== undefined) updates.distance_unit = normalizeDistanceUnit(updateData.distance_unit);
+    if (updateData.timezone !== undefined) updates.timezone = String(updateData.timezone || "").trim().slice(0, 64) || "UTC";
+
+    if (updateData.business_type !== undefined) {
+      const bt = normalizeBusinessType(updateData.business_type);
+      updates.business_type = bt || null;
+    }
+
     if (subscription_plan !== undefined) updates.subscription_plan = subscription_plan || "free";
     if (subscription_status !== undefined) {
       updates.subscription_status = subscription_status || "inactive";
@@ -130,6 +156,16 @@ export async function PUT(request, { params }) {
       if (!logResult?.ok && logResult?.error) {
         logAdminError("Failed to log admin activity", logResult, { businessId, action });
       }
+    }
+
+    // Log non-plan edits too (plan changes are already logged above).
+    if (!(subscription_plan === "pro" || subscription_plan === "free")) {
+      await logAdminActivity({
+        adminEmail: auth.email,
+        action: "edit_business",
+        targetBusinessId: businessId,
+        details: { fields: Object.keys(updates) },
+      });
     }
 
     return NextResponse.json({

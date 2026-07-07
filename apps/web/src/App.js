@@ -61,6 +61,7 @@ import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
 import { PRO_PRICE_AUD, proPriceAmount, resolveProCurrency } from '@/lib/pricing';
 import { formatMoney } from '@/lib/money';
+import { getFreePlanUsage } from '@/lib/entitlements';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import ImageUpload from '@/components/app/ImageUpload';
@@ -2660,6 +2661,21 @@ const Dashboard = () => {
     revenue: activeBookings.reduce((sum, b) => sum + bookingTotalAmount(b), 0),
   };
 
+  // Free-plan usage for the at-a-glance banner (counts this calendar month, UTC,
+  // to match server-side enforcement in the bookings API).
+  const bookingsThisMonth = useMemo(() => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    return (Array.isArray(bookings) ? bookings : []).filter((b) => {
+      const raw = b?.created_at || b?.createdAt;
+      const d = raw ? new Date(raw) : null;
+      return d && !Number.isNaN(d.getTime()) && d.getUTCFullYear() === y && d.getUTCMonth() === m;
+    }).length;
+  }, [bookings]);
+  const freeUsage = getFreePlanUsage(business, bookingsThisMonth);
+  const currency = business?.currency || 'aud';
+
   const monthlyTrends = useMemo(() => {
     const now = new Date();
     const monthStartUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -3219,6 +3235,49 @@ const Dashboard = () => {
         {/* Content based on active tab */}
         {activeTab === 'overview' && (
           <div>
+            {!freeUsage.unlimited && (
+              <div
+                className={`mb-6 rounded-xl border p-4 ${
+                  freeUsage.atLimit
+                    ? 'border-rose-300 bg-rose-50'
+                    : freeUsage.nearLimit
+                    ? 'border-yellow-200 bg-yellow-50'
+                    : 'border-zinc-200 bg-zinc-50'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <span className="text-sm font-semibold text-zinc-900">Free plan usage</span>
+                      <span className="text-sm font-semibold text-zinc-700">
+                        {freeUsage.used} / {freeUsage.limit} bookings this month
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-zinc-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          freeUsage.atLimit ? 'bg-rose-500' : freeUsage.nearLimit ? 'bg-yellow-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, (freeUsage.used / freeUsage.limit) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-1.5">
+                      {freeUsage.atLimit
+                        ? "You've reached your free limit. New bookings are paused until next month — upgrade to Pro for unlimited bookings."
+                        : `${freeUsage.remaining} left this month. Upgrade to Pro for unlimited bookings, invoices, and reminders.`}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-rose-600 hover:bg-rose-700 text-white rounded-lg shrink-0"
+                    onClick={() => { window.location.hash = 'subscription'; setActiveTab('settings'); }}
+                  >
+                    Upgrade to Pro
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card data-testid="total-bookings-card" className="border-l-4 border-l-blue-500">
                 <CardContent className="pt-6">
@@ -3236,7 +3295,7 @@ const Dashboard = () => {
 
               <Card data-testid="revenue-card" className="border-l-4 border-l-rose-600">
                 <CardContent className="pt-6">
-                  <div className="text-3xl font-bold text-primary">${stats.revenue.toFixed(2)}</div>
+                  <div className="text-3xl font-bold text-primary">{formatMoney(stats.revenue, currency)}</div>
                   <div className="text-sm text-muted-foreground mt-1">Revenue</div>
                 </CardContent>
               </Card>
@@ -3394,6 +3453,7 @@ const SubscriptionSection = ({
   const [cancelledAt, setCancelledAt] = useState(business?.subscription_cancel_at || null);
 
   const isPro = effectivePlan !== 'free';
+  const freeUsage = getFreePlanUsage(business, bookingsThisMonth);
   // Pro price in the business's billing currency (round per-currency price).
   const proCurrency = resolveProCurrency(business?.currency);
   const proAmount = proPriceAmount(business?.currency);
@@ -3464,7 +3524,7 @@ const SubscriptionSection = ({
             </div>
             <CardTitle style={{ fontFamily: 'Manrope' }} className="mt-2">You're on the Free plan</CardTitle>
             <CardDescription>
-              {bookingsThisMonth} / 50 bookings this month • Confirmation emails only • No reminders
+              {bookingsThisMonth} / {freeUsage.limit} bookings this month • Confirmation emails only • No reminders
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -4206,6 +4266,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       return d.getUTCFullYear() === y && d.getUTCMonth() === m;
     }).length;
   }, [bookings]);
+  const freeUsage = getFreePlanUsage(business, bookingsThisMonth);
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
@@ -4559,7 +4620,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               <p className="font-semibold text-lg">{isOwner ? 'Owner access' : `${effectivePlan.charAt(0).toUpperCase()}${effectivePlan.slice(1)} Plan`}</p>
               <p className="text-sm text-zinc-600 mt-1">
                 {effectivePlan === 'free'
-                  ? `${bookingsThisMonth} / 50 bookings this month • Confirmation emails only • No reminders`
+                  ? `${bookingsThisMonth} / ${freeUsage.limit} bookings this month • Confirmation emails only • No reminders`
                   : 'Unlimited bookings • Invoice PDFs • Automated reminders'}
                 {!isOwner && effectivePlan !== 'free' && subscriptionStatus && subscriptionStatus !== 'active' && (
                   <span className="ml-2 text-zinc-500">
@@ -4601,10 +4662,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           </div>
 
           {/* Soft warning at 80% of free plan limit */}
-          {effectivePlan === 'free' && bookingsThisMonth >= 40 && (
+          {effectivePlan === 'free' && freeUsage.nearLimit && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800" style={{ fontFamily: 'Inter' }}>
-                You've used <strong>{bookingsThisMonth}</strong> of your 50 free bookings this month. Upgrade to Pro for unlimited bookings.
+                You've used <strong>{bookingsThisMonth}</strong> of your {freeUsage.limit} free bookings this month. Upgrade to Pro for unlimited bookings.
               </p>
               <Button
                 type="button"

@@ -12,8 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Activity, Building2, Crown, CreditCard, Edit, LifeBuoy, LogOut, Megaphone, Star, TrendingUp, Users } from "lucide-react";
+import { Activity, Building2, Crown, CreditCard, Edit, KeyRound, LifeBuoy, LogOut, Megaphone, Plus, Star, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
+import { countryOptions } from "@/lib/countries";
+import { BUSINESS_TYPES } from "@/lib/businessTypeTemplates";
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -501,9 +504,17 @@ export default function AdminPanel() {
       const payload = {
         business_name: getBusinessName(businessData),
         email: businessData?.email || "",
+        phone: businessData?.phone || "",
+        business_address: businessData?.business_address || "",
+        abn: businessData?.abn || "",
         subscription_plan: businessData?.subscription_plan || "free",
         subscription_status: businessData?.subscription_status || "inactive",
         admin_notes: businessData?.admin_notes || "",
+        country_code: businessData?.country_code || undefined,
+        currency: businessData?.currency || undefined,
+        distance_unit: businessData?.distance_unit || undefined,
+        timezone: businessData?.timezone || undefined,
+        business_type: businessData?.business_type ?? undefined,
       };
 
       const response = await fetch(`/api/admin/businesses/${editingBusiness.id}`, {
@@ -529,6 +540,66 @@ export default function AdminPanel() {
       await checkAuthAndFetch();
     } catch (error) {
       toast.error(error.message || "Failed to update business");
+    }
+  };
+
+  const [passwordResetSending, setPasswordResetSending] = useState(false);
+  const handleSendPasswordReset = async () => {
+    if (!editingBusiness?.id) return;
+    if (!window.confirm(`Send a password reset link to ${businessDraft?.email || "this business"}?`)) return;
+    setPasswordResetSending(true);
+    try {
+      const response = await fetch(`/api/admin/businesses/${editingBusiness.id}/password-reset`, {
+        method: "POST",
+      });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.detail || "Failed to send reset link");
+      toast.success(`Password reset link sent to ${data?.sent_to || "the business"}.`);
+    } catch (error) {
+      toast.error(error.message || "Failed to send reset link");
+    } finally {
+      setPasswordResetSending(false);
+    }
+  };
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const emptyCreateDraft = { business_name: "", email: "", phone: "", country_code: "AU", subscription_plan: "free", business_type: "" };
+  const [createDraft, setCreateDraft] = useState(emptyCreateDraft);
+  const handleCreateBusiness = async () => {
+    if (!createDraft.business_name.trim() || !createDraft.email.trim()) {
+      toast.error("Business name and email are required.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await fetch(`/api/admin/businesses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...createDraft, business_type: createDraft.business_type || undefined }),
+      });
+      if (response.status === 401) {
+        router.replace("/admin/auth");
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.detail || "Failed to create business");
+      toast.success(
+        data?.reset_email_sent
+          ? "Business created. A password-setup email was sent."
+          : "Business created (password email could not be sent).",
+      );
+      setShowCreate(false);
+      setCreateDraft(emptyCreateDraft);
+      await checkAuthAndFetch();
+    } catch (error) {
+      toast.error(error.message || "Failed to create business");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -718,7 +789,7 @@ export default function AdminPanel() {
             })}
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start justify-between">
@@ -786,7 +857,7 @@ export default function AdminPanel() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start justify-between">
@@ -850,20 +921,20 @@ export default function AdminPanel() {
         <div className={cn("mt-8", activeTab === "businesses" ? "block" : "hidden")}>
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <CardTitle>Businesses</CardTitle>
                     <CardDescription>Manage all registered businesses</CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                     <Input
                       placeholder="Search businesses..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-64"
+                      className="w-full sm:w-64"
                     />
                     <Select value={filterPlan} onValueChange={setFilterPlan}>
-                      <SelectTrigger className="w-36">
+                      <SelectTrigger className="w-full sm:w-36">
                         <SelectValue placeholder="All Plans" />
                       </SelectTrigger>
                       <SelectContent>
@@ -872,10 +943,71 @@ export default function AdminPanel() {
                         <SelectItem value="free">Free</SelectItem>
                       </SelectContent>
                     </Select>
+                    <Button className="w-full sm:w-auto" onClick={() => setShowCreate((v) => !v)}>
+                      <Plus className="h-4 w-4 mr-1.5" /> New business
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                {showCreate && (
+                  <div className="rounded-lg border p-4 space-y-4 bg-muted/20">
+                    <div className="text-sm font-semibold">Create a business</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid gap-1.5">
+                        <Label>Business name *</Label>
+                        <Input value={createDraft.business_name} onChange={(e) => setCreateDraft({ ...createDraft, business_name: e.target.value })} />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>Email *</Label>
+                        <Input type="email" value={createDraft.email} onChange={(e) => setCreateDraft({ ...createDraft, email: e.target.value })} />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>Phone</Label>
+                        <Input value={createDraft.phone} onChange={(e) => setCreateDraft({ ...createDraft, phone: e.target.value })} />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>Country</Label>
+                        <Select value={createDraft.country_code} onValueChange={(v) => setCreateDraft({ ...createDraft, country_code: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {countryOptions().map((c) => (
+                              <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>Business type</Label>
+                        <Select value={createDraft.business_type} onValueChange={(v) => setCreateDraft({ ...createDraft, business_type: v })}>
+                          <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                          <SelectContent>
+                            {BUSINESS_TYPES.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>Plan</Label>
+                        <Select value={createDraft.subscription_plan} onValueChange={(v) => setCreateDraft({ ...createDraft, subscription_plan: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="free">Free</SelectItem>
+                            <SelectItem value="pro">Pro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The owner receives a password-setup email to choose their own password. Currency, units and timezone are derived from the country.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button onClick={handleCreateBusiness} disabled={creating}>{creating ? "Creating..." : "Create business"}</Button>
+                      <Button variant="outline" onClick={() => { setShowCreate(false); setCreateDraft(emptyCreateDraft); }}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
@@ -963,101 +1095,268 @@ export default function AdminPanel() {
                       <div className="py-6 text-sm text-muted-foreground">Loading business details...</div>
                     ) : businessDraft ? (
                       <div className="space-y-6 pt-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <div className="text-muted-foreground">Created</div>
-                            <div className="font-medium">{formatCreatedAt(businessDetail?.business?.created_at)}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Last login</div>
-                            <div className="font-medium">
-                              {businessDetail?.stats?.last_login_at ? formatDateTime(businessDetail.stats.last_login_at) : "-"}
+                        {/* KPI tiles */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {[
+                            { label: "Total bookings", value: businessDetail?.stats?.bookings_count ?? 0 },
+                            {
+                              label: "This month",
+                              value: businessDetail?.stats?.is_unlimited
+                                ? `${businessDetail?.stats?.bookings_this_month ?? 0} (unlimited)`
+                                : `${businessDetail?.stats?.bookings_this_month ?? 0} / ${businessDetail?.stats?.free_limit ?? 50}`,
+                            },
+                            {
+                              label: "Total revenue",
+                              value: formatMoney(businessDetail?.stats?.total_revenue || 0, businessDraft.currency || "aud"),
+                            },
+                            {
+                              label: "Last login",
+                              value: businessDetail?.stats?.last_login_at ? formatDateTime(businessDetail.stats.last_login_at) : "Never",
+                            },
+                          ].map((kpi) => (
+                            <div key={kpi.label} className="rounded-lg border bg-muted/30 p-3">
+                              <div className="text-xs text-muted-foreground">{kpi.label}</div>
+                              <div className="text-lg font-semibold mt-0.5 truncate" title={String(kpi.value)}>{kpi.value}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Profile & region */}
+                        <div className="rounded-lg border p-4 space-y-4">
+                          <div className="text-sm font-semibold">Profile &amp; Region</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid gap-1.5">
+                              <Label>Business Name</Label>
+                              <Input
+                                value={getBusinessName(businessDraft)}
+                                onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Email</Label>
+                              <Input
+                                type="email"
+                                value={businessDraft.email || ""}
+                                onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Phone</Label>
+                              <Input
+                                value={businessDraft.phone || ""}
+                                onChange={(e) => setBusinessDraft({ ...businessDraft, phone: e.target.value })}
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Business Type</Label>
+                              <Select
+                                value={businessDraft.business_type || ""}
+                                onValueChange={(value) => setBusinessDraft({ ...businessDraft, business_type: value })}
+                              >
+                                <SelectTrigger><SelectValue placeholder="Not set" /></SelectTrigger>
+                                <SelectContent>
+                                  {BUSINESS_TYPES.map((t) => (
+                                    <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Country</Label>
+                              <Select
+                                value={businessDraft.country_code || "AU"}
+                                onValueChange={(value) => setBusinessDraft({ ...businessDraft, country_code: value })}
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {countryOptions().map((c) => (
+                                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Currency</Label>
+                              <Input
+                                value={businessDraft.currency || ""}
+                                onChange={(e) => setBusinessDraft({ ...businessDraft, currency: e.target.value })}
+                                placeholder="aud"
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Distance unit</Label>
+                              <Select
+                                value={businessDraft.distance_unit || "km"}
+                                onValueChange={(value) => setBusinessDraft({ ...businessDraft, distance_unit: value })}
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="km">Kilometres (km)</SelectItem>
+                                  <SelectItem value="mi">Miles (mi)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Timezone</Label>
+                              <Input
+                                value={businessDraft.timezone || ""}
+                                onChange={(e) => setBusinessDraft({ ...businessDraft, timezone: e.target.value })}
+                                placeholder="Australia/Sydney"
+                              />
                             </div>
                           </div>
-                          <div>
-                            <div className="text-muted-foreground">Total bookings</div>
-                            <div className="font-medium">{businessDetail?.stats?.bookings_count ?? 0}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Created {formatCreatedAt(businessDetail?.business?.created_at)} · Role: {businessDraft.account_role || "user"}
                           </div>
-                          <div>
-                            <div className="text-muted-foreground">Total revenue</div>
-                            <div className="font-medium">
-                              ${Number(businessDetail?.stats?.total_revenue || 0).toLocaleString()}
+                        </div>
+
+                        {/* Subscription & billing */}
+                        <div className="rounded-lg border p-4 space-y-4">
+                          <div className="text-sm font-semibold">Subscription &amp; Billing</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid gap-1.5">
+                              <Label>Plan</Label>
+                              <Select
+                                value={businessDraft.subscription_plan || "free"}
+                                onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_plan: value })}
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="free">Free</SelectItem>
+                                  <SelectItem value="pro">Pro</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label>Status</Label>
+                              <Select
+                                value={businessDraft.subscription_status || "inactive"}
+                                onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_status: value })}
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">Active</SelectItem>
+                                  <SelectItem value="inactive">Inactive</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
-                          <div>
-                            <div className="text-muted-foreground">Business type</div>
-                            <div className="font-medium">
-                              {businessDetail?.business?.business_type || businessDetail?.business?.industry || "-"}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                            <div className="flex justify-between gap-2 border-b py-1">
+                              <span className="text-muted-foreground">Stripe customer</span>
+                              <span className="font-mono truncate">{businessDetail?.business?.stripe_customer_id || "-"}</span>
                             </div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Status</div>
-                            <div className="font-medium">
-                              {String(businessDraft.subscription_status || "inactive").toUpperCase()}
+                            <div className="flex justify-between gap-2 border-b py-1">
+                              <span className="text-muted-foreground">Stripe subscription</span>
+                              <span className="font-mono truncate">{businessDetail?.business?.stripe_subscription_id || "-"}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 border-b py-1">
+                              <span className="text-muted-foreground">Current period end</span>
+                              <span>{businessDetail?.business?.subscription_current_period_end ? formatDateTime(businessDetail.business.subscription_current_period_end) : "-"}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 border-b py-1">
+                              <span className="text-muted-foreground">Cancels at</span>
+                              <span>{businessDetail?.business?.subscription_cancel_at ? formatDateTime(businessDetail.business.subscription_cancel_at) : "-"}</span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid gap-2 mb-4">
-                          <Label>Business Name</Label>
-                          <Input
-                            value={getBusinessName(businessDraft)}
-                            onChange={(e) => setBusinessDraft({ ...businessDraft, business_name: e.target.value })}
-                          />
+                        {/* This business's payments */}
+                        <div className="rounded-lg border p-4">
+                          <div className="text-sm font-semibold mb-3">Payments</div>
+                          {businessDetail?.payments_schema_ready === false ? (
+                            <div className="text-xs text-muted-foreground">Payments schema not applied yet.</div>
+                          ) : (businessDetail?.payments || []).length === 0 ? (
+                            <div className="text-xs text-muted-foreground">No payments recorded for this business.</div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                    <TableHead>Status</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {(businessDetail.payments || []).map((p) => (
+                                    <TableRow key={p.id || p.stripe_event_id}>
+                                      <TableCell className="whitespace-nowrap">{formatDateTime(p.created_at)}</TableCell>
+                                      <TableCell className="text-xs">{p.event_type || p.description || "-"}</TableCell>
+                                      <TableCell>{formatMoney(p.amount || 0, p.currency || businessDraft.currency || "aud")}</TableCell>
+                                      <TableCell className="capitalize">{p.status || "-"}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
                         </div>
-                        <div className="grid gap-2 mb-4">
-                          <Label>Email</Label>
-                          <Input
-                            type="email"
-                            value={businessDraft.email || ""}
-                            onChange={(e) => setBusinessDraft({ ...businessDraft, email: e.target.value })}
-                          />
-                        </div>
-                        <div className="grid gap-2 mb-4">
-                          <Label>Subscription Plan</Label>
-                          <Select
-                            value={businessDraft.subscription_plan || "free"}
-                            onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_plan: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="free">Free</SelectItem>
-                              <SelectItem value="pro">Pro</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2 mb-4">
-                          <Label>Subscription Status</Label>
-                          <Select
-                            value={businessDraft.subscription_status || "inactive"}
-                            onValueChange={(value) => setBusinessDraft({ ...businessDraft, subscription_status: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2 mb-4">
-                          <Label>Admin Notes</Label>
+
+                        {/* Recent bookings */}
+                        {(businessDetail?.recent_bookings || []).length > 0 && (
+                          <div className="rounded-lg border p-4">
+                            <div className="text-sm font-semibold mb-3">Recent bookings</div>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Customer</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {businessDetail.recent_bookings.map((b) => (
+                                    <TableRow key={b.id}>
+                                      <TableCell className="truncate max-w-[160px]">{b.customer_name || "-"}</TableCell>
+                                      <TableCell className="whitespace-nowrap">{b.booking_date || "-"} {b.booking_time || ""}</TableCell>
+                                      <TableCell className="capitalize">{b.status || "-"}</TableCell>
+                                      <TableCell>
+                                        {formatMoney(
+                                          b.total_amount != null ? b.total_amount : Number(b.price || 0) * Math.max(1, Number(b.quantity || 1)),
+                                          businessDraft.currency || "aud",
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin notes */}
+                        <div className="grid gap-1.5">
+                          <Label>Admin Notes (internal)</Label>
                           <Textarea
                             value={businessDraft.admin_notes || ""}
                             onChange={(e) => setBusinessDraft({ ...businessDraft, admin_notes: e.target.value })}
-                            className="min-h-[120px]"
+                            className="min-h-[100px]"
                           />
                         </div>
-                        <div className="flex gap-2 mt-4">
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-2 pt-2 border-t">
+                          <Button onClick={() => handleUpdateBusiness(businessDraft)} disabled={!businessDraft}>
+                            Save Changes
+                          </Button>
+                          <Button variant="outline" onClick={handleSendPasswordReset} disabled={passwordResetSending}>
+                            <KeyRound className="h-4 w-4 mr-1.5" />
+                            {passwordResetSending ? "Sending..." : "Send password reset"}
+                          </Button>
                           <Button variant="outline" onClick={() => setEditingBusiness(null)}>
                             Close
                           </Button>
-                          <Button onClick={() => handleUpdateBusiness(businessDraft)} disabled={!businessDraft}>
-                            Save Changes
+                          <Button
+                            variant="destructive"
+                            className="ml-auto"
+                            onClick={() => handleDeleteBusiness(editingBusiness.id)}
+                          >
+                            Delete business
                           </Button>
                         </div>
                       </div>

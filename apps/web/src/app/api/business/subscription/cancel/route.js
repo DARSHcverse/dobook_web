@@ -49,13 +49,13 @@ export async function POST(request) {
       console.warn("[cancel] DB update warning:", dbErr?.message);
     }
 
-    // Best-effort confirmation email
+    // Best-effort confirmation email to the business owner.
     try {
-      const { sendCancellationEmail } = await import("@/lib/bookingMailer");
-      if (typeof sendCancellationEmail === "function") {
-        await sendCancellationEmail({ business: auth.business, cancelAt: cancelAtIso });
-      }
-    } catch {}
+      const { sendSubscriptionCancelledEmail } = await import("@/lib/bookingMailer");
+      await sendSubscriptionCancelledEmail({ business: auth.business, cancelAt: cancelAtIso });
+    } catch (mailErr) {
+      console.warn("[cancel] confirmation email warning:", mailErr?.message);
+    }
 
     return NextResponse.json({ cancelled: true, cancel_at: cancelAtIso });
   } catch (err) {
