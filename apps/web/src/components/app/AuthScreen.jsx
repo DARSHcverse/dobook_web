@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
-import { Briefcase, GraduationCap, Hammer, Scissors, Stethoscope } from "lucide-react";
+import { Briefcase, Camera, Car, Dumbbell, Flower, GraduationCap, Hammer, PawPrint, Scale, Scissors, Sparkles, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isValidPhone, phoneValidationHint } from "@/lib/phone";
 import { minimizeBusinessForStorage } from "@/lib/businessStorage";
 import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplates";
-import { PRO_PRICE_AUD } from "@/lib/pricing";
+import { proPriceAmount, resolveProCurrency } from "@/lib/pricing";
+import { DEFAULT_COUNTRY_CODE, countryOptions, normalizeCountryCode, getCountryProfile } from "@/lib/countries";
+import { formatMoney } from "@/lib/money";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -26,6 +28,13 @@ const BUSINESS_TYPE_TO_INDUSTRY = {
   consultant: "consultant",
   tutoring_education: "tutor",
   home_services_trades: "tradie",
+  cleaning_services: "cleaning",
+  fitness_training: "fitness",
+  pet_services: "pet",
+  events_photography: "events",
+  automotive: "automotive",
+  beauty_spa: "beauty",
+  legal_advisory: "legal",
 };
 
 const INDUSTRY_TO_BUSINESS_TYPE = Object.entries(BUSINESS_TYPE_TO_INDUSTRY).reduce((acc, [businessType, industry]) => {
@@ -39,6 +48,13 @@ const BUSINESS_TYPE_ICON = {
   briefcase: Briefcase,
   "graduation-cap": GraduationCap,
   hammer: Hammer,
+  sparkles: Sparkles,
+  dumbbell: Dumbbell,
+  "paw-print": PawPrint,
+  camera: Camera,
+  car: Car,
+  flower: Flower,
+  scale: Scale,
 };
 
 function businessTypeForIndustry(industry) {
@@ -79,7 +95,10 @@ export default function AuthScreen() {
   }, [searchParams]);
   const initialIndustry = useMemo(() => {
     const raw = String(searchParams?.get("industry") || "").toLowerCase();
-    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    const allowed = new Set([
+      "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
+      "cleaning", "pet", "events", "automotive", "beauty", "legal",
+    ]);
     return allowed.has(raw) ? raw : "photobooth";
   }, [searchParams]);
   const forceSignup = useMemo(() => {
@@ -98,16 +117,53 @@ export default function AuthScreen() {
     subscription_plan: initialPlan,
     industry: initialIndustry,
     business_type: initialBusinessType || businessTypeForIndustry(initialIndustry) || "",
+    country_code: DEFAULT_COUNTRY_CODE,
     signup_hp: "",
   });
+
+  // Auto-detect the signup country (editable). Falls back to the default on error.
+  useEffect(() => {
+    if (isLogin) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/public/geo`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const code = normalizeCountryCode(data?.country_code);
+        if (active && code) {
+          setFormData((prev) => ({ ...prev, country_code: code }));
+        }
+      } catch {
+        // keep default
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isLogin]);
   const selectedIndustryBusinessType = useMemo(
     () => businessTypeForIndustry(formData.industry),
     [formData.industry],
   );
   const businessTypeChoices = useMemo(() => {
-    if (!selectedIndustryBusinessType) return [];
-    return BUSINESS_TYPES.filter((t) => t.id === selectedIndustryBusinessType);
+    // If the user arrived via a specific industry (e.g. an industry landing
+    // page), focus on that type. Otherwise let them pick from all types.
+    if (selectedIndustryBusinessType) {
+      return BUSINESS_TYPES.filter((t) => t.id === selectedIndustryBusinessType);
+    }
+    return BUSINESS_TYPES;
   }, [selectedIndustryBusinessType]);
+
+  // Localized Pro price for the plan card, derived from the selected country.
+  const proCurrency = useMemo(
+    () => resolveProCurrency(getCountryProfile(formData.country_code).currency),
+    [formData.country_code],
+  );
+  const proPriceLabel = useMemo(
+    () => formatMoney(proPriceAmount(proCurrency), proCurrency, { maximumFractionDigits: 0 }),
+    [proCurrency],
+  );
 
   useEffect(() => {
     if (!forceSignup) return;
@@ -156,8 +212,8 @@ export default function AuthScreen() {
         return;
       }
 
-      if (!isLogin && formData.phone && !isValidPhone(formData.phone)) {
-        toast.error(phoneValidationHint());
+      if (!isLogin && formData.phone && !isValidPhone(formData.phone, formData.country_code)) {
+        toast.error(phoneValidationHint(formData.country_code));
         return;
       }
 
@@ -174,11 +230,13 @@ export default function AuthScreen() {
           toast.error("Password must be at least 6 characters");
           return;
         }
+        // Advance to the business-type step. If the user arrived via a specific
+        // industry, pre-select its type; otherwise they'll choose from all types.
         if (selectedIndustryBusinessType) {
           setFormData((prev) => ({ ...prev, business_type: selectedIndustryBusinessType }));
-          setSignupStep(2);
-          return;
         }
+        setSignupStep(2);
+        return;
       }
 
       if (!isLogin && signupStep === 2) {
@@ -405,7 +463,7 @@ export default function AuthScreen() {
 	                    >
 	                      <div className="flex items-center justify-between">
 	                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Pro</div>
-	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">${PRO_PRICE_AUD} AUD / month</div>
+	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">{proPriceLabel} {proCurrency.toUpperCase()} / month</div>
 	                      </div>
 	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Unlimited bookings • Invoice PDFs • Automated reminders</div>
 	                    </button>
@@ -542,6 +600,32 @@ export default function AuthScreen() {
 
                   {!isLogin && signupStep === 1 && (
                     <div className="space-y-2">
+                      <Label htmlFor="country">Country</Label>
+                      <Select
+                        value={formData.country_code}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, country_code: normalizeCountryCode(value) || DEFAULT_COUNTRY_CODE })
+                        }
+                      >
+                        <SelectTrigger id="country" className="bg-zinc-50 border-zinc-200 rounded-xl h-12">
+                          <SelectValue placeholder="Select your country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countryOptions().map((c) => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.name} ({c.currency.toUpperCase()})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-zinc-500">
+                        Sets your currency, units, and phone format. You can change this later in Settings.
+                      </p>
+                    </div>
+                  )}
+
+                  {!isLogin && signupStep === 1 && (
+                    <div className="space-y-2">
                       <Label htmlFor="phone">Phone (optional)</Label>
                       <Input
                         id="phone"
@@ -552,7 +636,7 @@ export default function AuthScreen() {
                         inputMode="tel"
                         className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
                       />
-                      <p className="text-xs text-zinc-500">{phoneValidationHint()}</p>
+                      <p className="text-xs text-zinc-500">{phoneValidationHint(formData.country_code)}</p>
                     </div>
                   )}
 

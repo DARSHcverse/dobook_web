@@ -16,6 +16,7 @@ function sanitize(business) {
     public_website: business.public_website,
     booth_types: Array.isArray(business.booth_types) ? business.booth_types : [],
     public_services: Array.isArray(business.public_services) ? business.public_services : [],
+    currency: business.currency || "aud",
   };
 }
 
@@ -28,7 +29,7 @@ export async function GET(_request, { params }) {
     const { data, error } = await sb
       .from("businesses")
       .select(
-        "id,business_name,industry,logo_url,business_address,public_enabled,public_description,public_postcode,public_photos,public_website,booth_types,public_services",
+        "id,business_name,industry,logo_url,business_address,public_enabled,public_description,public_postcode,public_photos,public_website,booth_types,public_services,currency",
       )
       .eq("id", businessId)
       .maybeSingle();

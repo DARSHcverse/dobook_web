@@ -145,9 +145,9 @@ export function renderClassic(doc, data, templateSettings) {
             doc.rect(tableLeft, rowY - 12, tableRight - tableLeft, rowH + 6, "F");
         }
         doc.text(lines, marginX, rowY);
-        doc.text(asMoneyNoCents(item.unit_price), rateX, rowY, { align: "right" });
+        doc.text(asMoneyNoCents(item.unit_price, d.currency), rateX, rowY, { align: "right" });
         doc.text(String(item.qty), qtyX, rowY, { align: "right" });
-        doc.text(asMoneyNoCents(item.total), totalX, rowY, { align: "right" });
+        doc.text(asMoneyNoCents(item.total, d.currency), totalX, rowY, { align: "right" });
         rowY += rowH;
         rowIdx += 1;
     }
@@ -168,7 +168,7 @@ export function renderClassic(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(10);
     doc.setTextColor(70);
-    doc.text(asMoneyNoCents(d.total), lineX2, totalsY, { align: "right" });
+    doc.text(asMoneyNoCents(d.total, d.currency), lineX2, totalsY, { align: "right" });
 
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(9);
@@ -177,7 +177,7 @@ export function renderClassic(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(10);
     doc.setTextColor(70);
-    doc.text(asMoneyNoCents(d.total), lineX2, totalsY + 26, { align: "right" });
+    doc.text(asMoneyNoCents(d.total, d.currency), lineX2, totalsY + 26, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();
@@ -345,8 +345,8 @@ export function renderClean(doc, data, templateSettings) {
         }
         doc.text(lines, descX, y);
         doc.text(String(item.qty), qtyX, y, { align: "right" });
-        doc.text(asMoney(item.unit_price), priceX, y, { align: "right" });
-        doc.text(asMoney(item.total), totalX, y, { align: "right" });
+        doc.text(asMoney(item.unit_price, d.currency), priceX, y, { align: "right" });
+        doc.text(asMoney(item.total, d.currency), totalX, y, { align: "right" });
         y += rowH;
         rowIdx += 1;
     }
@@ -362,12 +362,12 @@ export function renderClean(doc, data, templateSettings) {
     setTemplateFont(doc, s, "normal");
     doc.setFontSize(10);
     doc.setTextColor(80);
-    doc.text(`Subtotal: ${asMoney(d.total)}`, lineX2 - 10, totalsTop, { align: "right" });
-    doc.text(`Tax: ${asMoney(0)}`, lineX2 - 10, totalsTop + 16, { align: "right" });
+    doc.text(`Subtotal: ${asMoney(d.total, d.currency)}`, lineX2 - 10, totalsTop, { align: "right" });
+    doc.text(`Tax: ${asMoney(0, d.currency)}`, lineX2 - 10, totalsTop + 16, { align: "right" });
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(16);
     setTextHex(doc, s.primary_color, { r: 225, g: 29, b: 72 });
-    doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, totalsTop + 42, { align: "right" });
+    doc.text(`Total: ${asMoney(d.total, d.currency)}`, lineX2 - 10, totalsTop + 42, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();
@@ -478,7 +478,7 @@ export function renderGradient(doc, data, templateSettings) {
             doc.rect(tableLeft, rowY - 12, tableRight - tableLeft, rowH + 6, "F");
         }
         doc.text(lines, marginX + 10, rowY);
-        doc.text(asMoney(item.total), lineX2 - 10, rowY, { align: "right" });
+        doc.text(asMoney(item.total, d.currency), lineX2 - 10, rowY, { align: "right" });
         rowY += rowH;
         rowIdx += 1;
     }
@@ -492,7 +492,7 @@ export function renderGradient(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(18);
     doc.setTextColor(40);
-    doc.text(asMoney(d.total), lineX2 - 10, rowY + 46, { align: "right" });
+    doc.text(asMoney(d.total, d.currency), lineX2 - 10, rowY + 46, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();
@@ -606,7 +606,7 @@ export function renderNavy(doc, data, templateSettings) {
         }
         doc.text(lines, descX, rowY);
         doc.text(String(item.qty), qtyX, rowY, { align: "right" });
-        doc.text(asMoney(item.total), totalX, rowY, { align: "right" });
+        doc.text(asMoney(item.total, d.currency), totalX, rowY, { align: "right" });
         rowY += rowH;
         rowIdx += 1;
     }
@@ -620,7 +620,7 @@ export function renderNavy(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(18);
     setTextHex(doc, "#1e3a8a", { r: 30, g: 58, b: 138 });
-    doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, rowY + 52, { align: "right" });
+    doc.text(`Total: ${asMoney(d.total, d.currency)}`, lineX2 - 10, rowY + 52, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();
@@ -723,7 +723,7 @@ export function renderElegant(doc, data, templateSettings) {
             doc.rect(tableLeft, rowY - 12, tableRight - tableLeft, rowH + 6, "F");
         }
         doc.text(lines, marginX, rowY);
-        doc.text(asMoney(item.total), lineX2, rowY, { align: "right" });
+        doc.text(asMoney(item.total, d.currency), lineX2, rowY, { align: "right" });
         rowY += rowH;
         rowIdx += 1;
     }
@@ -739,7 +739,7 @@ export function renderElegant(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(18);
     doc.setTextColor(30);
-    doc.text(`Total Due: ${asMoney(d.total)}`, lineX2, rowY + 60, { align: "right" });
+    doc.text(`Total Due: ${asMoney(d.total, d.currency)}`, lineX2, rowY + 60, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();
@@ -849,7 +849,7 @@ export function renderSidebar(doc, data, templateSettings) {
             doc.rect(tableLeft, rowY - 12, tableRight - tableLeft, rowH + 6, "F");
         }
         doc.text(lines, x + 10, rowY);
-        doc.text(asMoney(item.total), lineX2 - 10, rowY, { align: "right" });
+        doc.text(asMoney(item.total, d.currency), lineX2 - 10, rowY, { align: "right" });
         rowY += rowH;
         rowIdx += 1;
     }
@@ -863,7 +863,7 @@ export function renderSidebar(doc, data, templateSettings) {
     setTemplateFont(doc, s, "bold");
     doc.setFontSize(18);
     doc.setTextColor(30);
-    doc.text(`Total: ${asMoney(d.total)}`, lineX2 - 10, rowY + 52, { align: "right" });
+    doc.text(`Total: ${asMoney(d.total, d.currency)}`, lineX2 - 10, rowY + 52, { align: "right" });
 
     if (s.show_notes) {
         const notesText = String(booking?.notes || "").trim();

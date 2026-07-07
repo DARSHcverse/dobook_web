@@ -1,6 +1,37 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
+import { getCountryProfile, normalizeCountryCode } from "@/lib/countries";
+import { normalizeCurrency } from "@/lib/money";
+import { normalizeDistanceUnit } from "@/lib/distance";
+
+// Shared region-field normalization for both the supabase and local branches.
+// If only country_code is provided, currency/unit/timezone are auto-derived
+// from it; each can still be overridden by sending it explicitly.
+function applyRegionUpdate(key, body, target) {
+  if (key === "country_code") {
+    const code = normalizeCountryCode(body.country_code);
+    if (!code) return;
+    const profile = getCountryProfile(code);
+    target.country_code = code;
+    if (!("currency" in body)) target.currency = profile.currency;
+    if (!("distance_unit" in body)) target.distance_unit = profile.distance_unit;
+    if (!("timezone" in body)) target.timezone = profile.timezone;
+    return;
+  }
+  if (key === "currency") {
+    target.currency = normalizeCurrency(body.currency);
+    return;
+  }
+  if (key === "distance_unit") {
+    target.distance_unit = normalizeDistanceUnit(body.distance_unit);
+    return;
+  }
+  if (key === "timezone") {
+    target.timezone = String(body.timezone || "").trim().slice(0, 64) || "UTC";
+    return;
+  }
+}
 
 export async function GET(request) {
   const auth = await requireSession(request);
@@ -26,7 +57,10 @@ export async function PUT(request) {
   };
   const normalizeIndustry = (value) => {
     const raw = String(value || "").trim().toLowerCase();
-    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    const allowed = new Set([
+      "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
+      "cleaning", "pet", "events", "automotive", "beauty", "legal",
+    ]);
     return allowed.has(raw) ? raw : "photobooth";
   };
   const normalizeReminderTimes = (value) => {
@@ -50,6 +84,10 @@ export async function PUT(request) {
     "account_number",
     "payment_link",
     "industry",
+    "country_code",
+    "currency",
+    "distance_unit",
+    "timezone",
     "booth_types",
     "booking_custom_fields",
     "travel_fee_enabled",
@@ -94,6 +132,10 @@ export async function PUT(request) {
       }
       if (key === "industry") {
         updates.industry = normalizeIndustry(body.industry);
+        continue;
+      }
+      if (key === "country_code" || key === "currency" || key === "distance_unit" || key === "timezone") {
+        applyRegionUpdate(key, body, updates);
         continue;
       }
       if (key === "travel_fee_enabled" || key === "cbd_fee_enabled") {
@@ -239,6 +281,10 @@ export async function PUT(request) {
     }
     if (key === "industry") {
       auth.business.industry = normalizeIndustry(body.industry);
+      continue;
+    }
+    if (key === "country_code" || key === "currency" || key === "distance_unit" || key === "timezone") {
+      applyRegionUpdate(key, body, auth.business);
       continue;
     }
     if (key === "travel_fee_enabled" || key === "cbd_fee_enabled") {

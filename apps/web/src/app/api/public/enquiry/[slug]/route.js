@@ -8,6 +8,7 @@ function sanitizeBusiness(b) {
     slug: b.slug,
     business_name: b.business_name,
     industry: b.industry,
+    currency: b.currency || "aud",
     logo_url: b.brand_logo_url || b.logo_url || "",
     brand_color: b.brand_color || "#E8193C",
     brand_logo_url: b.brand_logo_url || "",
@@ -40,7 +41,7 @@ export async function GET(_request, { params }) {
     const { data: business, error: bErr } = await sb
       .from("businesses")
       .select(
-        "id,slug,business_name,industry,logo_url,brand_color,brand_logo_url,business_address,public_website,public_description,public_enabled,phone,email,enquiry_page_enabled,enquiry_auto_quote,enquiry_response_hours,enquiry_deposit_type,enquiry_deposit_amount,enquiry_deposit_percentage,enquiry_quote_validity_hours,enquiry_cancellation_policy,enquiry_confirmation_message",
+        "id,slug,business_name,industry,currency,logo_url,brand_color,brand_logo_url,business_address,public_website,public_description,public_enabled,phone,email,enquiry_page_enabled,enquiry_auto_quote,enquiry_response_hours,enquiry_deposit_type,enquiry_deposit_amount,enquiry_deposit_percentage,enquiry_quote_validity_hours,enquiry_cancellation_policy,enquiry_confirmation_message",
       )
       .ilike("slug", slug)
       .maybeSingle();

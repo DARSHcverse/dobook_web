@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import axios from "axios";
-import { Briefcase, GraduationCap, Hammer, Scissors, Stethoscope } from "lucide-react";
+import { Briefcase, Camera, Car, Dumbbell, Flower, GraduationCap, Hammer, PawPrint, Scale, Scissors, Sparkles, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,13 @@ const ICONS = {
   briefcase: Briefcase,
   "graduation-cap": GraduationCap,
   hammer: Hammer,
+  sparkles: Sparkles,
+  dumbbell: Dumbbell,
+  "paw-print": PawPrint,
+  camera: Camera,
+  car: Car,
+  flower: Flower,
+  scale: Scale,
 };
 
 export default function BusinessTypeSettingsCard({ business, onUpdate }) {

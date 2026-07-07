@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { hasStripeConfig, stripe, appBaseUrlFromRequest } from "@/lib/stripeServer";
 import { isOwnerBusiness } from "@/lib/entitlements";
+import { proStripePriceId, resolveProCurrency, DEFAULT_PRO_CURRENCY } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -42,17 +43,24 @@ export async function POST(request) {
   const plan = String(body?.plan || "pro").trim().toLowerCase();
   if (plan !== "pro") return badRequest("Only the pro plan is supported");
 
-  // STRIPE_PRICE_PRO_AUD should be the Stripe Price ID for the Pro plan ($20 AUD/month).
-  const priceId = process.env.STRIPE_PRICE_PRO_AUD?.trim();
+  const business = auth.business;
+
+  // Pick the Stripe Price ID matching the business's billing currency. If that
+  // currency isn't configured in Stripe yet, fall back to the default (AUD) so
+  // checkout still works rather than blocking the upgrade.
+  const billingCurrency = resolveProCurrency(business?.currency);
+  const priceId = proStripePriceId(billingCurrency) || proStripePriceId(DEFAULT_PRO_CURRENCY);
   if (!priceId) {
     return NextResponse.json(
-      { detail: "Missing STRIPE_PRICE_PRO_AUD (Stripe Price ID for the Pro plan)" },
+      {
+        detail:
+          "Missing Stripe Price ID for the Pro plan. Set STRIPE_PRICE_PRO_AUD (and optionally per-currency price env vars).",
+      },
       { status: 500 },
     );
   }
 
   const baseUrl = appBaseUrlFromRequest(request);
-  const business = auth.business;
 
   const client = stripe();
   const existingCustomerId = String(business?.stripe_customer_id || "").trim();
@@ -81,11 +89,13 @@ export async function POST(request) {
     metadata: {
       business_id: String(business?.id || ""),
       plan: "pro",
+      billing_currency: billingCurrency,
     },
     subscription_data: {
       metadata: {
         business_id: String(business?.id || ""),
         plan: "pro",
+        billing_currency: billingCurrency,
       },
     },
   });

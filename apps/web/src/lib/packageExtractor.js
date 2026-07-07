@@ -1,6 +1,6 @@
 import "server-only";
 
-const ANTHROPIC_MODEL = "claude-opus-4-6";
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 export function stripHtmlToText(html) {

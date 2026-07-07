@@ -7,7 +7,9 @@ import { hasProAccess } from "@/lib/entitlements";
 import { createCalendarEvent } from "@/lib/googleCalendar";
 import { sendSMS, formatSMSDate, formatSMSTime } from "@/lib/sms";
 import { bookingConfirmationSMS } from "@/lib/smsTemplates";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, phoneValidationHint } from "@/lib/phone";
+import { formatMoney } from "@/lib/money";
+import { formatDistance, distanceUnitLabel } from "@/lib/distance";
 import { getClientIp, rateLimit } from "@/lib/rateLimit";
 import { pickExistingPublicColumns } from "@/lib/dbSchema";
 import {
@@ -171,7 +173,9 @@ async function computeTravelFee({ business, body }) {
   }
 
   const label = String(business?.travel_fee_label || "Travel charge").trim() || "Travel charge";
-  const description = `${label} (${billableKm} km @ $${rate.toFixed(2)}/km)`;
+  const currency = business?.currency || "aud";
+  const unit = business?.distance_unit || "km";
+  const description = `${label} (${formatDistance(billableKm, unit, { digits: 0 })} @ ${formatMoney(rate, currency)}/${distanceUnitLabel(unit)})`;
 
   return {
     distance_km: Math.round(km * 100) / 100,
@@ -349,11 +353,11 @@ export async function POST(request) {
     return reject(request, 400, "Invalid customer_email", "invalid_customer_email");
   }
 
-  if (body?.customer_phone && !isValidPhone(body.customer_phone)) {
+  if (body?.customer_phone && !isValidPhone(body.customer_phone, auth.business?.country_code)) {
     return reject(
       request,
       400,
-      "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678).",
+      `Invalid phone number. ${phoneValidationHint(auth.business?.country_code)}`,
       "invalid_phone",
     );
   }

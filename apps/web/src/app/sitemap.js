@@ -9,7 +9,10 @@ export default function sitemap() {
   const base = resolveSiteUrl();
   const lastModified = new Date();
 
-  const industries = ["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"];
+  const industries = [
+    "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
+    "cleaning", "pet", "events", "automotive", "beauty", "legal",
+  ];
   const staticPages = ["/terms", "/privacy", "/policies/cancellation", "/discover"];
 
   return [

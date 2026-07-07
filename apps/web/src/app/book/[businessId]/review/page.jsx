@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
+import { formatMoney } from "@/lib/money";
 
 function SummaryCard({ title, rows }) {
   return (
@@ -174,6 +175,8 @@ export default function ReviewPage() {
     );
   };
 
+  const currency = business?.currency || "aud";
+
   return (
     <BookingShell business={business} currentStep={5}>
       <button
@@ -209,7 +212,7 @@ export default function ReviewPage() {
           rows={[
             ["Booth Type", categoryName],
             ["Package", packageName],
-            ["Package Price", `$${packagePrice.toFixed(2)}`],
+            ["Package Price", formatMoney(packagePrice, currency)],
           ]}
         />
 
@@ -237,7 +240,7 @@ export default function ReviewPage() {
         {selectedAddons.length > 0 && (
           <SummaryCard
             title="Add-Ons"
-            rows={selectedAddons.map((a) => [a.name, `$${Number(a.price || 0).toFixed(2)}`])}
+            rows={selectedAddons.map((a) => [a.name, formatMoney(a.price, currency)])}
           />
         )}
 
@@ -264,7 +267,7 @@ export default function ReviewPage() {
             }}
           >
             <span>{packageName}</span>
-            <span>${packagePrice.toFixed(2)}</span>
+            <span>{formatMoney(packagePrice, currency)}</span>
           </div>
           {selectedAddons.map((a) => (
             <div
@@ -278,7 +281,7 @@ export default function ReviewPage() {
               }}
             >
               <span>+ {a.name}</span>
-              <span>${Number(a.price || 0).toFixed(2)}</span>
+              <span>{formatMoney(a.price, currency)}</span>
             </div>
           ))}
           <div
@@ -294,7 +297,7 @@ export default function ReviewPage() {
             }}
           >
             <span>Estimated Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>{formatMoney(total, currency)}</span>
           </div>
         </div>
 

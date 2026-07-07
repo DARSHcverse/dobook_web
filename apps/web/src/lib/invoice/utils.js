@@ -1,11 +1,13 @@
-export function asMoney(value) {
+import { formatMoney } from "../money";
+
+export function asMoney(value, currency = "aud") {
     const n = Number(value || 0);
-    return `$${Number.isFinite(n) ? n.toFixed(2) : "0.00"}`;
+    return formatMoney(Number.isFinite(n) ? n : 0, currency);
 }
 
-export function asMoneyNoCents(value) {
+export function asMoneyNoCents(value, currency = "aud") {
     const n = Number(value || 0);
-    return `$${Number.isFinite(n) ? n.toFixed(0) : "0"}`;
+    return formatMoney(Number.isFinite(n) ? n : 0, currency, { maximumFractionDigits: 0 });
 }
 
 export function asNumber(value, fallback = 0) {
@@ -232,8 +234,10 @@ export function commonInvoiceData({ booking, business }) {
     ].filter(Boolean);
 
     const paymentLink = String(business?.payment_link || "").trim();
+    const currency = business?.currency || "aud";
 
     return {
+        currency,
         qty,
         unit,
         total,

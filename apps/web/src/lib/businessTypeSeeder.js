@@ -92,6 +92,73 @@ export async function seedBusinessTypeDefaultsOnSignup({ sb, businessId, busines
   return { ok: true, seeded: true };
 }
 
+// Apply an AI-generated onboarding config: set the business type + scheduling
+// defaults (from the base template), the AI's suggested services, and its
+// booking fields / add-ons. Existing fields/add-ons are replaced so re-running
+// the wizard cleanly reflects the latest suggestion.
+export async function applyAiOnboardingConfig({ sb, businessId, config }) {
+  const businessType = normalizeBusinessType(config?.business_type);
+  if (!businessType) return { ok: false, detail: "Invalid business_type" };
+
+  const template = getBusinessTypeTemplate(businessType) || {};
+  const scheduling = template.scheduling || {};
+
+  const services = normalizeServices(config?.services);
+  const updates = {
+    business_type: businessType,
+    buffer_mins: asNumber(scheduling.buffer_mins, 0),
+    advance_booking_hrs: asNumber(scheduling.advance_booking_hrs, 0),
+    reminder_timing_hrs: normalizeReminderHours(scheduling.reminder_timing_hrs),
+    allow_recurring: Boolean(scheduling.allow_recurring),
+    require_deposit: Boolean(scheduling.require_deposit),
+  };
+  if (services.length) updates.booth_types = services;
+
+  const { error: updErr } = await sb.from("businesses").update(updates).eq("id", businessId);
+  if (updErr) return { ok: false, detail: updErr.message };
+
+  const fieldRows = (Array.isArray(config?.booking_fields) ? config.booking_fields : [])
+    .map((f, i) => ({
+      business_id: businessId,
+      field_key: String(f?.field_key || "").trim(),
+      field_name: String(f?.field_name || "").trim(),
+      field_type: String(f?.field_type || "text").trim(),
+      required: Boolean(f?.required),
+      is_private: Boolean(f?.is_private),
+      sort_order: Number.isFinite(Number(f?.sort_order)) ? Number(f.sort_order) : i * 10,
+      field_options: Array.isArray(f?.field_options) ? f.field_options : [],
+    }))
+    .filter((r) => r.field_key && r.field_name);
+
+  const addonRows = (Array.isArray(config?.addons) ? config.addons : [])
+    .map((a, i) => ({
+      business_id: businessId,
+      name: String(a?.name || "").trim(),
+      description: String(a?.description || "").trim(),
+      price: asNumber(a?.price, 0),
+      duration_extra_mins: asNumber(a?.duration_extra_mins, 0),
+      is_active: a?.is_active === false ? false : true,
+      sort_order: Number.isFinite(Number(a?.sort_order)) ? Number(a.sort_order) : i * 10,
+    }))
+    .filter((r) => r.name);
+
+  // Replace prior wizard/template output so the applied config is what the AI suggested.
+  await sb.from("booking_form_fields").delete().eq("business_id", businessId);
+  await sb.from("service_addons").delete().eq("business_id", businessId);
+
+  if (fieldRows.length) await sb.from("booking_form_fields").insert(fieldRows);
+  if (addonRows.length) await sb.from("service_addons").insert(addonRows);
+
+  return {
+    ok: true,
+    applied: true,
+    business_type: businessType,
+    services_count: services.length,
+    fields_count: fieldRows.length,
+    addons_count: addonRows.length,
+  };
+}
+
 export async function applyBusinessTypeTemplateNoOverwrite({ sb, businessId, businessType }) {
   const seed = deriveBusinessSeedFromType({ businessType });
   if (!seed) return { ok: false, detail: "Invalid business type" };

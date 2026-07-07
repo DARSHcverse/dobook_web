@@ -19,6 +19,12 @@ const INDUSTRIES = {
   tutor: { label: "Tutors", title: "Booking System for Tutors | DoBook" },
   fitness: { label: "Fitness Trainers", title: "Booking System for Fitness Trainers | DoBook" },
   tradie: { label: "Tradies", title: "Booking System for Tradies | DoBook" },
+  cleaning: { label: "Cleaners", title: "Booking System for Cleaning Businesses | DoBook" },
+  pet: { label: "Pet Services", title: "Booking System for Pet Groomers & Sitters | DoBook" },
+  events: { label: "Photographers", title: "Booking System for Photographers & Events | DoBook" },
+  automotive: { label: "Mechanics", title: "Booking System for Mechanics & Auto Services | DoBook" },
+  beauty: { label: "Beauty & Spa", title: "Booking System for Beauty & Spa | DoBook" },
+  legal: { label: "Advisors", title: "Booking System for Legal & Professional Advisors | DoBook" },
 };
 
 export async function generateMetadata({ params }) {

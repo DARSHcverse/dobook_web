@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
+import { formatMoney } from "@/lib/money";
 
 export default function AddonsPage() {
   const { businessId } = useParams();
@@ -106,6 +107,8 @@ export default function AddonsPage() {
     );
   }
 
+  const currency = business?.currency || "aud";
+
   return (
     <BookingShell business={business} currentStep={4}>
       <button
@@ -205,7 +208,7 @@ export default function AddonsPage() {
                       flexShrink: 0,
                     }}
                   >
-                    +${Number(addon.price || 0).toFixed(2)}
+                    +{formatMoney(addon.price, currency)}
                   </div>
                 </div>
               );
@@ -235,7 +238,7 @@ export default function AddonsPage() {
               }}
             >
               <span>{packageName}</span>
-              <span>${packagePrice.toFixed(2)}</span>
+              <span>{formatMoney(packagePrice, currency)}</span>
             </div>
             {selectedAddonObjects.map((a) => (
               <div
@@ -249,7 +252,7 @@ export default function AddonsPage() {
                 }}
               >
                 <span>+ {a.name}</span>
-                <span>${Number(a.price || 0).toFixed(2)}</span>
+                <span>{formatMoney(a.price, currency)}</span>
               </div>
             ))}
             <div
@@ -265,7 +268,7 @@ export default function AddonsPage() {
               }}
             >
               <span>Estimated Total</span>
-              <span>${total.toFixed(2)}</span>
+              <span>{formatMoney(total, currency)}</span>
             </div>
           </div>
 

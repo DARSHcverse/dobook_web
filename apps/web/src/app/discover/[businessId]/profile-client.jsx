@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatMoney } from "@/lib/money";
 
 function asList(value) {
   return Array.isArray(value) ? value : [];
@@ -222,7 +223,7 @@ export default function BusinessProfileClient({ businessId }) {
                                 </div>
                                 {s?.price !== null && s?.price !== undefined && s?.price !== "" ? (
                                   <div className="text-sm font-semibold text-zinc-900 whitespace-nowrap">
-                                    ${Number(s.price).toFixed(2)}
+                                    {formatMoney(s.price, business?.currency || "aud")}
                                     {s?.unit ? <span className="text-zinc-500 font-medium">/{s.unit}</span> : null}
                                   </div>
                                 ) : null}

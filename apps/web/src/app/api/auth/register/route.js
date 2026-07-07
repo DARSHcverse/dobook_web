@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendBusinessWelcomeEmail, sendOwnerNewSignupEmail } from "@/lib/bookingMailer";
 import { isOwnerEmail } from "@/lib/entitlements";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, phoneValidationHint } from "@/lib/phone";
+import { getCountryProfile } from "@/lib/countries";
 import { buildSessionCookieOptions, sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
@@ -49,11 +50,22 @@ export async function POST(request) {
 
   const normalizeIndustry = (value) => {
     const raw = String(value || "").trim().toLowerCase();
-    const allowed = new Set(["photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie"]);
+    const allowed = new Set([
+      "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
+      "cleaning", "pet", "events", "automotive", "beauty", "legal",
+    ]);
     return allowed.has(raw) ? raw : "photobooth";
   };
   const business_type = normalizeBusinessType(body?.business_type);
   const industry = normalizeIndustry(body?.industry);
+
+  // Resolve region defaults from the submitted country (auto-detected on the
+  // client, editable). Currency/units/timezone are always overridable in Settings.
+  const region = getCountryProfile(body?.country_code);
+  const country_code = region.code;
+  const currency = String(body?.currency || region.currency).trim().toLowerCase();
+  const distance_unit = region.distance_unit;
+  const timezone = region.timezone;
 
   const defaultBoothTypesForIndustry = (ind) => {
     if (ind === "salon") return ["Haircut", "Color", "Styling"];
@@ -62,6 +74,12 @@ export async function POST(request) {
     if (ind === "tutor") return ["Lesson"];
     if (ind === "fitness") return ["Training Session"];
     if (ind === "tradie") return ["Callout", "Quote", "Job"];
+    if (ind === "cleaning") return ["Standard Clean", "Deep Clean", "End of Lease Clean"];
+    if (ind === "pet") return ["Full Groom", "Bath & Brush", "Nail Trim"];
+    if (ind === "events") return ["Portrait Session", "Event Coverage", "Wedding Package"];
+    if (ind === "automotive") return ["Logbook Service", "Basic Service", "Detailing"];
+    if (ind === "beauty") return ["Massage", "Manicure", "Facial"];
+    if (ind === "legal") return ["Initial Consultation", "Follow-up Meeting"];
     return ["Open Booth", "Glam Booth", "Enclosed Booth"];
   };
 
@@ -74,9 +92,9 @@ export async function POST(request) {
   if (!password || password.length < 6) {
     return NextResponse.json({ detail: "Password must be at least 6 characters" }, { status: 400 });
   }
-  if (phoneRaw && !isValidPhone(phoneRaw)) {
+  if (phoneRaw && !isValidPhone(phoneRaw, country_code)) {
     return NextResponse.json(
-      { detail: "Invalid phone number. Enter 10 digits or include country code (e.g. +61412345678)." },
+      { detail: `Invalid phone number. ${phoneValidationHint(country_code)}` },
       { status: 400 },
     );
   }
@@ -118,6 +136,10 @@ export async function POST(request) {
     payment_link: "",
     industry,
     business_type: seed?.business_type || null,
+    country_code,
+    currency,
+    distance_unit,
+    timezone,
     booth_types: seededBoothTypes,
     booking_custom_fields: Array.isArray(seed?.booking_custom_fields) ? seed.booking_custom_fields : [],
     buffer_mins: Number(seed?.buffer_mins || 0),

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddressAutocomplete from "@/components/app/AddressAutocomplete";
+import { formatMoney } from "@/lib/money";
 
 const STEPS = [
   { key: "booth", label: "Booth Type" },
@@ -32,11 +33,6 @@ const REFERRAL_SOURCES = [
   "Other",
 ];
 
-function formatPrice(n) {
-  const v = Number(n || 0);
-  return `$${v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)}`;
-}
-
 function hexToRgba(hex, alpha) {
   const m = /^#?([a-f0-9]{6})$/i.exec((hex || "").trim());
   if (!m) return `rgba(232, 25, 60, ${alpha})`;
@@ -50,6 +46,11 @@ function hexToRgba(hex, alpha) {
 export default function EnquiryFlow({ initialData, slug }) {
   const router = useRouter();
   const { business, categories, packages, addons } = initialData;
+  const currency = business.currency || "aud";
+  const formatPrice = (n) => {
+    const v = Number(n || 0);
+    return formatMoney(v, currency, v % 1 === 0 ? { maximumFractionDigits: 0 } : {});
+  };
   const brand = business.brand_color || "#E8193C";
   const logo = business.brand_logo_url || business.logo_url || "";
 

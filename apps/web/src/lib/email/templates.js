@@ -1,3 +1,5 @@
+import { formatMoney } from "../money";
+
 export function resolveSiteUrl() {
     const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
     if (explicit) return explicit.replace(/\/+$/, "");
@@ -47,7 +49,7 @@ export function resolveSignupNotifyRecipients() {
     return parseEmailList(process.env.RESEND_ACCOUNT_EMAIL);
 }
 
-export function bookingSummaryLines({ booking }) {
+export function bookingSummaryLines({ booking, currency = "aud" }) {
     const lines = [];
     if (booking?.booking_date) lines.push(`Date: ${booking.booking_date}`);
     if (booking?.booking_time) lines.push(`Start: ${booking.booking_time}`);
@@ -59,11 +61,11 @@ export function bookingSummaryLines({ booking }) {
     const total = booking?.total_amount !== undefined && booking?.total_amount !== null
         ? Number(booking.total_amount || 0)
         : unit * qty;
-    lines.push(`Total: $${Number(total || 0).toFixed(2)}`);
+    lines.push(`Total: ${formatMoney(total, currency)}`);
     return lines;
 }
 
-export function bookingSummaryTableHtml({ booking }) {
+export function bookingSummaryTableHtml({ booking, currency = "aud" }) {
     const rows = [];
     if (booking?.booking_date) rows.push(["Date", booking.booking_date]);
     if (booking?.booking_time) rows.push(["Start", booking.booking_time]);
@@ -74,7 +76,7 @@ export function bookingSummaryTableHtml({ booking }) {
     const total = booking?.total_amount !== undefined && booking?.total_amount !== null
         ? Number(booking.total_amount || 0)
         : unit * qty;
-    rows.push(["Total", `$${Number(total || 0).toFixed(2)}`]);
+    rows.push(["Total", formatMoney(total, currency)]);
 
     const tr = rows
         .map(

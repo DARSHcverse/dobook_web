@@ -1,4 +1,5 @@
 import { buildBusinessFrom, sendEmailViaResend } from "./email";
+import { formatMoney } from "./money";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
 import { hasProAccess, isOwnerBusiness } from "./entitlements";
 import {
@@ -224,6 +225,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   const businessEmail = safeEmail(business?.email);
   const businessName = safeName(business?.business_name) || "this business";
   const customerName = safeName(booking?.customer_name) || "there";
+  const currency = business?.currency || "aud";
   const includeInvoicePdf = hasProAccess(business);
   const confirmationEnabled = business?.confirmation_email_enabled !== false;
   const logoUrl = { url: business?.logo_url || "", businessId: business?.id || "" };
@@ -244,7 +246,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
 
   const customerSubject = `Your booking with ${businessName} is confirmed 🎉`;
   const businessSubject = `New booking • ${String(booking?.customer_name || "").trim() || "Customer"}`;
-  const lines = bookingSummaryLines({ booking });
+  const lines = bookingSummaryLines({ booking, currency });
   const summaryText = lines.join("\n");
 
   const invoiceNoteText = includeInvoicePdf
@@ -275,7 +277,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
     senderName: businessName,
     contentHtml: `
       ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(customerName)}</strong> — your booking with <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> is confirmed.`)}
-      ${bookingSummaryTableHtml({ booking })}
+      ${bookingSummaryTableHtml({ booking, currency })}
       ${customFieldsTableHtml({ booking, fieldDefs })}
       ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
@@ -296,7 +298,7 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
     logoAlt: businessName,
     contentHtml: `
       ${paragraphHtml(`<strong style="color:#18181b;">${escapeHtml(customerName)}</strong> booked you.`)}
-      ${bookingSummaryTableHtml({ booking })}
+      ${bookingSummaryTableHtml({ booking, currency })}
       ${customFieldsTableHtml({ booking, fieldDefs })}
       ${meetingLinkHtml}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
@@ -458,7 +460,8 @@ export async function sendBookingReminderEmail({
   const businessName = safeName(business?.business_name) || "DoBook";
   const whenPhrase = resolvedHours === 24 ? "tomorrow" : `in ${label.label}`;
   const subject = `Reminder: Your ${businessName} booking is ${whenPhrase}`;
-  const lines = includeDetails ? bookingSummaryLines({ booking }) : [];
+  const currency = business?.currency || "aud";
+  const lines = includeDetails ? bookingSummaryLines({ booking, currency }) : [];
   const summaryText = lines.join("\n");
   const paymentLink = String(business?.payment_link || "").trim();
   const customNote = String(customMessage || "").trim();
@@ -472,7 +475,7 @@ export async function sendBookingReminderEmail({
     contentHtml: `
       ${paragraphHtml(`Just a reminder your event is coming up <strong style="color:#18181b;">${escapeHtml(whenPhrase)}</strong>.`)}
       ${customNote ? paragraphHtml(escapeHtml(customNote)) : ""}
-      ${includeDetails ? bookingSummaryTableHtml({ booking }) : ""}
+      ${includeDetails ? bookingSummaryTableHtml({ booking, currency }) : ""}
       ${includePaymentLink && paymentLink
         ? `
           <div style="margin-top:12px;">
@@ -516,12 +519,14 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
   const packageName = pkg?.name ? safeName(pkg.name) : safeName(booking?.service_type) || "Package";
   const basePrice = pkg ? Number(pkg.price || 0) : Number(booking?.price || 0);
   const total = estimatedTotal !== undefined ? Number(estimatedTotal) : basePrice;
+  const currency = business?.currency || "aud";
+  const fmt = (n) => formatMoney(n, currency);
 
   const addonsHtml = addonsList.length
     ? addonsList.map(
         (a) => `<tr>
           <td style="padding:8px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">+ ${escapeHtml(safeName(a.name))}</td>
-          <td style="padding:8px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600; text-align:right;">$${Number(a.price || 0).toFixed(2)}</td>
+          <td style="padding:8px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600; text-align:right;">${fmt(a.price)}</td>
         </tr>`
       ).join("")
     : "";
@@ -537,12 +542,12 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
         ${eventLocation ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Venue</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(eventLocation)}</td></tr>` : ""}
         <tr>
           <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Package</td>
-          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(packageName)} — $${basePrice.toFixed(2)}</td>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(packageName)} — ${fmt(basePrice)}</td>
         </tr>
         ${addonsHtml}
         <tr>
           <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:700;">Estimated Total</td>
-          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:13px; font-weight:700;">$${total.toFixed(2)}</td>
+          <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:13px; font-weight:700;">${fmt(total)}</td>
         </tr>
       </tbody>
     </table>
@@ -573,9 +578,9 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
     `Date: ${bookingDate}\n` +
     (eventType ? `Event Type: ${eventType}\n` : "") +
     (eventLocation ? `Venue: ${eventLocation}\n` : "") +
-    `Package: ${packageName} — $${basePrice.toFixed(2)}\n` +
-    (addonsList.length ? addonsList.map((a) => `+ ${a.name}: $${Number(a.price || 0).toFixed(2)}`).join("\n") + "\n" : "") +
-    `Estimated Total: $${total.toFixed(2)}\n` +
+    `Package: ${packageName} — ${fmt(basePrice)}\n` +
+    (addonsList.length ? addonsList.map((a) => `+ ${a.name}: ${fmt(a.price)}`).join("\n") + "\n" : "") +
+    `Estimated Total: ${fmt(total)}\n` +
     (referenceNum ? `Reference: ${referenceNum}\n` : "");
 
   // Business notification email
@@ -616,7 +621,7 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
     `Date: ${bookingDate}\n` +
     (eventType ? `Event Type: ${eventType}\n` : "") +
     `Package: ${packageName}\n` +
-    `Estimated Total: $${total.toFixed(2)}\n\n` +
+    `Estimated Total: ${fmt(total)}\n\n` +
     `Customer: ${customerName}\n` +
     `Email: ${safeEmail(booking?.customer_email)}\n` +
     (booking?.customer_phone ? `Phone: ${safeName(booking.customer_phone)}\n` : "") +
@@ -656,6 +661,7 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
   const customerName = safeName(booking?.customer_name) || "there";
   const businessEmail = safeEmail(business?.email);
   const price = quotedPrice !== null && quotedPrice !== undefined ? Number(quotedPrice) : Number(booking?.price || 0);
+  const priceText = formatMoney(price, business?.currency || "aud");
   const message = String(quoteMessage || "").trim();
   const bookingDate = safeName(booking?.booking_date) || "TBD";
 
@@ -676,7 +682,7 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
           </tr>
           <tr>
             <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Quoted Price</td>
-            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:16px; font-weight:700;">$${price.toFixed(2)}</td>
+            <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:16px; font-weight:700;">${priceText}</td>
           </tr>
           ${message ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Message</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px;">${escapeHtml(message)}</td></tr>` : ""}
         </tbody>
@@ -689,7 +695,7 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
     `Your Quote from ${businessName}\n\n` +
     `Hi ${customerName} — ${businessName} has sent you a quote.\n\n` +
     `Event Date: ${bookingDate}\n` +
-    `Quoted Price: $${price.toFixed(2)}\n` +
+    `Quoted Price: ${priceText}\n` +
     (message ? `\nMessage: ${message}\n` : "") +
     `\nTo accept this quote, please reply to this email.\n`;
 
@@ -753,7 +759,8 @@ export async function sendBookingCancelledEmail({ booking, business }) {
   const businessEmail = safeEmail(business?.email);
 
   const subject = `Your booking with ${businessName} has been cancelled`;
-  const lines = bookingSummaryLines({ booking });
+  const currency = business?.currency || "aud";
+  const lines = bookingSummaryLines({ booking, currency });
   const summaryText = lines.join("\n");
 
   const html = emailLayout({
@@ -768,7 +775,7 @@ export async function sendBookingCancelledEmail({ booking, business }) {
         businessName,
       )}</strong> has been cancelled.`,
     )}
-      ${bookingSummaryTableHtml({ booking })}
+      ${bookingSummaryTableHtml({ booking, currency })}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         If you have questions or want to reschedule, please reply to this email.
       </div>

@@ -59,7 +59,8 @@ import jsPDF from 'jspdf';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
-import { PRO_PRICE_AUD } from '@/lib/pricing';
+import { PRO_PRICE_AUD, proPriceAmount, resolveProCurrency } from '@/lib/pricing';
+import { formatMoney } from '@/lib/money';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import ImageUpload from '@/components/app/ImageUpload';
@@ -68,6 +69,8 @@ import BusinessTour from '@/components/tour/BusinessTour';
 import ThemeModeToggle from "@/components/app/ThemeModeToggle";
 import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard';
 import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
+import RegionSettingsCard from '@/components/app/RegionSettingsCard';
+import AiOnboardingCard from '@/components/app/AiOnboardingCard';
 import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
 import { cn } from '@/lib/utils';
 
@@ -603,6 +606,8 @@ async function downloadInvoicePdf({ booking, business, template, includeSignatur
 }
 
 const BookingDetailsDialog = ({ booking, business, onClose }) => {
+  const proCurrency = resolveProCurrency(business?.currency);
+  const proPriceLabel = formatMoney(proPriceAmount(business?.currency), proCurrency, { maximumFractionDigits: 0 });
   const [requestingReview, setRequestingReview] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [bookingFieldDefs, setBookingFieldDefs] = useState([]);
@@ -1381,7 +1386,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
         <DialogHeader>
           <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
           <DialogDescription style={{ fontFamily: 'Inter' }}>
-            Invoice PDFs are available on the Pro plan. Upgrade for ${PRO_PRICE_AUD} AUD/month and unlock unlimited
+            Invoice PDFs are available on the Pro plan. Upgrade for {proPriceLabel} {proCurrency.toUpperCase()}/month and unlock unlimited
             bookings, invoice PDFs, SMS reminders and more.
           </DialogDescription>
         </DialogHeader>
@@ -3389,6 +3394,11 @@ const SubscriptionSection = ({
   const [cancelledAt, setCancelledAt] = useState(business?.subscription_cancel_at || null);
 
   const isPro = effectivePlan !== 'free';
+  // Pro price in the business's billing currency (round per-currency price).
+  const proCurrency = resolveProCurrency(business?.currency);
+  const proAmount = proPriceAmount(business?.currency);
+  const proPriceLabel = formatMoney(proAmount, proCurrency, { maximumFractionDigits: 0 });
+  const proOfferLabel = formatMoney(Math.round(proAmount * 0.9), proCurrency, { maximumFractionDigits: 0 });
   const nextBilling = business?.subscription_current_period_end
     ? new Date(business.subscription_current_period_end).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : '—';
@@ -3465,8 +3475,8 @@ const SubscriptionSection = ({
                   <div className="text-sm text-zinc-600">Everything you need to grow</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-zinc-900">${PRO_PRICE_AUD}</div>
-                  <div className="text-xs text-zinc-500">AUD / month</div>
+                  <div className="text-2xl font-bold text-zinc-900">{proPriceLabel}</div>
+                  <div className="text-xs text-zinc-500">{proCurrency.toUpperCase()} / month</div>
                 </div>
               </div>
               <ul className="space-y-1.5 text-sm text-zinc-700 mb-4">
@@ -3483,7 +3493,7 @@ const SubscriptionSection = ({
                 disabled={billingLoading}
                 className="w-full h-11 bg-rose-600 hover:bg-rose-700 rounded-xl"
               >
-                {billingLoading ? 'Redirecting…' : `Upgrade to Pro — $${PRO_PRICE_AUD} AUD/month`}
+                {billingLoading ? 'Redirecting…' : `Upgrade to Pro — ${proPriceLabel} ${proCurrency.toUpperCase()}/month`}
               </Button>
             </div>
           </CardContent>
@@ -3512,7 +3522,7 @@ const SubscriptionSection = ({
               </div>
               <div className="rounded-lg bg-zinc-50 p-4">
                 <div className="text-xs text-zinc-500 mb-1">Amount</div>
-                <div className="font-semibold text-zinc-900">${PRO_PRICE_AUD} AUD/month</div>
+                <div className="font-semibold text-zinc-900">{proPriceLabel} {proCurrency.toUpperCase()}/month</div>
               </div>
             </div>
 
@@ -3612,9 +3622,9 @@ const SubscriptionSection = ({
                   Stay for 2 more months at 10% off
                 </div>
                 <div className="text-sm text-zinc-700 mb-1">
-                  ${PRO_PRICE_AUD} → ${(PRO_PRICE_AUD * 0.9).toFixed(0)} AUD/month for 2 months
+                  {proPriceLabel} → {proOfferLabel} {proCurrency.toUpperCase()}/month for 2 months
                 </div>
-                <div className="text-xs text-zinc-500 mb-1">Then back to normal ${PRO_PRICE_AUD}/month</div>
+                <div className="text-xs text-zinc-500 mb-1">Then back to normal {proPriceLabel}/month</div>
                 <div className="text-xs text-zinc-500">Cancel anytime after</div>
               </div>
               <div className="flex flex-col gap-2 mt-4">
@@ -3624,7 +3634,7 @@ const SubscriptionSection = ({
                   onClick={applyRetentionOffer}
                   disabled={applyingCoupon}
                 >
-                  {applyingCoupon ? 'Applying…' : `Accept Offer — Stay at $${(PRO_PRICE_AUD * 0.9).toFixed(0)}/mo`}
+                  {applyingCoupon ? 'Applying…' : `Accept Offer — Stay at ${proOfferLabel}/mo`}
                 </Button>
                 <button
                   type="button"
@@ -3953,6 +3963,8 @@ const EnquirySettingsCard = ({ business, onUpdate }) => {
 // ============= Account Settings Tab =============
 const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => {} }) => {
   const router = useRouter();
+  const proCurrency = resolveProCurrency(business?.currency);
+  const proPriceLabel = formatMoney(proPriceAmount(business?.currency), proCurrency, { maximumFractionDigits: 0 });
   const [formData, setFormData] = useState({
     business_name: business?.business_name || '',
     phone: business?.phone || '',
@@ -4562,7 +4574,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
                 onClick={handleUpgrade}
                 disabled={billingLoading}
               >
-                {billingLoading ? 'Redirecting…' : `Upgrade to Pro - $${PRO_PRICE_AUD} AUD/month`}
+                {billingLoading ? 'Redirecting…' : `Upgrade to Pro - ${proPriceLabel} ${proCurrency.toUpperCase()}/month`}
               </Button>
             )}
             {!isOwner && effectivePlan !== 'free' && (
@@ -4615,7 +4627,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
             <DialogDescription style={{ fontFamily: 'Inter' }}>
-              This feature is available on the Pro plan. Upgrade for ${PRO_PRICE_AUD} AUD/month and unlock unlimited
+              This feature is available on the Pro plan. Upgrade for {proPriceLabel} {proCurrency.toUpperCase()}/month and unlock unlimited
               bookings, invoice PDFs, SMS reminders and more.
             </DialogDescription>
           </DialogHeader>
@@ -5324,6 +5336,8 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       </>)}
 
       {activeSection === 'booking-editor' && (<>
+      <AiOnboardingCard onApplied={onUpdate} />
+      <RegionSettingsCard />
       <BusinessTypeSettingsCard business={business} onUpdate={onUpdate} />
       <BusinessBookingSettingsCard />
 

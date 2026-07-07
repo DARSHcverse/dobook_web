@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
+import { formatMoney } from "@/lib/money";
 
 function CategoryCard({ category, onClick }) {
   const [hovered, setHovered] = useState(false);
@@ -90,7 +91,7 @@ function CategoryCard({ category, onClick }) {
   );
 }
 
-function PackageCard({ pkg, onChoose }) {
+function PackageCard({ pkg, onChoose, currency = "aud" }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -165,7 +166,7 @@ function PackageCard({ pkg, onChoose }) {
             marginBottom: "12px",
           }}
         >
-          ${Number(pkg.price || 0).toLocaleString("en-AU", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          {formatMoney(pkg.price, currency, { maximumFractionDigits: 0 })}
         </div>
 
         {pkg.description && (
@@ -449,6 +450,7 @@ export default function PackagesPage() {
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
+                currency={business?.currency || "aud"}
                 onChoose={() => handlePackageChoose(pkg)}
               />
             ))}
