@@ -43,14 +43,17 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Module-level so every step component can format prices in the business's
+// currency. Takes currency explicitly (do NOT reference an outer `currency`).
+function formatPrice(n, currency = "aud") {
+  const v = Number(n || 0);
+  return formatMoney(v, currency, v % 1 === 0 ? { maximumFractionDigits: 0 } : {});
+}
+
 export default function EnquiryFlow({ initialData, slug }) {
   const router = useRouter();
   const { business, categories, packages, addons } = initialData;
   const currency = business.currency || "aud";
-  const formatPrice = (n) => {
-    const v = Number(n || 0);
-    return formatMoney(v, currency, v % 1 === 0 ? { maximumFractionDigits: 0 } : {});
-  };
   const brand = business.brand_color || "#E8193C";
   const logo = business.brand_logo_url || business.logo_url || "";
 
@@ -289,6 +292,7 @@ export default function EnquiryFlow({ initialData, slug }) {
             onBack={() => goTo(0)}
             canGoBack={hasMultipleCategories}
             brand={brand}
+            currency={currency}
           />
         )}
 
@@ -301,6 +305,7 @@ export default function EnquiryFlow({ initialData, slug }) {
             pkg={selectedPackage}
             category={selectedCategory}
             estimatedTotal={estimatedTotal}
+            currency={currency}
             onBack={prevStep}
             onNext={() => {
               if (validateEvent()) nextStep();
@@ -319,6 +324,7 @@ export default function EnquiryFlow({ initialData, slug }) {
             onBack={prevStep}
             onNext={nextStep}
             brand={brand}
+            currency={currency}
           />
         )}
 
@@ -333,6 +339,7 @@ export default function EnquiryFlow({ initialData, slug }) {
             basePrice={basePrice}
             addonsTotal={addonsTotal}
             estimatedTotal={estimatedTotal}
+            currency={currency}
             onBack={prevStep}
             onSubmit={submitEnquiry}
             submitting={submitting}
@@ -603,7 +610,7 @@ function FallbackNoCategories({ form, setForm, errors, submitEnquiry, brand, sub
 }
 
 /* Step 2 — Package */
-function StepPackage({ packages, category, selectedId, onSelect, onBack, canGoBack, brand }) {
+function StepPackage({ packages, category, selectedId, onSelect, onBack, canGoBack, brand, currency = "aud" }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
@@ -708,7 +715,7 @@ function StepPackage({ packages, category, selectedId, onSelect, onBack, canGoBa
                 <div style={{ padding: "20px", display: "flex", flexDirection: "column", flex: 1 }}>
                   <h3 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 6px" }}>{p.name}</h3>
                   <div style={{ fontSize: "28px", fontWeight: 800, color: brand, marginBottom: "12px" }}>
-                    {formatPrice(p.price)}
+                    {formatPrice(p.price, currency)}
                   </div>
                   {p.description ? (
                     <p style={{ fontSize: "13px", color: "#52525b", margin: "0 0 12px" }}>{p.description}</p>
@@ -740,7 +747,7 @@ function StepPackage({ packages, category, selectedId, onSelect, onBack, canGoBa
 }
 
 /* Step 3 — Event details */
-function StepEvent({ form, setForm, errors, brand, pkg, category, estimatedTotal, onBack, onNext }) {
+function StepEvent({ form, setForm, errors, brand, pkg, category, estimatedTotal, onBack, onNext, currency = "aud" }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: "24px" }} className="event-grid">
       <style>{`
@@ -856,13 +863,13 @@ function StepEvent({ form, setForm, errors, brand, pkg, category, estimatedTotal
       </div>
 
       <div className="event-summary" style={{ position: "sticky", top: "80px", alignSelf: "start" }}>
-        <OrderSummary pkg={pkg} category={category} estimatedTotal={estimatedTotal} brand={brand} />
+        <OrderSummary pkg={pkg} category={category} estimatedTotal={estimatedTotal} brand={brand} currency={currency} />
       </div>
     </div>
   );
 }
 
-function OrderSummary({ pkg, category, estimatedTotal, brand }) {
+function OrderSummary({ pkg, category, estimatedTotal, brand, currency = "aud" }) {
   return (
     <div
       style={{
@@ -891,7 +898,7 @@ function OrderSummary({ pkg, category, estimatedTotal, brand }) {
             ) : null}
             <div style={{ fontSize: "18px", fontWeight: 700 }}>{pkg.name}</div>
             <div style={{ fontSize: "22px", fontWeight: 800, color: brand, marginTop: "4px" }}>
-              {formatPrice(pkg.price)}
+              {formatPrice(pkg.price, currency)}
             </div>
           </div>
           {Array.isArray(pkg.features) && pkg.features.length ? (
@@ -913,7 +920,7 @@ function OrderSummary({ pkg, category, estimatedTotal, brand }) {
       <div style={{ borderTop: "1px solid #e4e4e7", margin: "16px 0 12px" }} />
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", fontWeight: 700 }}>
         <span>Estimated Total</span>
-        <span style={{ color: brand }}>{formatPrice(estimatedTotal)}</span>
+        <span style={{ color: brand }}>{formatPrice(estimatedTotal, currency)}</span>
       </div>
       <div style={{ fontSize: "11px", color: "#a1a1aa", marginTop: "6px" }}>
         Final price confirmed after review
@@ -923,7 +930,7 @@ function OrderSummary({ pkg, category, estimatedTotal, brand }) {
 }
 
 /* Step 4 — Add-ons */
-function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTotal, onBack, onNext, brand }) {
+function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTotal, onBack, onNext, brand, currency = "aud" }) {
   return (
     <div>
       <button
@@ -980,7 +987,7 @@ function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTo
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "baseline" }}>
                   <div style={{ fontSize: "15px", fontWeight: 700 }}>{a.name}</div>
                   <div style={{ fontSize: "15px", fontWeight: 700, color: brand, whiteSpace: "nowrap" }}>
-                    +{formatPrice(a.price)}
+                    +{formatPrice(a.price, currency)}
                   </div>
                 </div>
                 {a.description ? (
@@ -1003,7 +1010,7 @@ function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTo
       >
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#52525b" }}>
           <span>Package: {pkg?.name || "—"}</span>
-          <span>{formatPrice(basePrice)}</span>
+          <span>{formatPrice(basePrice, currency)}</span>
         </div>
         {selectedIds.map((id) => {
           const a = addons.find((x) => x.id === id);
@@ -1011,14 +1018,14 @@ function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTo
           return (
             <div key={id} style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#52525b", marginTop: "4px" }}>
               <span>+ {a.name}</span>
-              <span>{formatPrice(a.price)}</span>
+              <span>{formatPrice(a.price, currency)}</span>
             </div>
           );
         })}
         <div style={{ borderTop: "1px solid #e4e4e7", margin: "12px 0 8px" }} />
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: 800 }}>
           <span>Estimated Total</span>
-          <span style={{ color: brand }}>{formatPrice(estimatedTotal)}</span>
+          <span style={{ color: brand }}>{formatPrice(estimatedTotal, currency)}</span>
         </div>
       </div>
 
@@ -1033,7 +1040,7 @@ function StepAddons({ addons, selectedIds, onToggle, pkg, basePrice, estimatedTo
 }
 
 /* Step 5 — Review */
-function StepReview({ business, pkg, category, selectedAddons, form, setForm, basePrice, addonsTotal, estimatedTotal, onBack, onSubmit, submitting, submitError, brand }) {
+function StepReview({ business, pkg, category, selectedAddons, form, setForm, basePrice, addonsTotal, estimatedTotal, onBack, onSubmit, submitting, submitError, brand, currency = "aud" }) {
   const dateStr = form.booking_date
     ? new Date(form.booking_date + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : "—";
@@ -1059,7 +1066,7 @@ function StepReview({ business, pkg, category, selectedAddons, form, setForm, ba
             <div style={{ flex: 1 }}>
               {category ? <div style={{ fontSize: "12px", color: "#71717a" }}>{category.name}</div> : null}
               <div style={{ fontSize: "16px", fontWeight: 700 }}>{pkg.name}</div>
-              <div style={{ fontSize: "18px", fontWeight: 800, color: brand }}>{formatPrice(pkg.price)}</div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: brand }}>{formatPrice(pkg.price, currency)}</div>
             </div>
           </div>
         </Card>
@@ -1089,7 +1096,7 @@ function StepReview({ business, pkg, category, selectedAddons, form, setForm, ba
           {selectedAddons.map((a) => (
             <div key={a.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: "4px" }}>
               <span>{a.name}</span>
-              <span style={{ fontWeight: 600 }}>{formatPrice(a.price)}</span>
+              <span style={{ fontWeight: 600 }}>{formatPrice(a.price, currency)}</span>
             </div>
           ))}
         </Card>
@@ -1099,18 +1106,18 @@ function StepReview({ business, pkg, category, selectedAddons, form, setForm, ba
         <SectionTitle>Price Summary</SectionTitle>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: "4px" }}>
           <span>Base package</span>
-          <span>{formatPrice(basePrice)}</span>
+          <span>{formatPrice(basePrice, currency)}</span>
         </div>
         {addonsTotal > 0 ? (
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: "4px" }}>
             <span>Add-ons</span>
-            <span>{formatPrice(addonsTotal)}</span>
+            <span>{formatPrice(addonsTotal, currency)}</span>
           </div>
         ) : null}
         <div style={{ borderTop: "1px solid #e4e4e7", margin: "10px 0" }} />
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px", fontWeight: 800 }}>
           <span>Estimated Total</span>
-          <span style={{ color: brand }}>{formatPrice(estimatedTotal)}</span>
+          <span style={{ color: brand }}>{formatPrice(estimatedTotal, currency)}</span>
         </div>
       </Card>
 
