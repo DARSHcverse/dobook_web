@@ -7,10 +7,12 @@ import { Analytics } from "@vercel/analytics/next";
 import ThemeModeSync from "@/components/app/ThemeModeSync";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { Inter } from "next/font/google";
+import { Inter, Manrope } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+// Self-hosted via next/font — no render-blocking Google Fonts @import.
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const manrope = Manrope({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display", display: "swap" });
 
 export const metadata = {
   title: "DoBook",
@@ -29,7 +31,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)}>
+    <html lang="en" className={cn("font-sans", inter.variable, manrope.variable)}>
       <body>
         <TooltipProvider>
           <ClientShell>{children}</ClientShell>

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500&display=swap');
+/* Fonts are self-hosted via next/font in layout.jsx (no render-blocking @import).
+   --font-sans = Inter (body), --font-display = Manrope (headings). */
 
 * {
   margin: 0;
@@ -7,17 +8,28 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-display), var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 button {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Utility so inline style={{fontFamily:'Manrope'}} can migrate to a class. */
+.font-display {
+  font-family: var(--font-display), var(--font-sans), -apple-system, sans-serif;
+}
+
+/* Back-compat: legacy inline style={{fontFamily:'Manrope'}} (159 uses) now
+   maps to the self-hosted display font instead of falling back to system. */
+[style*="Manrope"] {
+  font-family: var(--font-display), var(--font-sans), -apple-system, sans-serif !important;
 }
 
 .App {

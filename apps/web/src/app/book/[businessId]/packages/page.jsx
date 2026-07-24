@@ -98,15 +98,16 @@ function PackageCard({ pkg, onChoose, currency = "aud" }) {
     <div
       style={{
         background: "#fff",
-        borderRadius: "16px",
+        borderRadius: "20px",
         overflow: "hidden",
         boxShadow: hovered
-          ? "0 8px 30px rgba(0,0,0,0.15)"
-          : "0 2px 8px rgba(0,0,0,0.08)",
-        border: "1px solid #e4e4e7",
+          ? "0 20px 40px -12px rgba(190,18,60,0.18), 0 4px 12px rgba(0,0,0,0.04)"
+          : "0 1px 3px rgba(0,0,0,0.06), 0 8px 24px -16px rgba(0,0,0,0.12)",
+        border: hovered ? "1px solid #fbcfe0" : "1px solid #ececef",
         display: "flex",
         flexDirection: "column",
-        transition: "box-shadow 0.2s ease",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: "transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, border-color 0.25s ease",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -146,27 +147,37 @@ function PackageCard({ pkg, onChoose, currency = "aud" }) {
         )}
       </div>
 
-      <div style={{ padding: "20px", display: "flex", flexDirection: "column", flex: 1 }}>
+      <div style={{ padding: "22px", display: "flex", flexDirection: "column", flex: 1 }}>
         <div
           style={{
-            fontSize: "18px",
-            fontWeight: "800",
+            fontSize: "17px",
+            fontWeight: "700",
+            letterSpacing: "-0.01em",
             color: "#18181b",
-            marginBottom: "6px",
+            marginBottom: "8px",
+            fontFamily: "Manrope",
           }}
         >
           {pkg.name}
         </div>
 
-        <div
-          style={{
-            fontSize: "22px",
-            fontWeight: "800",
-            color: "#e11d48",
-            marginBottom: "12px",
-          }}
-        >
-          {formatMoney(pkg.price, currency, { maximumFractionDigits: 0 })}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "14px" }}>
+          <span
+            style={{
+              fontSize: "26px",
+              fontWeight: "800",
+              letterSpacing: "-0.02em",
+              color: "#e11d48",
+              fontFamily: "Manrope",
+            }}
+          >
+            {formatMoney(pkg.price, currency, { maximumFractionDigits: 0 })}
+          </span>
+          {pkg.duration_hours ? (
+            <span style={{ fontSize: "13px", color: "#a1a1aa", fontWeight: 500 }}>
+              / {pkg.duration_hours}h
+            </span>
+          ) : null}
         </div>
 
         {pkg.description && (
@@ -204,29 +215,26 @@ function PackageCard({ pkg, onChoose, currency = "aud" }) {
           </ul>
         )}
 
-        {pkg.duration_hours && (
-          <div style={{ fontSize: "12px", color: "#a1a1aa", marginBottom: "16px" }}>
-            {pkg.duration_hours} hour{Number(pkg.duration_hours) !== 1 ? "s" : ""} hire
-          </div>
-        )}
-
         <button
           onClick={onChoose}
           style={{
             background: "#e11d48",
             color: "#fff",
             border: "none",
-            borderRadius: "999px",
-            padding: "12px 20px",
+            borderRadius: "14px",
+            padding: "13px 20px",
             fontSize: "14px",
             fontWeight: "700",
             cursor: "pointer",
             width: "100%",
             marginTop: "auto",
-            transition: "background 0.15s ease",
+            boxShadow: "0 6px 16px -6px rgba(225,29,72,0.5)",
+            transition: "background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease",
           }}
-          onMouseEnter={(e) => (e.target.style.background = "#be123c")}
-          onMouseLeave={(e) => (e.target.style.background = "#e11d48")}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#be123c"; e.currentTarget.style.boxShadow = "0 8px 20px -6px rgba(190,18,60,0.55)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#e11d48"; e.currentTarget.style.boxShadow = "0 6px 16px -6px rgba(225,29,72,0.5)"; }}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           Choose Now →
         </button>
