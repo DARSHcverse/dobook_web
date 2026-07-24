@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
 import { formatMoney } from "@/lib/money";
+import { bk } from "../_components/bookingStyles";
 
 export default function AddonsPage() {
   const { businessId } = useParams();
@@ -159,24 +160,13 @@ export default function AddonsPage() {
                 <div
                   key={addon.id}
                   onClick={() => toggleAddon(addon.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    padding: "16px",
-                    background: checked ? "#fff5f7" : "#fff",
-                    border: `1px solid ${checked ? "#e11d48" : "#e4e4e7"}`,
-                    borderRadius: "12px",
-                    marginBottom: "10px",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={{ ...bk.option(checked), marginBottom: "10px" }}
                 >
                   <div
                     style={{
-                      width: "20px",
-                      height: "20px",
-                      borderRadius: "4px",
+                      width: "22px",
+                      height: "22px",
+                      borderRadius: "7px",
                       border: `2px solid ${checked ? "#e11d48" : "#d4d4d8"}`,
                       background: checked ? "#e11d48" : "#fff",
                       flexShrink: 0,
@@ -184,8 +174,9 @@ export default function AddonsPage() {
                       alignItems: "center",
                       justifyContent: "center",
                       color: "#fff",
-                      fontSize: "12px",
+                      fontSize: "13px",
                       fontWeight: "700",
+                      transition: "border-color 0.18s ease, background 0.18s ease",
                     }}
                   >
                     {checked ? "✓" : ""}
@@ -200,14 +191,7 @@ export default function AddonsPage() {
                       </div>
                     )}
                   </div>
-                  <div
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: "700",
-                      color: "#e11d48",
-                      flexShrink: 0,
-                    }}
-                  >
+                  <div style={{ ...bk.price, fontSize: "15px", flexShrink: 0 }}>
                     +{formatMoney(addon.price, currency)}
                   </div>
                 </div>
@@ -216,16 +200,8 @@ export default function AddonsPage() {
           </div>
 
           {/* Order summary */}
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #e4e4e7",
-              borderRadius: "16px",
-              padding: "20px",
-              marginBottom: "20px",
-            }}
-          >
-            <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#18181b", margin: "0 0 12px" }}>
+          <div style={{ ...bk.card, marginBottom: "20px" }}>
+            <h3 style={{ ...bk.h2, fontSize: "15px", margin: "0 0 14px" }}>
               Order Summary
             </h3>
             <div
@@ -257,36 +233,26 @@ export default function AddonsPage() {
             ))}
             <div
               style={{
-                borderTop: "1px solid #e4e4e7",
-                paddingTop: "12px",
-                marginTop: "4px",
+                borderTop: "1px solid #f0f0f2",
+                paddingTop: "14px",
+                marginTop: "6px",
                 display: "flex",
                 justifyContent: "space-between",
-                fontSize: "17px",
-                fontWeight: "800",
-                color: "#e11d48",
+                alignItems: "baseline",
               }}
             >
-              <span>Estimated Total</span>
-              <span>{formatMoney(total, currency)}</span>
+              <span style={{ fontSize: "15px", fontWeight: 600, color: "#3f3f46" }}>Estimated Total</span>
+              <span style={{ ...bk.price, fontSize: "20px" }}>{formatMoney(total, currency)}</span>
             </div>
           </div>
 
           <button
             onClick={handleContinue}
-            style={{
-              background: "#e11d48",
-              color: "#fff",
-              border: "none",
-              borderRadius: "999px",
-              padding: "14px 28px",
-              fontSize: "15px",
-              fontWeight: "700",
-              cursor: "pointer",
-              width: "100%",
-            }}
-            onMouseEnter={(e) => (e.target.style.background = "#be123c")}
-            onMouseLeave={(e) => (e.target.style.background = "#e11d48")}
+            style={{ ...bk.primaryBtn, width: "100%" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#be123c"; e.currentTarget.style.boxShadow = "0 8px 20px -6px rgba(190,18,60,0.55)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#e11d48"; e.currentTarget.style.boxShadow = "0 6px 16px -6px rgba(225,29,72,0.5)"; }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.99)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             Continue →
           </button>

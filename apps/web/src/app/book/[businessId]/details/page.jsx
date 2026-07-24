@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
+import { bk } from "../_components/bookingStyles";
 
 const EVENT_TYPES = [
   "Wedding",
@@ -604,17 +605,13 @@ export default function DetailsPage() {
                 onClick={handleNext}
                 disabled={submitting}
                 style={{
-                  background: "#e11d48",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "999px",
-                  padding: "14px 28px",
-                  fontSize: "15px",
-                  fontWeight: "700",
+                  ...bk.primaryBtn,
+                  width: "100%",
                   cursor: submitting ? "not-allowed" : "pointer",
                   opacity: submitting ? 0.7 : 1,
-                  width: "100%",
                 }}
+                onMouseEnter={(e) => { if (!submitting) { e.currentTarget.style.background = "#be123c"; e.currentTarget.style.boxShadow = "0 8px 20px -6px rgba(190,18,60,0.55)"; } }}
+                onMouseLeave={(e) => { if (!submitting) { e.currentTarget.style.background = "#e11d48"; e.currentTarget.style.boxShadow = "0 6px 16px -6px rgba(225,29,72,0.5)"; } }}
               >
                 Continue →
               </button>

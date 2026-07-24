@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookingShell } from "../_components/BookingShell";
 import { formatMoney } from "@/lib/money";
+import { bk } from "../_components/bookingStyles";
 
 function SummaryCard({ title, rows }) {
   return (
@@ -245,16 +246,8 @@ export default function ReviewPage() {
         )}
 
         {/* Order Summary */}
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e4e4e7",
-            borderRadius: "16px",
-            padding: "20px",
-            marginBottom: "16px",
-          }}
-        >
-          <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#18181b", margin: "0 0 12px" }}>
+        <div style={{ ...bk.card, marginBottom: "16px" }}>
+          <h3 style={{ ...bk.h2, fontSize: "15px", margin: "0 0 14px" }}>
             Order Summary
           </h3>
           <div
@@ -286,18 +279,16 @@ export default function ReviewPage() {
           ))}
           <div
             style={{
-              borderTop: "1px solid #e4e4e7",
-              paddingTop: "12px",
-              marginTop: "4px",
+              borderTop: "1px solid #f0f0f2",
+              paddingTop: "14px",
+              marginTop: "6px",
               display: "flex",
               justifyContent: "space-between",
-              fontSize: "18px",
-              fontWeight: "800",
-              color: "#e11d48",
+              alignItems: "baseline",
             }}
           >
-            <span>Estimated Total</span>
-            <span>{formatMoney(total, currency)}</span>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#3f3f46" }}>Estimated Total</span>
+            <span style={{ ...bk.price, fontSize: "20px" }}>{formatMoney(total, currency)}</span>
           </div>
         </div>
 
@@ -372,17 +363,16 @@ export default function ReviewPage() {
           onClick={handleSubmit}
           disabled={submitting}
           style={{
-            background: submitting ? "#a1a1aa" : "#e11d48",
-            color: "#fff",
-            border: "none",
-            borderRadius: "999px",
+            ...bk.primaryBtn,
+            width: "100%",
             padding: "16px 28px",
             fontSize: "16px",
-            fontWeight: "700",
+            background: submitting ? "#a1a1aa" : "#e11d48",
+            boxShadow: submitting ? "none" : bk.primaryBtn.boxShadow,
             cursor: submitting ? "not-allowed" : "pointer",
-            width: "100%",
-            transition: "background 0.15s ease",
           }}
+          onMouseEnter={(e) => { if (!submitting) { e.currentTarget.style.background = "#be123c"; e.currentTarget.style.boxShadow = "0 8px 20px -6px rgba(190,18,60,0.55)"; } }}
+          onMouseLeave={(e) => { if (!submitting) { e.currentTarget.style.background = "#e11d48"; e.currentTarget.style.boxShadow = "0 6px 16px -6px rgba(225,29,72,0.5)"; } }}
         >
           {submitting ? "Submitting…" : "Confirm Booking"}
         </button>
