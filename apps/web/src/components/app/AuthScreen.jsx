@@ -109,6 +109,8 @@ export default function AuthScreen() {
     const raw = String(searchParams?.get("business_type") || "").trim();
     return normalizeBusinessType(raw);
   }, [searchParams]);
+  // Instant Setup: the website/social link a visitor previewed before signup.
+  const setupFrom = useMemo(() => String(searchParams?.get("from") || "").trim(), [searchParams]);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -270,7 +272,11 @@ export default function AuthScreen() {
       }
 
       toast.success(isLogin ? "Logged in!" : "Account created!");
-      router.replace("/dashboard");
+      if (!isLogin && setupFrom) {
+        router.replace(`/dashboard?setup_from=${encodeURIComponent(setupFrom)}`);
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (error) {
       const detail =
         error?.response?.data?.detail ||

@@ -40,6 +40,7 @@ import {
   UserCheck,
   Users,
   Users2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +73,7 @@ import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard'
 import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
 import RegionSettingsCard from '@/components/app/RegionSettingsCard';
 import AiOnboardingCard from '@/components/app/AiOnboardingCard';
+import InstantSetupHero from '@/components/landing/InstantSetupHero';
 import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
 import { cn } from '@/lib/utils';
 
@@ -1895,6 +1897,8 @@ const LandingPage = ({
               <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</li>
             </ul>
 
+            {!isAuthed && <InstantSetupHero />}
+
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <Button
                 data-testid="hero-get-started-btn"
@@ -2552,6 +2556,7 @@ const Dashboard = () => {
   const [tourOpen, setTourOpen] = useState(false);
   const [googleBannerDismissed, setGoogleBannerDismissed] = useState(false);
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState(undefined); // undefined = loading
+  const [instantSetupRunning, setInstantSetupRunning] = useState(false);
 
   useEffect(() => {
     const storedBusiness = localStorage.getItem('dobook_business');
@@ -2574,6 +2579,37 @@ const Dashboard = () => {
     if (searchParams?.get('google_error')) {
       toast.error('Failed to connect Google Calendar. Please try again.');
     }
+  }, [searchParams]);
+
+  // Instant Setup: a freshly-signed-up user who previewed their site pre-signup
+  // arrives with ?setup_from=<url>. Auto-build their account from it, once.
+  useEffect(() => {
+    const from = searchParams?.get('setup_from');
+    if (!from || instantSetupRunning) return;
+    let cancelled = false;
+    const run = async () => {
+      setInstantSetupRunning(true);
+      // Clear the param immediately so a refresh/re-render can't re-trigger it.
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/dashboard');
+      }
+      try {
+        const res = await axios.post(`${API}/business/instant-setup`, { url: from }, { withCredentials: true });
+        if (cancelled) return;
+        const n = res?.data?.preview?.services_count ?? 0;
+        toast.success(`Your account is set up${n ? ` with ${n} services` : ''}! Review and edit anytime in Settings.`);
+        await refreshBusiness();
+        await loadBookings();
+      } catch (err) {
+        if (cancelled) return;
+        toast.error(err?.response?.data?.detail || "We couldn't auto-set-up from your link — you can set things up in Settings.");
+      } finally {
+        if (!cancelled) setInstantSetupRunning(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const loadGoogleStatus = async () => {
@@ -2711,6 +2747,19 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-zinc-50" data-testid="dashboard">
+      {instantSetupRunning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white px-8 py-7 shadow-lg text-center max-w-sm mx-4">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-rose-200 border-t-rose-600" />
+            <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              Building your booking system…
+            </div>
+            <p className="mt-1.5 text-sm text-zinc-500">
+              Setting up your services and profile from your website. This takes a few seconds.
+            </p>
+          </div>
+        </div>
+      )}
       <BusinessTour
         business={business}
         open={tourOpen}
@@ -8706,6 +8755,23 @@ const EnquiriesTab = ({ business, onRefresh }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [confirmConvertOpen, setConfirmConvertOpen] = useState(false);
   const [showDeclineForm, setShowDeclineForm] = useState(false);
+  const [draftingAi, setDraftingAi] = useState(false);
+
+  const handleAiDraft = async () => {
+    if (!selectedEnquiry) return;
+    setDraftingAi(true);
+    try {
+      const res = await axios.post(`/api/bookings/${selectedEnquiry.id}/ai-draft`);
+      const draft = res?.data?.draft;
+      if (draft?.message) setQuoteMessage(draft.message);
+      if (draft?.suggested_price > 0 && !quotedPrice) setQuotedPrice(String(draft.suggested_price));
+      toast.success('Draft ready — review and edit before sending.');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Could not draft a reply.');
+    } finally {
+      setDraftingAi(false);
+    }
+  };
 
   const loadEnquiries = async () => {
     setLoading(true);
@@ -9014,7 +9080,18 @@ const EnquiriesTab = ({ business, onRefresh }) => {
                   )}
 
                   <div>
-                    <Label className="text-xs">Message to customer</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Message to customer</Label>
+                      <button
+                        type="button"
+                        onClick={handleAiDraft}
+                        disabled={draftingAi}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-60"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {draftingAi ? 'Drafting…' : 'Draft with AI'}
+                      </button>
+                    </div>
                     <Textarea
                       value={quoteMessage}
                       onChange={(e) => setQuoteMessage(e.target.value)}

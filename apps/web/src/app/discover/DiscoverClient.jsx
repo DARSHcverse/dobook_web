@@ -41,6 +41,40 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState("");
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiIntent, setAiIntent] = useState(null); // set when AI results are shown
+
+  const onAiSearch = async () => {
+    const query = String(aiQuery || "").trim();
+    if (query.length < 3) {
+      setError("Describe what you're looking for.");
+      return;
+    }
+    setAiLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/public/discover/smart-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.detail || "Search failed");
+      setAiIntent(json.intent || { summary: "" });
+      setResults(Array.isArray(json.results) ? json.results : []);
+    } catch (e) {
+      setError(e?.message || "Search failed");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const clearAi = () => {
+    setAiIntent(null);
+    setAiQuery("");
+    fetchResults(q, postcode);
+  };
 
   const queryKey = useMemo(() => `${String(initialQ || "")}__${String(initialPostcode || "")}`, [initialPostcode, initialQ]);
 
@@ -101,9 +135,44 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
       </header>
 
       <main className="max-w-7xl mx-auto px-6 md:px-12 py-10 space-y-6">
+        {/* AI-powered natural-language search */}
+        <Card className="border-rose-200 bg-gradient-to-b from-rose-50/70 to-white shadow-sm rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle style={{ fontFamily: "Manrope" }} className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-600 text-white text-sm">✦</span>
+              Describe what you need
+            </CardTitle>
+            <CardDescription style={{ fontFamily: "Inter" }}>
+              Tell us in your own words — we&apos;ll match you to the right businesses.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") onAiSearch(); }}
+                placeholder="e.g. photographer for a 100-guest wedding in July under $2000"
+                className="bg-white h-12 flex-1"
+              />
+              <Button onClick={onAiSearch} disabled={aiLoading} className="h-12 px-6 bg-rose-600 hover:bg-rose-700 rounded-xl">
+                {aiLoading ? "Matching…" : "Find matches"}
+              </Button>
+            </div>
+            {aiIntent ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                {aiIntent.summary ? <span className="text-zinc-700">Showing matches for: <strong>{aiIntent.summary}</strong></span> : null}
+                <button onClick={clearAi} className="text-rose-600 hover:text-rose-700 underline underline-offset-2 text-xs">
+                  Clear
+                </button>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
           <CardHeader>
-            <CardTitle style={{ fontFamily: "Manrope" }}>Search</CardTitle>
+            <CardTitle style={{ fontFamily: "Manrope" }}>Or search directly</CardTitle>
             <CardDescription style={{ fontFamily: "Inter" }}>
               Search by business name or service, and optionally filter by postcode.
             </CardDescription>
@@ -181,6 +250,15 @@ export default function DiscoverClient({ initialQ = "", initialPostcode = "" }) 
                   ) : (
                     <div className="text-sm text-zinc-500">No description provided.</div>
                   )}
+                  {Array.isArray(b.match_reasons) && b.match_reasons.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {b.match_reasons.map((r, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium px-2 py-0.5">
+                          ✓ {r}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-xs text-zinc-500">
