@@ -3368,26 +3368,29 @@ const Dashboard = () => {
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card data-testid="total-bookings-card" className="border-l-4 border-l-blue-500">
-                <CardContent className="pt-6">
-                  <div className="text-3xl font-bold text-primary">{stats.totalBookings}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Total Bookings</div>
-                </CardContent>
-              </Card>
-
-              <Card data-testid="upcoming-bookings-card" className="border-l-4 border-l-green-500">
-                <CardContent className="pt-6">
-                  <div className="text-3xl font-bold text-primary">{stats.upcomingBookings}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Upcoming Bookings</div>
-                </CardContent>
-              </Card>
-
-              <Card data-testid="revenue-card" className="border-l-4 border-l-rose-600">
-                <CardContent className="pt-6">
-                  <div className="text-3xl font-bold text-primary">{formatMoney(stats.revenue, currency)}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Revenue</div>
-                </CardContent>
-              </Card>
+              {[
+                { testid: 'total-bookings-card', value: stats.totalBookings, label: 'Total Bookings', Icon: CalendarDays, tint: 'bg-blue-50 text-blue-600' },
+                { testid: 'upcoming-bookings-card', value: stats.upcomingBookings, label: 'Upcoming Bookings', Icon: Clock, tint: 'bg-emerald-50 text-emerald-600' },
+                { testid: 'revenue-card', value: formatMoney(stats.revenue, currency), label: 'Revenue', Icon: DollarSign, tint: 'bg-rose-50 text-rose-600' },
+              ].map(({ testid, value, label, Icon, tint }) => (
+                <Card
+                  key={testid}
+                  data-testid={testid}
+                  className="border border-zinc-200/80 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_32px_-18px_rgba(0,0,0,0.16)] hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-3xl font-bold text-zinc-900 tracking-tight" style={{ fontFamily: 'Manrope' }}>{value}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{label}</div>
+                      </div>
+                      <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', tint)}>
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             <Card data-testid="monthly-trends-card" className="mb-6">
