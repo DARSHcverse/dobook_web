@@ -2238,6 +2238,46 @@ const LandingPage = ({
         </div>
       </section>
 
+      {/* Industries Section — internal links help these pages get indexed and rank */}
+      <section id="industries" className="border-t border-zinc-200 bg-zinc-50/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+              A booking system for your industry
+            </h2>
+            <p className="mt-3 text-lg text-zinc-600" style={{ fontFamily: 'Inter' }}>
+              DoBook adapts to how your business works — with the right booking fields, services, and workflow for your trade.
+            </p>
+          </div>
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {[
+              { slug: 'salon', label: 'Salons & Barbershops' },
+              { slug: 'beauty', label: 'Beauty & Spa' },
+              { slug: 'doctor', label: 'Clinics & Practitioners' },
+              { slug: 'fitness', label: 'Personal Trainers' },
+              { slug: 'pet', label: 'Pet Grooming & Sitting' },
+              { slug: 'cleaning', label: 'Cleaning Businesses' },
+              { slug: 'tradie', label: 'Tradies & Home Services' },
+              { slug: 'automotive', label: 'Mechanics & Auto' },
+              { slug: 'events', label: 'Photographers & Events' },
+              { slug: 'photobooth', label: 'Photo Booth Hire' },
+              { slug: 'tutor', label: 'Tutors & Educators' },
+              { slug: 'consultant', label: 'Consultants & Coaches' },
+              { slug: 'legal', label: 'Legal & Advisors' },
+            ].map((ind) => (
+              <a
+                key={ind.slug}
+                href={`/industries/${ind.slug}`}
+                className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 hover:border-rose-300 hover:bg-rose-50/50 transition-colors"
+              >
+                <span className="truncate">{ind.label}</span>
+                <span className="text-zinc-300 group-hover:text-rose-500 transition-colors" aria-hidden="true">→</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
         <div className="max-w-3xl">

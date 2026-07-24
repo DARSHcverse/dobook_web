@@ -1,57 +1,38 @@
 import { notFound } from "next/navigation";
 import { LandingPage } from "@/App";
+import IndustrySeoSection from "@/components/landing/IndustrySeoSection";
+import { getIndustryContent, INDUSTRY_KEYS } from "@/lib/industryContent";
 
 function resolveSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (explicit) return explicit.replace(/\/+$/, "");
-
   return "https://www.do-book.com";
 }
 
-const INDUSTRIES = {
-  photobooth: {
-    label: "Photo Booth",
-    title: "Online Booking System for Photo Booth Businesses | DoBook",
-  },
-  salon: { label: "Salons", title: "Booking System for Salons | DoBook" },
-  doctor: { label: "Doctors", title: "Booking System for Doctors | DoBook" },
-  consultant: { label: "Consultants", title: "Booking System for Consultants | DoBook" },
-  tutor: { label: "Tutors", title: "Booking System for Tutors | DoBook" },
-  fitness: { label: "Fitness Trainers", title: "Booking System for Fitness Trainers | DoBook" },
-  tradie: { label: "Tradies", title: "Booking System for Tradies | DoBook" },
-  cleaning: { label: "Cleaners", title: "Booking System for Cleaning Businesses | DoBook" },
-  pet: { label: "Pet Services", title: "Booking System for Pet Groomers & Sitters | DoBook" },
-  events: { label: "Photographers", title: "Booking System for Photographers & Events | DoBook" },
-  automotive: { label: "Mechanics", title: "Booking System for Mechanics & Auto Services | DoBook" },
-  beauty: { label: "Beauty & Spa", title: "Booking System for Beauty & Spa | DoBook" },
-  legal: { label: "Advisors", title: "Booking System for Legal & Professional Advisors | DoBook" },
-};
+// Pre-build every industry page as static HTML at build time (best for SEO).
+export function generateStaticParams() {
+  return INDUSTRY_KEYS.map((industry) => ({ industry }));
+}
 
 export async function generateMetadata({ params }) {
   const key = String(params?.industry || "").toLowerCase();
-  const cfg = INDUSTRIES[key];
+  const cfg = getIndustryContent(key);
   if (!cfg) return {};
 
-  const description =
-    "DoBook is an all-in-one online booking system and appointment scheduling software. A booking system for small business and service business scheduling—manage appointments, clients, invoices, reminders, and payments.";
-
   const siteUrl = resolveSiteUrl();
-  const metadataBase = new URL(siteUrl);
+  const description = cfg.metaDescription;
 
   return {
-    metadataBase,
+    metadataBase: new URL(siteUrl),
     title: cfg.title,
     description,
     alternates: { canonical: `/industries/${key}` },
     keywords: [
+      `${cfg.label} booking system`,
       "online booking system",
       "appointment scheduling software",
       "booking system for small business",
       "service business scheduling",
-      `${cfg.label} booking system`,
-      "appointment booking",
-      "invoice generator",
-      "booking reminders",
     ],
     robots: { index: true, follow: true },
     openGraph: {
@@ -73,15 +54,35 @@ export async function generateMetadata({ params }) {
 
 export default function IndustryPage({ params }) {
   const key = String(params?.industry || "").toLowerCase();
-  const cfg = INDUSTRIES[key];
+  const cfg = getIndustryContent(key);
   if (!cfg) return notFound();
 
+  // FAQ structured data → eligible for rich results in Google.
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: (cfg.faq || []).map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
-    <LandingPage
-      heroPrefix="Booking system"
-      heroAccent={`for ${cfg.label}`}
-      startFreeHref={`/auth?plan=free&industry=${encodeURIComponent(key)}`}
-      getStartedHref={`/auth?industry=${encodeURIComponent(key)}`}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      {/* Unique, server-rendered content — the part Google indexes and ranks. */}
+      <IndustrySeoSection content={cfg} />
+      {/* Shared interactive landing experience below the unique content. */}
+      <LandingPage
+        heroPrefix="Booking system"
+        heroAccent={`for ${cfg.label}`}
+        startFreeHref={`/auth?plan=free&industry=${encodeURIComponent(key)}`}
+        getStartedHref={`/auth?industry=${encodeURIComponent(key)}`}
+      />
+    </>
   );
 }
