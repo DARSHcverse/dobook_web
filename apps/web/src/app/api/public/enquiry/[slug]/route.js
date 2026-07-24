@@ -29,7 +29,8 @@ function sanitizeBusiness(b) {
   };
 }
 
-export async function GET(_request, { params }) {
+export async function GET(_request, context) {
+  const params = await context.params;
   try {
     const slug = String(params?.slug || "").trim().toLowerCase();
     if (!slug) {

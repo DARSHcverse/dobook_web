@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET(_request, { params }) {
+export async function GET(_request, context) {
+  const params = await context.params;
   const extractionId = params?.extractionId;
   if (!extractionId) return NextResponse.json({ detail: "Extraction ID required" }, { status: 400 });
 

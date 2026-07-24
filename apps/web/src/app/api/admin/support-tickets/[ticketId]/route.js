@@ -3,7 +3,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdminAuth } from "@/lib/adminAuth";
 import { logAdminActivity } from "@/lib/adminActivity";
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;

@@ -10,7 +10,8 @@ function monthRangeUtc(date = new Date()) {
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;

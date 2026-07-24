@@ -8,7 +8,8 @@ export const maxDuration = 30;
 
 // Drafts an AI reply (message + suggested price) for a specific enquiry.
 // The owner reviews/edits before sending — this never sends anything itself.
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

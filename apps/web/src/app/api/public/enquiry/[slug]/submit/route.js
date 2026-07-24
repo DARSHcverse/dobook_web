@@ -15,7 +15,8 @@ function isYmd(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "").trim());
 }
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   const slug = String(params?.slug || "").trim().toLowerCase();
   if (!slug) {
     return NextResponse.json({ detail: "slug required" }, { status: 400 });

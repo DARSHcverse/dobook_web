@@ -60,7 +60,8 @@ async function insertReviewSupabase({ sb, review }) {
   throw error;
 }
 
-export async function GET(_request, { params }) {
+export async function GET(_request, context) {
+  const params = await context.params;
   const token = String(params?.token || "").trim();
   if (!token) return NextResponse.json({ detail: "token is required" }, { status: 400 });
 
@@ -79,7 +80,8 @@ export async function GET(_request, { params }) {
   }
 }
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   const token = String(params?.token || "").trim();
   if (!token) return NextResponse.json({ detail: "token is required" }, { status: 400 });
 

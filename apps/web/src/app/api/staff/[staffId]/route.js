@@ -18,7 +18,8 @@ function asBool(value) {
   return s === "1" || s === "true" || s === "yes" || s === "on";
 }
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 
@@ -80,7 +81,8 @@ export async function PUT(request, { params }) {
   return NextResponse.json(data);
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

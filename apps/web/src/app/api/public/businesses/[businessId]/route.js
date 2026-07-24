@@ -20,7 +20,8 @@ function sanitize(business) {
   };
 }
 
-export async function GET(_request, { params }) {
+export async function GET(_request, context) {
+  const params = await context.params;
   try {
     const businessId = String(params?.businessId || "").trim();
     if (!businessId) return NextResponse.json({ detail: "businessId is required" }, { status: 400 });

@@ -10,7 +10,8 @@ function resolveLogoSrc({ businessId, logoUrl }) {
   return s;
 }
 
-export async function GET(_request, { params }) {
+export async function GET(_request, context) {
+  const params = await context.params;
   const businessId = params?.businessId;
   const sb = supabaseAdmin();
   const { data: business, error } = await sb

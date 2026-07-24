@@ -45,7 +45,8 @@ function ymdFromTimestamp(ts) {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

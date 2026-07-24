@@ -28,7 +28,8 @@ async function sendPlanChangeEmail({ business, plan, status }) {
   return sendEmailViaResend({ to: email, subject, html, text });
 }
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;

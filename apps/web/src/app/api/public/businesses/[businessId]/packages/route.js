@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
+  const params = await context.params;
   const businessId = params?.businessId;
   if (!businessId) return NextResponse.json({ detail: "businessId required" }, { status: 400 });
 

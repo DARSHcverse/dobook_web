@@ -11,7 +11,8 @@ function isLikelyEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

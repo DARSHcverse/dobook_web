@@ -4,7 +4,8 @@ import { requireAdminAuth } from "@/lib/adminAuth";
 import { sendEmailViaResend } from "@/lib/email";
 import { logAdminActivity } from "@/lib/adminActivity";
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;

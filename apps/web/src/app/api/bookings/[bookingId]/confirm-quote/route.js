@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // Public endpoint – customer confirms the quote sent to them
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   const bookingId = params?.bookingId;
   if (!bookingId) return NextResponse.json({ detail: "bookingId required" }, { status: 400 });
 

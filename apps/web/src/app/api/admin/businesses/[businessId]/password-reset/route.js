@@ -19,7 +19,8 @@ function sha256Hex(value) {
 
 // Admin-initiated password reset: issues a secure reset token and emails the
 // business the standard reset link. The admin never sees or sets the password.
-export async function POST(request, { params }) {
+export async function POST(request, context) {
+  const params = await context.params;
   const auth = requireAdminAuth(request);
   if (auth.error) return auth.error;
 

@@ -16,7 +16,8 @@ async function getActiveInvoiceTemplateSupabase(sb, businessId) {
   return (data && data[0]) || null;
 }
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

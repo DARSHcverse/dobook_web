@@ -32,7 +32,8 @@ async function sendPlanChangeEmail({ business, plan, status }) {
   return sendEmailViaResend({ to: email, subject, html, text });
 }
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;
@@ -182,7 +183,8 @@ export async function PUT(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
+  const params = await context.params;
   try {
     const auth = requireAdminAuth(request);
     if (auth.error) return auth.error;

@@ -4,7 +4,8 @@ import { requireSession } from "@/app/api/_utils/auth";
 import { sendBookingCreatedEmails } from "@/lib/bookingMailer";
 import { pickExistingPublicColumns } from "@/lib/dbSchema";
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 

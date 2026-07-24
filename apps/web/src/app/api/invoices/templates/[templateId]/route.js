@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "../../../_utils/auth";
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
+  const params = await context.params;
   const auth = await requireSession(request);
   if (auth.error) return auth.error;
 
