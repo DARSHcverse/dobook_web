@@ -2047,10 +2047,10 @@ const LandingPage = ({
               { icon: Smartphone, title: 'Mobile‑friendly booking', desc: 'A fast booking flow designed for phones—where most customers book.' },
               { icon: MessageSquare, title: 'Multi‑staff support', desc: 'Assign services to staff and manage schedules as you grow.' },
             ].map((f) => (
-              <Card key={f.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl hover:border-rose-200 transition-colors">
+              <Card key={f.title} className="group bg-white border border-zinc-200/80 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-16px_rgba(0,0,0,0.12)] hover:border-rose-200 hover:-translate-y-1 transition-all duration-300 ease-out">
                 <CardHeader className="space-y-3">
-                  <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center">
-                    <f.icon className="h-6 w-6 text-rose-700" aria-hidden="true" />
+                  <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:bg-rose-600">
+                    <f.icon className="h-6 w-6 text-rose-700 transition-colors duration-300 group-hover:text-white" aria-hidden="true" />
                   </div>
                   <CardTitle style={{ fontFamily: 'Manrope' }}>{f.title}</CardTitle>
                   <CardDescription style={{ fontFamily: 'Inter' }}>{f.desc}</CardDescription>
@@ -2268,10 +2268,10 @@ const LandingPage = ({
               <a
                 key={ind.slug}
                 href={`/industries/${ind.slug}`}
-                className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 hover:border-rose-300 hover:bg-rose-50/50 transition-colors"
+                className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-rose-300 hover:bg-rose-50/50 hover:shadow-[0_8px_20px_-12px_rgba(225,29,72,0.4)] transition-all duration-200"
               >
                 <span className="truncate">{ind.label}</span>
-                <span className="text-zinc-300 group-hover:text-rose-500 transition-colors" aria-hidden="true">→</span>
+                <span className="text-zinc-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all duration-200" aria-hidden="true">→</span>
               </a>
             ))}
           </div>
@@ -2290,7 +2290,7 @@ const LandingPage = ({
         </div>
 
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
-          <Card className="bg-white border border-zinc-200 shadow-sm rounded-3xl">
+          <Card className="bg-white border border-zinc-200 rounded-3xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_36px_-18px_rgba(0,0,0,0.14)] transition-shadow duration-300">
             <CardHeader className="space-y-2">
               <CardTitle style={{ fontFamily: 'Manrope' }}>FREE</CardTitle>
               <CardDescription style={{ fontFamily: 'Inter' }}>
@@ -2317,7 +2317,7 @@ const LandingPage = ({
             </CardContent>
           </Card>
 
-          <Card className="bg-white border border-rose-200 shadow-sm rounded-3xl relative overflow-hidden">
+          <Card className="bg-white border border-rose-200 rounded-3xl relative overflow-hidden ring-1 ring-rose-100 shadow-[0_8px_30px_-12px_rgba(225,29,72,0.25)] hover:shadow-[0_20px_44px_-16px_rgba(225,29,72,0.35)] hover:-translate-y-1 transition-all duration-300">
             <div className="absolute -top-10 -right-10 h-40 w-40 bg-rose-100 rounded-full blur-2xl" aria-hidden="true" />
             <div className="absolute top-4 right-4 bg-rose-600 text-white text-xs font-semibold px-3 py-1 rounded-full" style={{ fontFamily: 'Inter' }}>
               Most Popular
