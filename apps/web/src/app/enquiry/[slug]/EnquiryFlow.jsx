@@ -1171,10 +1171,10 @@ function Card({ children, style }) {
     <div
       style={{
         background: "#fff",
-        border: "1px solid #e4e4e7",
+        border: "1px solid #ececef",
         borderRadius: "20px",
-        padding: "20px",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+        padding: "22px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 12px 32px -20px rgba(0,0,0,0.16)",
         ...style,
       }}
     >
@@ -1194,6 +1194,25 @@ function Field({ label, error, children }) {
     </label>
   );
 }
+const fieldBase = {
+  width: "100%",
+  padding: "12px 14px",
+  border: "1.5px solid #e4e4e7",
+  borderRadius: "12px",
+  fontSize: "14px",
+  outline: "none",
+  background: "#fff",
+  color: "#18181b",
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+};
+const focusField = (e) => {
+  e.currentTarget.style.borderColor = "#e11d48";
+  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(225,29,72,0.12)";
+};
+const blurField = (e) => {
+  e.currentTarget.style.borderColor = "#e4e4e7";
+  e.currentTarget.style.boxShadow = "none";
+};
 function Input({ type = "text", value, onChange, placeholder, min, step }) {
   return (
     <input
@@ -1203,16 +1222,9 @@ function Input({ type = "text", value, onChange, placeholder, min, step }) {
       placeholder={placeholder}
       min={min}
       step={step}
-      style={{
-        width: "100%",
-        padding: "10px 12px",
-        border: "1px solid #e4e4e7",
-        borderRadius: "10px",
-        fontSize: "14px",
-        outline: "none",
-        background: "#fff",
-        color: "#18181b",
-      }}
+      style={fieldBase}
+      onFocus={focusField}
+      onBlur={blurField}
     />
   );
 }
@@ -1221,16 +1233,9 @@ function Select({ value, onChange, children }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: "100%",
-        padding: "10px 12px",
-        border: "1px solid #e4e4e7",
-        borderRadius: "10px",
-        fontSize: "14px",
-        outline: "none",
-        background: "#fff",
-        color: "#18181b",
-      }}
+      style={fieldBase}
+      onFocus={focusField}
+      onBlur={blurField}
     >
       {children}
     </select>
@@ -1243,22 +1248,14 @@ function Textarea({ value, onChange, placeholder }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={4}
-      style={{
-        width: "100%",
-        padding: "10px 12px",
-        border: "1px solid #e4e4e7",
-        borderRadius: "10px",
-        fontSize: "14px",
-        outline: "none",
-        background: "#fff",
-        color: "#18181b",
-        fontFamily: "inherit",
-        resize: "vertical",
-      }}
+      style={{ ...fieldBase, fontFamily: "inherit", resize: "vertical" }}
+      onFocus={focusField}
+      onBlur={blurField}
     />
   );
 }
 function PrimaryButton({ onClick, disabled, brand, children, style }) {
+  const shadow = `0 6px 16px -6px ${hexToRgba(brand, 0.5)}`;
   return (
     <button
       onClick={onClick}
@@ -1267,16 +1264,21 @@ function PrimaryButton({ onClick, disabled, brand, children, style }) {
         background: brand,
         color: "#fff",
         border: "none",
-        borderRadius: "12px",
-        padding: "14px 20px",
+        borderRadius: "14px",
+        padding: "15px 22px",
         fontSize: "15px",
         fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.6 : 1,
-        transition: "all 200ms ease",
+        boxShadow: disabled ? "none" : shadow,
+        transition: "box-shadow 0.15s ease, transform 0.1s ease, opacity 0.15s ease",
         width: "100%",
         ...style,
       }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.boxShadow = `0 8px 22px -6px ${hexToRgba(brand, 0.6)}`; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.boxShadow = shadow; }}
+      onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.99)"; }}
+      onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(1)"; }}
     >
       {children}
     </button>
