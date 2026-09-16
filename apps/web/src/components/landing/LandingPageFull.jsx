@@ -909,6 +909,7 @@ export default function LandingPage({
               { slug: 'photobooth', label: 'Photo Booth Hire' },
               { slug: 'tutor', label: 'Tutors & Educators' },
               { slug: 'consultant', label: 'Consultants & Coaches' },
+              { slug: 'restaurant', label: 'Restaurants & Venue Hire' },
               { slug: 'legal', label: 'Legal & Advisors' },
             ].map((ind) => (
               <a

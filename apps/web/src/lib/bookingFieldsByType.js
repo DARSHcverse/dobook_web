@@ -12,6 +12,7 @@ export const BOOKING_TYPE_KEYS = [
   "automotive",
   "beauty_spa",
   "legal_advisory",
+  "restaurant_venue",
 ];
 
 export function inferBookingTypeKey({ businessType, industry }) {
@@ -31,6 +32,7 @@ export function inferBookingTypeKey({ businessType, industry }) {
   if (ind === "automotive") return "automotive";
   if (ind === "beauty") return "beauty_spa";
   if (ind === "legal") return "legal_advisory";
+  if (ind === "restaurant") return "restaurant_venue";
   return "photobooth";
 }
 
@@ -193,6 +195,18 @@ export const BOOKING_FIELDS_BY_TYPE = {
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
     { key: "notes", label: "Matter / Notes", type: "text", required: false, column: "notes" },
+  ],
+
+  restaurant_venue: [
+    { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
+    { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
+    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "service_type", label: "Booking Type", type: "select_services", required: true, column: "service_type" },
+    { key: "booking_date", label: "Date", type: "date", required: true, column: "booking_date" },
+    { key: "booking_time", label: "Time", type: "time", required: true, column: "booking_time" },
+    { key: "num_guests", label: "Number of Guests", type: "number", required: true, column: "num_guests" },
+    { key: "price", label: "Agreed Price ($)", type: "money", required: false, column: "price" },
+    { key: "notes", label: "Dietary requirements / special requests", type: "text", required: false, column: "notes", placeholder: "Allergies, seating, occasion" },
   ],
 };
 

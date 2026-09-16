@@ -33,6 +33,7 @@ const TYPE_HINTS = {
   automotive: "Fields: vehicle make/model, rego, year (number), drop-off vs mobile (select). Add-ons: wheel alignment, loan car.",
   beauty_spa: "Fields: treatment preference, preferred therapist. Mark allergies/health notes is_private:true. Add-ons: hot stones, extended session.",
   legal_advisory: "Fields: company, matter type, meeting format (select). Mark confidential notes is_private:true. Add-ons: written summary, extra time.",
+  restaurant_venue: "Fields: guest count (number), occasion (select), seating preference (select), dietary requirements. Add-ons: set menu upgrade, drinks package, celebration cake, room styling.",
 };
 
 function buildPrompt(description) {

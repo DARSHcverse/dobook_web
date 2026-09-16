@@ -290,6 +290,30 @@ export const INDUSTRY_CONTENT = {
       { q: "Can clients choose the meeting format?", a: "Yes, clients select video, phone or in-person when they book." },
     ],
   },
+
+  restaurant: {
+    label: "Restaurants & Venue Hire",
+    slug: "restaurant",
+    title: "Restaurant Booking System & Venue Hire Software | DoBook",
+    metaDescription:
+      "Take table reservations and function bookings online. DoBook is restaurant booking software for venues \u2014 guest numbers, dietary notes, deposits and automatic reminders.",
+    h1: "Table reservations and venue hire bookings, handled online",
+    intro:
+      "Stop losing bookings to missed calls and a paper diary. DoBook lets guests reserve a table or enquire about a function online, captures guest numbers and dietary requirements up front, takes a deposit on private hire, and sends reminders that cut no\u2011shows.",
+    benefits: [
+      { title: "Tables and functions in one place", desc: "Handle everyday reservations and private venue hire from the same calendar." },
+      { title: "Deposits on private hire", desc: "Require a deposit to hold a function date so bookings are committed." },
+      { title: "Dietary notes up front", desc: "Collect allergies and dietary requirements with the booking, before service." },
+      { title: "Fewer no\u2011shows", desc: "Automatic SMS and email reminders the day before and a few hours ahead." },
+    ],
+    useCases: ["Table reservations", "Private functions", "Set menu dining", "Full venue hire", "Corporate events"],
+    faq: [
+      { q: "Can I take both table bookings and function enquiries?", a: "Yes. Everyday reservations can be booked instantly, while larger functions can come through as an enquiry you quote on." },
+      { q: "Can I take a deposit for a private function?", a: "Yes \u2014 require a deposit at booking so a date is only held once a guest has committed." },
+      { q: "Do guests tell us about allergies when they book?", a: "Yes. Dietary requirements and special requests are captured on the booking form and appear with the reservation." },
+      { q: "Will guests be reminded about their booking?", a: "Yes, DoBook sends automatic email and SMS reminders before the booking to reduce no\u2011shows." },
+    ],
+  },
 };
 
 export function getIndustryContent(key) {

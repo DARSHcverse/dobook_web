@@ -1,5 +1,11 @@
 export const BUSINESS_TYPES = [
   {
+    id: "photobooth",
+    label: "Photo Booth Hire",
+    description: "Booth hire for weddings, parties, and corporate events.",
+    icon: "camera",
+  },
+  {
     id: "salon_barbershop",
     label: "Salon / Barbershop",
     description: "Hair, beauty, barber, and grooming appointments.",
@@ -71,6 +77,12 @@ export const BUSINESS_TYPES = [
     description: "Consultations for legal, accounting, and advisory.",
     icon: "scale",
   },
+  {
+    id: "restaurant_venue",
+    label: "Restaurant / Venue Hire",
+    description: "Table reservations, functions, and private venue hire.",
+    icon: "utensils",
+  },
 ];
 
 function slugKey(value) {
@@ -107,6 +119,43 @@ function addon({ name, description = "", price = 0, duration_extra_mins = 0, is_
 }
 
 export const BUSINESS_TYPE_TEMPLATES = {
+  // Photo booth hire is DoBook's original vertical and the signup default.
+  // Services mirror the booth categories operators actually sell (the same
+  // Open / Enclosed / Glam split used by the enquiry and quote flow), so a new
+  // operator lands on a dashboard that already matches how they sell.
+  photobooth: {
+    services: ["Open Booth", "Enclosed Booth", "Glam Booth", "360 Booth", "Roaming Booth"],
+    booking_fields: [
+      field({
+        name: "Event type",
+        key: "event_type",
+        type: "select",
+        options: ["Wedding", "Birthday", "Corporate", "School formal", "Engagement", "Other"],
+        required: true,
+        sort_order: 10,
+      }),
+      field({ name: "Venue name", key: "venue_name", type: "text", sort_order: 20 }),
+      field({ name: "Guest count", key: "num_guests", type: "number", sort_order: 30 }),
+      field({ name: "Parking / access notes", key: "parking_info", type: "textarea", sort_order: 40 }),
+      field({ name: "Backdrop preference", key: "backdrop_preference", type: "text", sort_order: 50 }),
+    ],
+    addons: [
+      addon({ name: "Extra hour", price: 0, duration_extra_mins: 60, sort_order: 10 }),
+      addon({ name: "Guest book album", price: 0, duration_extra_mins: 0, sort_order: 20 }),
+      addon({ name: "Custom print template", price: 0, duration_extra_mins: 0, sort_order: 30 }),
+      addon({ name: "Premium backdrop", price: 0, duration_extra_mins: 0, sort_order: 40 }),
+      addon({ name: "Idle hour (setup early)", price: 0, duration_extra_mins: 0, sort_order: 50 }),
+    ],
+    scheduling: {
+      // Events are booked well ahead and usually take a deposit to hold a date.
+      buffer_mins: 60,
+      advance_booking_hrs: 48,
+      reminder_timing_hrs: [168, 24],
+      allow_recurring: false,
+      require_deposit: true,
+    },
+  },
+
   salon_barbershop: {
     services: ["Haircut", "Colour", "Blow Dry", "Beard Trim", "Treatment"],
     booking_fields: [
@@ -421,6 +470,58 @@ export const BUSINESS_TYPE_TEMPLATES = {
       buffer_mins: 0,
       advance_booking_hrs: 24,
       reminder_timing_hrs: [48],
+      allow_recurring: false,
+      require_deposit: true,
+    },
+  },
+  // Restaurant / venue hire. Covers both everyday table reservations and the
+  // higher-value function bookings (birthdays, engagements, corporate) that the
+  // enquiry-and-quote flow already handles well. Deposits are standard for
+  // functions, so require_deposit is on by default.
+  restaurant_venue: {
+    services: [
+      "Table Reservation",
+      "Private Function",
+      "Set Menu Dining",
+      "Full Venue Hire",
+      "Corporate Event",
+    ],
+    booking_fields: [
+      field({ name: "Number of guests", key: "num_guests", type: "number", required: true, sort_order: 10 }),
+      field({
+        name: "Occasion",
+        key: "occasion",
+        type: "select",
+        options: ["Casual dining", "Birthday", "Engagement", "Corporate", "Anniversary", "Other"],
+        sort_order: 20,
+      }),
+      field({
+        name: "Seating preference",
+        key: "seating_preference",
+        type: "select",
+        options: ["No preference", "Indoor", "Outdoor", "Private room", "Bar"],
+        sort_order: 30,
+      }),
+      field({
+        name: "Dietary requirements / allergies",
+        key: "dietary_requirements",
+        type: "textarea",
+        sort_order: 40,
+      }),
+      field({ name: "Special requests", key: "special_requests", type: "textarea", sort_order: 50 }),
+    ],
+    addons: [
+      addon({ name: "Set menu upgrade", price: 0, duration_extra_mins: 0, sort_order: 10 }),
+      addon({ name: "Drinks package", price: 0, duration_extra_mins: 0, sort_order: 20 }),
+      addon({ name: "Celebration cake", price: 0, duration_extra_mins: 0, sort_order: 30 }),
+      addon({ name: "Room styling / decorations", price: 0, duration_extra_mins: 0, sort_order: 40 }),
+      addon({ name: "Extended booking (+1 hour)", price: 0, duration_extra_mins: 60, sort_order: 50 }),
+    ],
+    scheduling: {
+      // Turn the table between sittings; confirm the day before.
+      buffer_mins: 15,
+      advance_booking_hrs: 2,
+      reminder_timing_hrs: [24, 3],
       allow_recurring: false,
       require_deposit: true,
     },

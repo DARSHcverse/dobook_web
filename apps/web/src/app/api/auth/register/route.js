@@ -52,7 +52,7 @@ export async function POST(request) {
     const raw = String(value || "").trim().toLowerCase();
     const allowed = new Set([
       "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
-      "cleaning", "pet", "events", "automotive", "beauty", "legal",
+      "cleaning", "pet", "events", "automotive", "beauty", "legal", "restaurant",
     ]);
     return allowed.has(raw) ? raw : "photobooth";
   };
@@ -80,6 +80,7 @@ export async function POST(request) {
     if (ind === "automotive") return ["Logbook Service", "Basic Service", "Detailing"];
     if (ind === "beauty") return ["Massage", "Manicure", "Facial"];
     if (ind === "legal") return ["Initial Consultation", "Follow-up Meeting"];
+    if (ind === "restaurant") return ["Table Reservation", "Private Function", "Full Venue Hire"];
     return ["Open Booth", "Glam Booth", "Enclosed Booth"];
   };
 

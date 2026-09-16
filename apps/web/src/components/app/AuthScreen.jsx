@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
-import { Briefcase, Camera, Car, Dumbbell, Flower, GraduationCap, Hammer, PawPrint, Scale, Scissors, Sparkles, Stethoscope } from "lucide-react";
+import { Briefcase, Camera, Car, Dumbbell, Flower, GraduationCap, Hammer, PawPrint, Scale, Scissors, Sparkles, Stethoscope, UtensilsCrossed } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,11 @@ const API = `${API_BASE}/api`;
 axios.defaults.withCredentials = true;
 
 const BUSINESS_TYPE_TO_INDUSTRY = {
+  // photobooth is the default industry on signup. Without this entry
+  // businessTypeForIndustry('photobooth') returned null, which both showed the
+  // full type list instead of the relevant one and skipped template seeding in
+  // the register route, leaving new photo booth businesses unconfigured.
+  photobooth: "photobooth",
   salon_barbershop: "salon",
   medical_wellness: "doctor",
   consultant: "consultant",
@@ -37,6 +42,7 @@ const BUSINESS_TYPE_TO_INDUSTRY = {
   automotive: "automotive",
   beauty_spa: "beauty",
   legal_advisory: "legal",
+  restaurant_venue: "restaurant",
 };
 
 const INDUSTRY_TO_BUSINESS_TYPE = Object.entries(BUSINESS_TYPE_TO_INDUSTRY).reduce((acc, [businessType, industry]) => {
@@ -57,6 +63,7 @@ const BUSINESS_TYPE_ICON = {
   car: Car,
   flower: Flower,
   scale: Scale,
+  utensils: UtensilsCrossed,
 };
 
 function businessTypeForIndustry(industry) {
@@ -99,7 +106,7 @@ export default function AuthScreen() {
     const raw = String(searchParams?.get("industry") || "").toLowerCase();
     const allowed = new Set([
       "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
-      "cleaning", "pet", "events", "automotive", "beauty", "legal",
+      "cleaning", "pet", "events", "automotive", "beauty", "legal", "restaurant",
     ]);
     return allowed.has(raw) ? raw : "photobooth";
   }, [searchParams]);
@@ -500,12 +507,19 @@ export default function AuthScreen() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="photobooth">Photo booth</SelectItem>
-                          <SelectItem value="salon">Salon</SelectItem>
-                          <SelectItem value="doctor">Doctor</SelectItem>
-                          <SelectItem value="consultant">Consultant</SelectItem>
-                          <SelectItem value="tutor">Tutor</SelectItem>
+                          <SelectItem value="salon">Salon / Barbershop</SelectItem>
+                          <SelectItem value="beauty">Beauty / Spa</SelectItem>
+                          <SelectItem value="doctor">Medical / Wellness</SelectItem>
                           <SelectItem value="fitness">Fitness trainer</SelectItem>
-                          <SelectItem value="tradie">Tradie</SelectItem>
+                          <SelectItem value="consultant">Consultant</SelectItem>
+                          <SelectItem value="tutor">Tutor / Education</SelectItem>
+                          <SelectItem value="tradie">Tradie / Home services</SelectItem>
+                          <SelectItem value="cleaning">Cleaning</SelectItem>
+                          <SelectItem value="pet">Pet services</SelectItem>
+                          <SelectItem value="events">Events / Photography</SelectItem>
+                          <SelectItem value="automotive">Automotive / Mechanic</SelectItem>
+                          <SelectItem value="restaurant">Restaurant / Venue hire</SelectItem>
+                          <SelectItem value="legal">Legal / Advisory</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

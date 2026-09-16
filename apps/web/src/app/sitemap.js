@@ -1,3 +1,5 @@
+import { INDUSTRY_KEYS } from "@/lib/industryContent";
+
 function resolveSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (explicit) return explicit.replace(/\/+$/, "");
@@ -9,10 +11,9 @@ export default function sitemap() {
   const base = resolveSiteUrl();
   const lastModified = new Date();
 
-  const industries = [
-    "photobooth", "salon", "doctor", "consultant", "tutor", "fitness", "tradie",
-    "cleaning", "pet", "events", "automotive", "beauty", "legal",
-  ];
+  // Derived from the content module so a new industry page is always indexed
+  // — a hardcoded copy here silently drops new pages from the sitemap.
+  const industries = INDUSTRY_KEYS;
   const staticPages = ["/terms", "/privacy", "/policies/cancellation", "/discover"];
 
   return [
