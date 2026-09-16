@@ -17,6 +17,7 @@ import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplat
 import { proPriceAmount, resolveProCurrency } from "@/lib/pricing";
 import { DEFAULT_COUNTRY_CODE, countryOptions, normalizeCountryCode, getCountryProfile } from "@/lib/countries";
 import { formatMoney } from "@/lib/money";
+import AuthBrandPanel from "@/components/app/AuthBrandPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 const API = `${API_BASE}/api`;
@@ -302,28 +303,31 @@ export default function AuthScreen() {
   }, [forgotMode, isReset, subtitle]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="w-full rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-200"
-            aria-label="Back to DoBook home"
-          >
-            <LogoMark />
-          </button>
-        </div>
+    // Split screen: form on the left, brand/social-proof panel on the right.
+    // The panel collapses below lg so small screens get the form immediately.
+    <div className="min-h-screen w-full overflow-x-hidden bg-white lg:grid lg:grid-cols-2">
+      <div className="flex min-h-screen w-full items-center justify-center px-4 py-10 sm:px-6 lg:min-h-screen lg:px-10">
+        <div className="w-full min-w-0 max-w-md">
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="w-full rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-200"
+              aria-label="Back to DoBook home"
+            >
+              <LogoMark />
+            </button>
+          </div>
 
-        <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="space-y-2">
+          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden lg:border-transparent lg:shadow-none">
+          <CardHeader className="space-y-2 lg:px-0">
             <CardTitle className="text-2xl font-bold tracking-tight" style={{ fontFamily: "Manrope" }}>
               {computedTitle}
             </CardTitle>
             <CardDescription style={{ fontFamily: "Inter" }}>{computedSubtitle}</CardDescription>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="lg:px-0">
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && !forgotMode && !isReset ? (
                 <div className="hidden" aria-hidden="true">
@@ -705,8 +709,11 @@ export default function AuthScreen() {
               </a>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
+
+      <AuthBrandPanel />
     </div>
   );
 }

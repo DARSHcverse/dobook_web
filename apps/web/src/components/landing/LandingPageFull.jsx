@@ -98,6 +98,13 @@ export default function LandingPage({
         : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
     }`;
 
+  // One shared surface treatment for every marketing card. Previously each card
+  // was a flat `border + shadow-sm` box, which made the whole page read as one
+  // uniform sheet with no focal point. The lift on hover gives the grids a sense
+  // of depth and signals that the cards are worth reading.
+  const surfaceCard =
+    'group rounded-2xl border border-zinc-200/90 bg-white shadow-[0_1px_2px_rgba(24,24,27,0.04),0_8px_24px_-12px_rgba(24,24,27,0.10)] transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-[0_2px_4px_rgba(24,24,27,0.05),0_18px_40px_-16px_rgba(225,29,72,0.28)] motion-reduce:transform-none motion-reduce:transition-none';
+
 
   useEffect(() => {
     let cancelled = false;
@@ -174,31 +181,30 @@ export default function LandingPage({
             </div>
 
             <div className="mt-4 rounded-2xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="grid grid-cols-6 gap-2 px-4 py-3 text-[11px] font-semibold text-zinc-500 border-b border-zinc-200">
-                <div className="col-span-2">Customer</div>
-                <div className="col-span-2">Service</div>
+              <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] gap-2 px-4 py-3 text-[11px] font-semibold text-zinc-500 border-b border-zinc-200">
+                <div>Customer</div>
+                <div>Service</div>
                 <div>Date</div>
                 <div>Status</div>
               </div>
               {[
-                { name: 'Alex Morgan', service: 'Consultation', date: '2026-03-26', tone: 'success', status: 'confirmed' },
-                { name: 'Priya Singh', service: 'Follow-up', date: '2026-03-07', tone: 'success', status: 'confirmed' },
-                { name: 'Chris Lee', service: 'Session', date: '2026-02-21', tone: 'danger', status: 'cancelled' },
-                { name: 'Jordan Park', service: 'Initial', date: '2026-02-17', tone: 'success', status: 'confirmed' },
+                { name: 'Alex M.', service: 'Consult', date: '26 Mar', tone: 'success', status: 'confirmed' },
+                { name: 'Priya S.', service: 'Follow-up', date: '07 Mar', tone: 'success', status: 'confirmed' },
+                { name: 'Chris L.', service: 'Session', date: '21 Feb', tone: 'danger', status: 'cancelled' },
+                { name: 'Jordan P.', service: 'Initial', date: '17 Feb', tone: 'success', status: 'confirmed' },
               ].map((row) => (
-                <div key={`${row.name}-${row.date}`} className="grid grid-cols-6 gap-2 px-4 py-3 text-xs text-zinc-700 border-b border-zinc-100 last:border-b-0">
-                  <div className="col-span-2">
-                    <div className="font-semibold text-zinc-900">{row.name}</div>
-                    <div className="text-[11px] text-zinc-500">client@email.com</div>
+                <div key={`${row.name}-${row.date}`} className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] gap-2 px-4 py-3 text-xs text-zinc-700 border-b border-zinc-100 last:border-b-0">
+                  <div className="flex min-w-0 items-center">
+                    <div className="truncate font-semibold text-zinc-900">{row.name}</div>
                   </div>
-                  <div className="col-span-2 flex items-center">
-                    <div className="font-medium">{row.service}</div>
+                  <div className="flex min-w-0 items-center">
+                    <div className="truncate font-medium">{row.service}</div>
                   </div>
-                  <div className="flex items-center text-[11px] text-zinc-600">{row.date}</div>
-                  <div className="flex items-center">
+                  <div className="flex shrink-0 items-center whitespace-nowrap text-[11px] text-zinc-600">{row.date}</div>
+                  <div className="flex shrink-0 items-center justify-end">
                     <Badge
                       variant="outline"
-                      className={bookingStatusBadgeClass(String(row.status || 'confirmed').toLowerCase())}
+                      className={`${bookingStatusBadgeClass(String(row.status || 'confirmed').toLowerCase())} whitespace-nowrap`}
                     >
                       {String(row.status || 'confirmed').toLowerCase()}
                     </Badge>
@@ -490,7 +496,30 @@ export default function LandingPage({
       </header>
 
       {/* Hero Section */}
-      <section id="top" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-14 sm:py-16">
+      {/* Hero. The soft radial wash and grid give the section depth so the page
+          does not read as one flat sheet of white cards. Both are pure CSS and
+          pointer-events-none, so they cost nothing and never trap clicks. */}
+      <section id="top" className="relative isolate overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(900px circle at 12% -10%, rgba(225,29,72,0.10), transparent 55%), radial-gradient(700px circle at 92% 0%, rgba(244,63,94,0.08), transparent 50%)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.55] dark:opacity-[0.12]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(24,24,27,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(24,24,27,0.045) 1px, transparent 1px)',
+            backgroundSize: '64px 64px',
+            maskImage: 'radial-gradient(700px circle at 50% 0%, #000 30%, transparent 75%)',
+            WebkitMaskImage: 'radial-gradient(700px circle at 50% 0%, #000 30%, transparent 75%)',
+          }}
+        />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-14 sm:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
@@ -507,10 +536,10 @@ export default function LandingPage({
             </p>
 
             <ul className="mt-6 grid gap-3 text-sm text-zinc-700" style={{ fontFamily: 'Inter' }} aria-label="Key benefits">
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Fill your calendar with <strong className="text-zinc-900">24/7 online bookings</strong>.</li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Reduce no‑shows with <strong className="text-zinc-900">email & SMS reminders</strong>.</li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Get paid faster with <strong className="text-zinc-900">online payments</strong>.</li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Fill your calendar with <strong className="text-zinc-900">24/7 online bookings</strong>.</span></li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Reduce no‑shows with <strong className="text-zinc-900">email & SMS reminders</strong>.</span></li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Get paid faster with <strong className="text-zinc-900">online payments</strong>.</span></li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</span></li>
             </ul>
 
             {!isAuthed && <InstantSetupHero />}
@@ -605,6 +634,7 @@ export default function LandingPage({
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* Social Proof */}
@@ -630,7 +660,7 @@ export default function LandingPage({
             { title: 'Home services', desc: 'Capture job details, route bookings, and keep a clean calendar.' },
             { title: 'Freelancers', desc: 'Look professional from day one with client-friendly booking and invoices.' },
           ].map((item) => (
-            <Card key={item.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+            <Card key={item.title} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
                 <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{item.title}</div>
                 <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{item.desc}</div>
@@ -695,7 +725,7 @@ export default function LandingPage({
             { step: 'Step 3', title: 'Customers book instantly', desc: 'Clients choose a time, pay (optional), and get confirmed.' },
             { step: 'Step 4', title: 'Get paid & manage clients', desc: 'Invoices, reminders, and client history—organized.' },
           ].map((s) => (
-            <Card key={s.step} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+            <Card key={s.step} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-rose-700">{s.step}</div>
                 <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{s.title}</div>
@@ -758,7 +788,7 @@ export default function LandingPage({
             { title: 'All‑in‑one (no extra tools)', desc: 'Scheduling, reminders, invoices, and payments—together so nothing falls through.' },
             { title: 'Fast setup (minutes)', desc: 'Add services, set availability, share your link—done.' },
           ].map((d) => (
-            <Card key={d.title} className="bg-white border border-zinc-200 shadow-sm rounded-2xl">
+            <Card key={d.title} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
                 <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{d.title}</div>
                 <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{d.desc}</div>
