@@ -653,7 +653,14 @@ export async function sendEnquiryCreatedEmails({ booking, business, pkg, addons,
   return results;
 }
 
-export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMessage }) {
+export async function sendQuoteEmail({
+  booking,
+  business,
+  quotedPrice,
+  quoteMessage,
+  category,
+  pkg,
+}) {
   const customerEmail = safeEmail(booking?.customer_email);
   if (!customerEmail) return { ok: false, skipped: true, error: "No customer email" };
 
@@ -665,10 +672,23 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
   const message = String(quoteMessage || "").trim();
   const bookingDate = safeName(booking?.booking_date) || "TBD";
 
-  const subject = `Your quote from ${businessName} 📋`;
+  // What the customer actually selected. `category` is the authoritative
+  // package_categories row (e.g. "Open Booth"); booth_type is the legacy
+  // free-text copy kept for enquiries created before categories existed.
+  const categoryName = safeName(category?.name) || safeName(booking?.booth_type);
+  const packageName = safeName(pkg?.name) || safeName(booking?.service_type);
+  // service_type is set to "Enquiry" when no package was chosen — not worth showing.
+  const showPackage = packageName && packageName.toLowerCase() !== "enquiry";
+  const eventType = safeName(booking?.event_type);
+
+  const subject = categoryName
+    ? `Your ${categoryName} quote from ${businessName} 📋`
+    : `Your quote from ${businessName} 📋`;
   const html = emailLayout({
     title: "Your Quote",
-    preheader: `${businessName} has sent you a quote for your event on ${bookingDate}.`,
+    preheader: categoryName
+      ? `${businessName} has sent you a ${categoryName} quote for your event on ${bookingDate}.`
+      : `${businessName} has sent you a quote for your event on ${bookingDate}.`,
     logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
     logoAlt: businessName,
     senderName: businessName,
@@ -680,6 +700,9 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
             <td style="padding:10px 12px; color:#52525b; font-size:13px; width:160px;">Event Date</td>
             <td style="padding:10px 12px; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(bookingDate)}</td>
           </tr>
+          ${eventType ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Event Type</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(eventType)}</td></tr>` : ""}
+          ${categoryName ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Booth Type</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(categoryName)}</td></tr>` : ""}
+          ${showPackage ? `<tr><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Package</td><td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#18181b; font-size:13px; font-weight:600;">${escapeHtml(packageName)}</td></tr>` : ""}
           <tr>
             <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#52525b; font-size:13px;">Quoted Price</td>
             <td style="padding:10px 12px; border-top:1px solid #e4e4e7; color:#e11d48; font-size:16px; font-weight:700;">${priceText}</td>
@@ -695,6 +718,9 @@ export async function sendQuoteEmail({ booking, business, quotedPrice, quoteMess
     `Your Quote from ${businessName}\n\n` +
     `Hi ${customerName} — ${businessName} has sent you a quote.\n\n` +
     `Event Date: ${bookingDate}\n` +
+    (eventType ? `Event Type: ${eventType}\n` : "") +
+    (categoryName ? `Booth Type: ${categoryName}\n` : "") +
+    (showPackage ? `Package: ${packageName}\n` : "") +
     `Quoted Price: ${priceText}\n` +
     (message ? `\nMessage: ${message}\n` : "") +
     `\nTo accept this quote, please reply to this email.\n`;

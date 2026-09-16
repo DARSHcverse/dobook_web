@@ -50,9 +50,45 @@ export async function PUT(request, context) {
 
   if (updateErr) return NextResponse.json({ detail: updateErr.message }, { status: 500 });
 
+  // Resolve what the customer selected so the quote email states it explicitly
+  // (e.g. "Open Booth"). Best-effort: a missing row must never block the quote.
+  let category = null;
+  let pkg = null;
+  try {
+    const [categoryResult, packageResult] = await Promise.all([
+      updated?.category_id
+        ? sb
+            .from("package_categories")
+            .select("id,name")
+            .eq("id", updated.category_id)
+            .eq("business_id", businessId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      updated?.package_id
+        ? sb
+            .from("packages")
+            .select("id,name")
+            .eq("id", updated.package_id)
+            .eq("business_id", businessId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    category = categoryResult?.data || null;
+    pkg = packageResult?.data || null;
+  } catch (e) {
+    console.error("[bookings/quote] Failed to resolve category/package:", e?.message);
+  }
+
   // Send quote email to customer best-effort
   try {
-    await sendQuoteEmail({ booking: updated, business: auth.business, quotedPrice, quoteMessage });
+    await sendQuoteEmail({
+      booking: updated,
+      business: auth.business,
+      quotedPrice,
+      quoteMessage,
+      category,
+      pkg,
+    });
   } catch (e) {
     console.error("[bookings/quote] Email error:", e?.message);
   }
