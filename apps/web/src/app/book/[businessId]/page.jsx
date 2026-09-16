@@ -1,6 +1,6 @@
 "use client";
 
-import { BookingWidget } from "@/App";
+import BookingWidget from "@/components/booking/BookingWidget";
 
 export default function BookingWidgetPage() {
   return <BookingWidget />;

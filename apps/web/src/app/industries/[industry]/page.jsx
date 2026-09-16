@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { LandingPage } from "@/App";
+import LandingPage from "@/components/landing/LandingPageFull";
 import IndustrySeoSection from "@/components/landing/IndustrySeoSection";
 import { getIndustryContent, INDUSTRY_KEYS } from "@/lib/industryContent";
 

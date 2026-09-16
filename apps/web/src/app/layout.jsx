@@ -1,5 +1,4 @@
 import "@/index.css";
-import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/App.css";
 import ClientShell from "@/app/ClientShell";
 import SpeedInsightsClient from "@/components/app/SpeedInsightsClient";

@@ -1,34 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 import { Dashboard } from "@/App";
 
+// No auth gate here on purpose. This page previously awaited /api/auth/me and
+// rendered null until it resolved, which put an extra serial round trip in front
+// of every dashboard load before any data fetching could even start. The
+// Dashboard's own requests carry the session cookie, and a 401 from any of them
+// redirects to /auth via the shared axios interceptor in @/App.
+//
+// Dashboard reads useSearchParams(), so it needs a Suspense boundary to prerender.
+// The old `if (!ready) return null` gate was masking that requirement.
 export default function DashboardPage() {
-  const router = useRouter();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      try {
-        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
-        if (cancelled) return;
-        if (!res.ok) {
-          router.replace("/auth");
-          return;
-        }
-        setReady(true);
-      } catch {
-        if (!cancelled) router.replace("/auth");
-      }
-    };
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
-
-  if (!ready) return null;
-  return <Dashboard />;
+  return (
+    <Suspense fallback={null}>
+      <Dashboard />
+    </Suspense>
+  );
 }

@@ -1,4 +1,4 @@
-import { LandingPage } from "@/App";
+import LandingPage from "@/components/landing/LandingPageFull";
 import { PRO_PRICE_AUD } from "@/lib/pricing";
 
 function resolveSiteUrl() {
