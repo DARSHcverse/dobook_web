@@ -568,10 +568,14 @@ export default function LandingPage({
               No credit card required for Free. Upgrade anytime.
             </div>
 
+            {/* Every claim in this row must be verifiable. It previously read
+                "Used by 1,000+ businesses", which the data did not support. */}
             <div className="mt-8 grid grid-cols-3 gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
               <div>
-                <div className="text-xs font-medium text-zinc-500">Trust</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">Used by 1,000+ businesses</div>
+                <div className="text-xs font-medium text-zinc-500">Price</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">
+                  Free plan, no card
+                </div>
               </div>
               <div>
                 <div className="text-xs font-medium text-zinc-500">Built for</div>
@@ -653,12 +657,12 @@ export default function LandingPage({
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { title: 'Salons', desc: 'Appointments, staff schedules, repeat clients, and add‑on services—organized.' },
-            { title: 'Medical / Wellness', desc: 'Reduce no‑shows with reminders and keep client history at your fingertips.' },
-            { title: 'Consultants', desc: 'Share a link, book paid sessions, and send invoice PDFs automatically.' },
-            { title: 'Education / Tutoring', desc: 'Run recurring sessions, manage families, and stay on top of payments.' },
-            { title: 'Home services', desc: 'Capture job details, route bookings, and keep a clean calendar.' },
-            { title: 'Freelancers', desc: 'Look professional from day one with client-friendly booking and invoices.' },
+            { title: 'Salons & barbershops', desc: 'Clients rebook themselves instead of DMing you at 9pm. Staff calendars, add-ons and regulars all in one place.' },
+            { title: 'Clinics & wellness', desc: 'Reminders that actually cut no-shows, plus private notes only your practice can see.' },
+            { title: 'Consultants & coaches', desc: 'Send one link, get a paid session in the diary and an invoice out the door — no back-and-forth.' },
+            { title: 'Tutors & educators', desc: 'Weekly sessions that repeat themselves, with families and term payments tracked for you.' },
+            { title: 'Trades & home services', desc: 'Job details, photos and site addresses captured before you drive anywhere.' },
+            { title: 'Photo booth & events', desc: 'Enquiries in, quotes out, deposits taken — so a date is only held once someone has committed.' },
           ].map((item) => (
             <Card key={item.title} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
@@ -720,10 +724,10 @@ export default function LandingPage({
 
         <ol className="mt-10 grid gap-6 lg:grid-cols-4" aria-label="How DoBook works">
           {[
-            { step: 'Step 1', title: 'Set up your services', desc: 'Add durations, pricing, staff, and availability.' },
-            { step: 'Step 2', title: 'Share your booking link', desc: 'Post it on your site, socials, Google, or email.' },
-            { step: 'Step 3', title: 'Customers book instantly', desc: 'Clients choose a time, pay (optional), and get confirmed.' },
-            { step: 'Step 4', title: 'Get paid & manage clients', desc: 'Invoices, reminders, and client history—organized.' },
+            { step: 'Step 1', title: 'Tell us your trade', desc: 'Pick your industry and your services, booking form and reminder timings are filled in for you. Edit anything that does not fit.' },
+            { step: 'Step 2', title: 'Share one link', desc: 'Put it in your Instagram bio, on your website, in your Google profile or at the end of an email.' },
+            { step: 'Step 3', title: 'Customers book themselves', desc: 'They pick a time, answer your questions and pay a deposit if you ask for one. No calls, no app, no account.' },
+            { step: 'Step 4', title: 'Turn up and get paid', desc: 'Reminders go out automatically, the invoice is already written, and every client detail is where you left it.' },
           ].map((s) => (
             <Card key={s.step} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
@@ -782,11 +786,11 @@ export default function LandingPage({
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           {[
-            { title: 'Simpler than complex systems', desc: 'Clean defaults and a guided setup that gets you live quickly.' },
-            { title: 'Affordable pricing', desc: 'Start free, then upgrade when automation and unlimited bookings matter.' },
-            { title: 'Built for local businesses', desc: 'Perfect for salons, clinics, consultants, tutors, repairs, and freelancers.' },
-            { title: 'All‑in‑one (no extra tools)', desc: 'Scheduling, reminders, invoices, and payments—together so nothing falls through.' },
-            { title: 'Fast setup (minutes)', desc: 'Add services, set availability, share your link—done.' },
+            { title: 'Set up in an afternoon, not a fortnight', desc: 'Pick your trade and DoBook pre-fills your services, booking form and reminders. Change anything you like — but you are live today, not next month.' },
+            { title: 'One tool instead of four', desc: 'Calendar, reminders, invoices and payments in one place. No stitching together a scheduler, an invoice app and a spreadsheet that never quite agree.' },
+            { title: 'Built around how your trade works', desc: 'A salon needs staff and add-ons. A tradie needs job photos and a site address. A venue needs guest numbers and a deposit. You get the right form, not a generic one.' },
+            { title: 'Free until it is worth paying for', desc: 'The free plan runs a real business — 50 bookings a month, no card. Upgrade when you want invoice PDFs, automated reminders and unlimited bookings.' },
+            { title: 'Your customers never see a login screen', desc: 'They tap your link, pick a time, and they are booked. No app to download, no account to create — which is exactly why they finish.' },
           ].map((d) => (
             <Card key={d.title} className={surfaceCard}>
               <CardContent className="p-6 space-y-2">
@@ -1091,7 +1095,10 @@ export default function LandingPage({
 
           <div className="mt-10 grid gap-4 max-w-3xl">
             {[
-              { q: 'How fast can I set up DoBook?', a: 'Most businesses can add services, set availability, and share a booking link in about 10 minutes.' },
+              { q: 'Is the free plan actually free?', a: 'Yes. The Free plan covers 50 bookings a month with confirmation emails, and no card is required to start. You only pay if you want invoice PDFs, automated reminders and unlimited bookings.' },
+              { q: 'How fast can I set up DoBook?', a: 'Most businesses are taking bookings in about 10 minutes. Choose your industry and your services, booking form and reminder timings are pre-filled — you just adjust what does not match how you work.' },
+              { q: 'Do my customers need an account?', a: 'No. They open your link, pick a time and enter their details. There is no app to download and no password to create, which is a large part of why people finish booking.' },
+              { q: 'Can I cancel or switch away later?', a: 'Yes. There is no lock-in contract — cancel Pro at any time and you drop back to the Free plan rather than losing access. Your bookings and client records stay yours.' },
               { q: 'Can I take deposits or full payment online?', a: 'Yes. Choose per service whether to take a deposit, full payment, or keep payment optional.' },
               { q: 'Do customers get confirmations and reminders?', a: 'Confirmations are included on Free. Pro adds automated email & SMS reminders to reduce no‑shows.' },
               { q: 'What about cancellations and rescheduling?', a: 'Set your cancellation window and rescheduling rules to protect your time and keep your calendar stable.' },
