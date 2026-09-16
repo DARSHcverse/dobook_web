@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isValidPhone, phoneValidationHint } from "@/lib/phone";
 import { minimizeBusinessForStorage } from "@/lib/businessStorage";
+import { FREE_PLAN_MAX_BOOKINGS_PER_MONTH } from "@/lib/entitlements";
 import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplates";
 import { proPriceAmount, resolveProCurrency } from "@/lib/pricing";
 import { DEFAULT_COUNTRY_CODE, countryOptions, normalizeCountryCode, getCountryProfile } from "@/lib/countries";
@@ -319,7 +320,7 @@ export default function AuthScreen() {
             </button>
           </div>
 
-          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden lg:border-transparent lg:shadow-none">
+          <Card className="bg-white border border-zinc-200 shadow-sm rounded-2xl overflow-hidden lg:border-transparent lg:shadow-none lg:ring-0">
           <CardHeader className="space-y-2 lg:px-0">
             <CardTitle className="text-2xl font-bold tracking-tight" style={{ fontFamily: "Manrope" }}>
               {computedTitle}
@@ -459,7 +460,7 @@ export default function AuthScreen() {
 	                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Free</div>
 	                        <div className="text-sm text-zinc-600 dark:text-zinc-300">$0</div>
 	                      </div>
-	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">10 bookings/month • Confirmation emails only</div>
+	                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings/month • Confirmation emails only</div>
 	                    </button>
 
 	                    <button

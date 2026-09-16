@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CalendarCheck, CreditCard, MessageSquare, Star } from "lucide-react";
 
 // The right-hand panel of the split-screen auth page. It exists to keep selling
@@ -26,6 +27,31 @@ const PROOF_POINTS = [
 ];
 
 export default function AuthBrandPanel() {
+  // Only ever show a real, approved review. If none exists we fall back to a
+  // factual product statement rather than inventing a customer quote.
+  const [review, setReview] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/public/platform-reviews", { method: "GET" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled || !Array.isArray(json)) return;
+        const usable = json.find(
+          (r) => String(r?.comment || "").trim() && Number(r?.rating) >= 4,
+        );
+        if (usable) setReview(usable);
+      } catch {
+        // Keep the fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="relative hidden h-full overflow-hidden bg-zinc-950 lg:flex lg:flex-col lg:justify-between">
       {/* Brand wash. Pure CSS so this panel adds no image weight to the page. */}
@@ -79,23 +105,44 @@ export default function AuthBrandPanel() {
           </ul>
         </div>
 
-        <figure className="relative mt-12 rounded-2xl border border-white/12 bg-white/[0.07] p-6 backdrop-blur">
-          <div className="flex gap-0.5 text-rose-300" aria-hidden="true">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Star key={i} className="h-3.5 w-3.5 fill-current" />
-            ))}
+        {review ? (
+          <figure className="relative mt-12 rounded-2xl border border-white/12 bg-white/[0.07] p-6 backdrop-blur">
+            <div
+              className="flex gap-0.5 text-rose-300"
+              aria-label={`Rating ${Number(review.rating) || 0} out of 5`}
+            >
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Star
+                  key={i}
+                  className={`h-3.5 w-3.5 ${
+                    i < (Number(review.rating) || 0) ? "fill-current" : "opacity-30"
+                  }`}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+            <blockquote
+              className="mt-3 text-sm leading-relaxed text-white/85"
+              style={{ fontFamily: "Inter" }}
+            >
+              {String(review.comment || "").trim()}
+            </blockquote>
+            <figcaption className="mt-4 text-xs text-white/55">
+              {String(review.business_name || "").trim() || "DoBook customer"}
+            </figcaption>
+          </figure>
+        ) : (
+          <div className="relative mt-12 rounded-2xl border border-white/12 bg-white/[0.07] p-6 backdrop-blur">
+            <div className="text-sm font-semibold text-white">Free to start</div>
+            <p
+              className="mt-2 text-sm leading-relaxed text-white/65"
+              style={{ fontFamily: "Inter" }}
+            >
+              Create your booking page, take your first booking, and only upgrade when you need
+              invoice PDFs, reminders and unlimited bookings. No card required.
+            </p>
           </div>
-          <blockquote
-            className="mt-3 text-sm leading-relaxed text-white/85"
-            style={{ fontFamily: "Inter" }}
-          >
-            “Setup took about five minutes and clients started booking the same day. I stopped
-            losing evenings to text messages.”
-          </blockquote>
-          <figcaption className="mt-4 text-xs text-white/55">
-            Sarah M. · Salon owner
-          </figcaption>
-        </figure>
+        )}
       </div>
     </div>
   );
