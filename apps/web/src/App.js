@@ -229,6 +229,17 @@ function BrandLogo({ size = 'md', className = '' }) {
 // loads only when the Calendar tab is opened.
 const Views = { MONTH: 'month', WEEK: 'week', WORK_WEEK: 'work_week', DAY: 'day', AGENDA: 'agenda' };
 
+// Canvas renderer + template library. Loaded only when an operator actually
+// opens the studio, so it never touches the dashboard's initial bundle.
+const DesignStudio = dynamic(() => import('@/components/design/DesignStudio'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
+      Loading Design Studio…
+    </div>
+  ),
+});
+
 const TrendBarChart = dynamic(() => import('@/components/app/TrendBarChart'), {
   ssr: false,
   loading: () => <div style={{ height: 200 }} aria-hidden="true" />,
@@ -410,6 +421,8 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
   const [staffSelection, setStaffSelection] = useState('');
   const [backdropNotes, setBackdropNotes] = useState('');
   const [invoiceUpgradeOpen, setInvoiceUpgradeOpen] = useState(false);
+  const [designStudioOpen, setDesignStudioOpen] = useState(false);
+  const [designUpgradeOpen, setDesignUpgradeOpen] = useState(false);
 
   const hasProForInvoice =
     String(business?.account_role || '').trim().toLowerCase() === 'owner' ||
@@ -1045,6 +1058,21 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
                   type="button"
                   variant="outline"
                   className="w-full"
+                  onClick={() => {
+                    if (!hasProForInvoice) {
+                      setDesignUpgradeOpen(true);
+                      return;
+                    }
+                    setDesignStudioOpen(true);
+                  }}
+                >
+                  Design Template{' '}
+                  {!hasProForInvoice && <span className="ml-1 text-xs text-rose-500">(Pro)</span>}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
                   disabled={sendingInvoice}
                   onClick={handleSendInvoice}
                 >
@@ -1157,6 +1185,51 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
             </div>
           </div>
         )}
+      </DialogContent>
+    </Dialog>
+
+    {/* Design Studio — photo strip / overlay editor for this booking. */}
+    <Dialog open={designStudioOpen} onOpenChange={setDesignStudioOpen}>
+      <DialogContent className="max-h-[92vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-[min(64rem,calc(100vw-3rem))]">
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'Manrope' }}>Design Studio</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'Inter' }}>
+            Design the photo strip for this booking. Names and dates fill in automatically, and
+            the PNG exports print-ready for Darkroom, LumaBooth, Snappic and similar.
+          </DialogDescription>
+        </DialogHeader>
+        {designStudioOpen ? (
+          <DesignStudio booking={currentBooking} business={business} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+
+    {/* Design Studio upgrade dialog */}
+    <Dialog open={designUpgradeOpen} onOpenChange={setDesignUpgradeOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'Inter' }}>
+            Design Studio is available on the Pro plan. Upgrade for {proPriceLabel}{' '}
+            {proCurrency.toUpperCase()}/month to design photo strip templates from your bookings,
+            plus unlimited bookings, invoice PDFs and SMS reminders.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+          <Button type="button" variant="ghost" onClick={() => setDesignUpgradeOpen(false)}>
+            Maybe later
+          </Button>
+          <Button
+            type="button"
+            className="bg-rose-600 hover:bg-rose-700 text-white"
+            onClick={() => {
+              setDesignUpgradeOpen(false);
+              window.location.href = '/dashboard?tab=settings';
+            }}
+          >
+            Upgrade Now
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
 
