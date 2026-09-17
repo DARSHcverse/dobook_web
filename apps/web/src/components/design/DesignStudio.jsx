@@ -31,6 +31,7 @@ import {
 import { resolveSpecTokens } from '@/lib/design/tokens';
 import { renderDesign } from '@/lib/design/render';
 import { STARTER_TEMPLATES } from '@/lib/design/templates';
+import MonogramPanel from '@/components/design/MonogramPanel';
 
 const FONT_LABELS = {
   elegant: 'Elegant serif',
@@ -54,6 +55,9 @@ export default function DesignStudio({ booking, business }) {
   const [templateId, setTemplateId] = useState(STARTER_TEMPLATES[0].id);
   const [spec, setSpec] = useState(() => normalizeDesignSpec(STARTER_TEMPLATES[0].spec));
   const [exporting, setExporting] = useState(false);
+  // A monogram is a different artifact from a strip (no photo slots, square,
+  // transparent), so it gets its own panel rather than more controls here.
+  const [mode, setMode] = useState('strip');
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [aiName, setAiName] = useState('');
@@ -171,7 +175,39 @@ export default function DesignStudio({ booking, business }) {
 
   const activeFormat = PRINT_FORMATS[resolved.format] || PRINT_FORMATS[DEFAULT_FORMAT_ID];
 
+  const tabClass = (active) =>
+    `h-8 rounded-full px-4 text-xs font-semibold transition-colors ${
+      active
+        ? 'bg-rose-600 text-white'
+        : 'bg-muted text-muted-foreground hover:bg-muted/70'
+    }`;
+
   return (
+    <div className="space-y-4">
+      <div className="flex gap-2" role="tablist" aria-label="Design type">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'strip'}
+          className={tabClass(mode === 'strip')}
+          onClick={() => setMode('strip')}
+        >
+          Photo strip
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'monogram'}
+          className={tabClass(mode === 'monogram')}
+          onClick={() => setMode('monogram')}
+        >
+          Monogram
+        </button>
+      </div>
+
+      {mode === 'monogram' ? (
+        <MonogramPanel booking={booking} business={business} />
+      ) : (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       {/* Preview */}
       <div className="order-2 lg:order-1">
@@ -529,6 +565,8 @@ export default function DesignStudio({ booking, business }) {
           </Button>
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 }
