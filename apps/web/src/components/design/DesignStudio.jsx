@@ -11,7 +11,7 @@
 // export, because booth software composites the guest photos behind this PNG.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Loader2, RotateCcw, Sparkles, Trash2, Plus } from 'lucide-react';
+import { Download, Loader2, RotateCcw, Save, Send, Sparkles, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -61,6 +61,9 @@ export default function DesignStudio({ booking, business }) {
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [aiName, setAiName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState([]);
+  const [sending, setSending] = useState(false);
   const previewRef = useRef(null);
 
   // Tokens resolve against the real booking, so the operator sees the finished
@@ -86,6 +89,20 @@ export default function DesignStudio({ booking, business }) {
     if (!ctx) return;
     renderDesign(ctx, resolved, { width: canvas.width, height: canvas.height, mode: 'preview' });
   }, [resolved, pixelSize]);
+
+  const loadSaved = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/design/templates');
+      setSaved(Array.isArray(res.data) ? res.data.filter((t) => t.kind !== 'monogram') : []);
+    } catch {
+      // A missing migration or a load failure just means an empty library.
+      setSaved([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSaved();
+  }, [loadSaved]);
 
   const applyTemplate = useCallback((id) => {
     const t = STARTER_TEMPLATES.find((x) => x.id === id);
@@ -138,19 +155,81 @@ export default function DesignStudio({ booking, business }) {
     }
   }, [prompt, booking?.event_type]);
 
+  // Renders the current design at full print resolution. Used by download,
+  // and by "send for approval" to produce the emailed preview image.
+  const renderToCanvas = useCallback(() => {
+    const { width, height } = pixelSize;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas unavailable');
+    renderDesign(ctx, resolved, { width, height, mode: 'export' });
+    return canvas;
+  }, [pixelSize, resolved]);
+
+  const handleSave = useCallback(async () => {
+    const name = window.prompt('Save this design as:', aiName || 'My design');
+    if (!name || !name.trim()) return;
+    setSaving(true);
+    try {
+      await axios.post('/api/design/templates', {
+        name: name.trim(),
+        kind: 'strip',
+        spec,
+        booking_id: booking?.id || null,
+      });
+      toast.success('Design saved to your library');
+      loadSaved();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Could not save this design.');
+    } finally {
+      setSaving(false);
+    }
+  }, [aiName, spec, booking?.id, loadSaved]);
+
+  const handleSend = useCallback(async () => {
+    if (!booking?.id) {
+      toast.error('Open this from a booking to send it to the customer.');
+      return;
+    }
+    setSending(true);
+    try {
+      // Email clients cannot run a canvas, so send a rendered PNG the server
+      // stores and links to. Scaled down — this is a preview, not the print file.
+      const full = renderToCanvas();
+      const scale = Math.min(1, 900 / Math.max(full.width, full.height));
+      const out = document.createElement('canvas');
+      out.width = Math.round(full.width * scale);
+      out.height = Math.round(full.height * scale);
+      const octx = out.getContext('2d');
+      // Flatten onto white: a transparent PNG reads as a black box in many
+      // email clients, which would look broken to the customer.
+      octx.fillStyle = '#ffffff';
+      octx.fillRect(0, 0, out.width, out.height);
+      octx.drawImage(full, 0, 0, out.width, out.height);
+
+      await axios.post('/api/design/send', {
+        booking_id: booking.id,
+        kind: 'strip',
+        spec,
+        preview: out.toDataURL('image/png'),
+      });
+      toast.success('Sent to the customer for approval');
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Could not send the design.');
+    } finally {
+      setSending(false);
+    }
+  }, [booking?.id, renderToCanvas, spec]);
+
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
       // Render at full print resolution into an offscreen canvas. `mode: export`
       // punches real transparent holes where the photos go — the whole point of
       // the file, and the difference between a usable overlay and a flat image.
-      const { width, height } = pixelSize;
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas unavailable');
-      renderDesign(ctx, resolved, { width, height, mode: 'export' });
+      const canvas = renderToCanvas();
 
       const blob = await new Promise((resolve, reject) => {
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Export failed'))), 'image/png');
@@ -171,7 +250,7 @@ export default function DesignStudio({ booking, business }) {
     } finally {
       setExporting(false);
     }
-  }, [pixelSize, resolved, booking]);
+  }, [renderToCanvas, resolved.format, booking]);
 
   const activeFormat = PRINT_FORMATS[resolved.format] || PRINT_FORMATS[DEFAULT_FORMAT_ID];
 
@@ -274,6 +353,49 @@ export default function DesignStudio({ booking, business }) {
             </p>
           ) : null}
         </div>
+
+        {saved.length ? (
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Your saved designs
+            </Label>
+            <div className="mt-1.5 space-y-1">
+              {saved.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5"
+                >
+                  <button
+                    type="button"
+                    className="flex-1 truncate text-left text-xs font-medium hover:text-rose-600"
+                    onClick={() => {
+                      setSpec(normalizeDesignSpec(t.spec));
+                      setTemplateId('');
+                      setAiName(t.name);
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${t.name}`}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:text-rose-600"
+                    onClick={async () => {
+                      try {
+                        await axios.delete(`/api/design/templates?id=${encodeURIComponent(t.id)}`);
+                        setSaved((prev) => prev.filter((x) => x.id !== t.id));
+                      } catch {
+                        toast.error('Could not delete that design.');
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -562,6 +684,33 @@ export default function DesignStudio({ booking, business }) {
               <Download className="h-4 w-4" />
             )}
             Download PNG
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 gap-1.5"
+            disabled={saving}
+            onClick={() => {
+              handleSave().catch(() => {});
+            }}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 gap-1.5"
+            disabled={sending}
+            onClick={() => {
+              handleSend().catch(() => {});
+            }}
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send to customer
           </Button>
         </div>
       </div>
