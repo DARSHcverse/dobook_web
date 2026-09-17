@@ -11,9 +11,12 @@
 // export, because booth software composites the guest photos behind this PNG.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Loader2, RotateCcw, Trash2, Plus } from 'lucide-react';
+import { Download, Loader2, RotateCcw, Sparkles, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import axios from 'axios';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -51,6 +54,9 @@ export default function DesignStudio({ booking, business }) {
   const [templateId, setTemplateId] = useState(STARTER_TEMPLATES[0].id);
   const [spec, setSpec] = useState(() => normalizeDesignSpec(STARTER_TEMPLATES[0].spec));
   const [exporting, setExporting] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [aiName, setAiName] = useState('');
   const previewRef = useRef(null);
 
   // Tokens resolve against the real booking, so the operator sees the finished
@@ -81,6 +87,7 @@ export default function DesignStudio({ booking, business }) {
     const t = STARTER_TEMPLATES.find((x) => x.id === id);
     if (!t) return;
     setTemplateId(id);
+    setAiName('');
     setSpec(normalizeDesignSpec(t.spec));
   }, []);
 
@@ -97,6 +104,35 @@ export default function DesignStudio({ booking, business }) {
     },
     [patch],
   );
+
+  // Claude returns a design *specification*, not an image; the renderer draws
+  // it. See lib/design/aiDesign.js for why that is the right split here.
+  const handleGenerate = useCallback(async () => {
+    const description = prompt.trim();
+    if (description.length < 6) {
+      toast.error('Describe the design in a few more words.');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await axios.post('/api/design/generate', {
+        description,
+        event_type: booking?.event_type || '',
+      });
+      const generated = res?.data?.spec;
+      if (!generated) throw new Error('No design returned');
+      setSpec(normalizeDesignSpec(generated));
+      setAiName(String(res?.data?.name || '').trim());
+      setTemplateId('');
+      toast.success(`Generated “${res?.data?.name || 'design'}”`);
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.detail || 'Could not generate a design. Please try again.',
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }, [prompt, booking?.event_type]);
 
   const handleExport = useCallback(async () => {
     setExporting(true);
@@ -158,13 +194,58 @@ export default function DesignStudio({ booking, business }) {
 
       {/* Controls */}
       <div className="order-1 space-y-5 lg:order-2 lg:max-h-[620px] lg:overflow-y-auto lg:pr-1">
+        {/* AI brief — the primary way in. Claude returns a design spec that the
+            same renderer draws, so generated designs are always print-correct. */}
+        <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50/60 p-3 dark:border-rose-900/40 dark:bg-rose-950/20">
+          <Label
+            htmlFor="design-prompt"
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Describe your design
+          </Label>
+          <Textarea
+            id="design-prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Romantic floral wedding, blush pink and gold, elegant script"
+            rows={2}
+            maxLength={500}
+            className="resize-none bg-white text-sm dark:bg-zinc-900"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleGenerate();
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="w-full gap-1.5 bg-rose-600 hover:bg-rose-700"
+            disabled={generating}
+            onClick={handleGenerate}
+          >
+            {generating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Designing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" /> Generate design
+              </>
+            )}
+          </Button>
+          {aiName ? (
+            <p className="text-[11px] text-rose-700 dark:text-rose-300">
+              Showing “{aiName}” — tweak anything below.
+            </p>
+          ) : null}
+        </div>
+
         <div>
           <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Template
           </Label>
           <Select value={templateId} onValueChange={applyTemplate}>
             <SelectTrigger className="mt-1.5">
-              <SelectValue />
+              <SelectValue placeholder={aiName ? `${aiName} (AI)` : 'Choose a template'} />
             </SelectTrigger>
             <SelectContent>
               {STARTER_TEMPLATES.map((t) => (
@@ -424,6 +505,7 @@ export default function DesignStudio({ booking, business }) {
             type="button"
             variant="outline"
             className="gap-1.5"
+            disabled={!templateId}
             onClick={() => applyTemplate(templateId)}
           >
             <RotateCcw className="h-4 w-4" /> Reset

@@ -93,10 +93,22 @@ function cutPhotoSlots(ctx, spec, W, H) {
   }
 }
 
+// Rough perceived brightness of a hex colour (0-255).
+function luminance(hex) {
+  const s = String(hex || "").replace("#", "");
+  const f = s.length === 3 ? s.split("").map((c) => c + c).join("") : s;
+  const r = parseInt(f.slice(0, 2), 16);
+  const g = parseInt(f.slice(2, 4), 16);
+  const b = parseInt(f.slice(4, 6), 16);
+  if (![r, g, b].every(Number.isFinite)) return 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
 // Draws placeholder fills in the photo openings. Preview only — never used for
 // export, where those regions must stay transparent.
 function drawSlotPlaceholders(ctx, spec, W, H) {
   const format = getPrintFormat(spec.format);
+  const darkArtwork = luminance(spec.background.color) < 128;
   for (let i = 0; i < format.slots.length; i += 1) {
     const slot = format.slots[i];
     const x = px(slot.x, W);
@@ -107,16 +119,18 @@ function drawSlotPlaceholders(ctx, spec, W, H) {
 
     ctx.save();
     roundedRectPath(ctx, x, y, w, h, r);
-    ctx.fillStyle = "rgba(148,163,184,0.28)";
+    // Light wash over dark artwork, dark wash over light — the placeholder has
+    // to stay legible whatever background the design uses.
+    ctx.fillStyle = darkArtwork ? "rgba(226,232,240,0.30)" : "rgba(148,163,184,0.28)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(100,116,139,0.55)";
+    ctx.strokeStyle = darkArtwork ? "rgba(226,232,240,0.55)" : "rgba(100,116,139,0.55)";
     ctx.lineWidth = Math.max(1, W * 0.003);
     ctx.setLineDash([W * 0.02, W * 0.014]);
     ctx.stroke();
     ctx.restore();
 
     ctx.save();
-    ctx.fillStyle = "rgba(51,65,85,0.75)";
+    ctx.fillStyle = darkArtwork ? "rgba(241,245,249,0.85)" : "rgba(51,65,85,0.75)";
     ctx.font = `600 ${Math.round(Math.min(w, h) * 0.16)}px ${resolveFont("clean")}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -125,7 +139,24 @@ function drawSlotPlaceholders(ctx, spec, W, H) {
   }
 }
 
+// Longest suffix of `text` that fits `maxWidth`, with an ellipsis. Used so a
+// long venue or business name cannot bleed off the edge of a print.
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${text.slice(0, mid)}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${text.slice(0, lo).trimEnd()}…` : "";
+}
+
 function drawText(ctx, spec, W, H) {
+  // Keep text inside the artwork, clear of any border.
+  const margin = px(Math.max(spec.border.inset + spec.border.width, 0.04), W);
+
   for (const item of spec.text) {
     const size = Math.max(1, px(item.size, H));
     const weight = item.weight === "bold" ? "700" : "400";
@@ -136,10 +167,27 @@ function drawText(ctx, spec, W, H) {
     ctx.textAlign = item.align;
     ctx.textBaseline = "middle";
 
-    const content = item.uppercase ? item.content.toUpperCase() : item.content;
     const x = px(item.x, W);
     const y = px(item.y, H);
     const tracking = px(item.letterSpacing, W);
+
+    // Space available from this anchor to the nearer edge, doubled for centred
+    // text since it grows in both directions.
+    const available =
+      item.align === "center"
+        ? Math.min(x - margin, W - margin - x) * 2
+        : item.align === "right"
+          ? x - margin
+          : W - margin - x;
+
+    const rawContent = item.uppercase ? item.content.toUpperCase() : item.content;
+    // Tracking adds width the measurement above does not know about.
+    const trackingAllowance = tracking * Math.max(0, [...rawContent].length - 1);
+    const content = fitText(ctx, rawContent, Math.max(0, available - trackingAllowance));
+    if (!content) {
+      ctx.restore();
+      continue;
+    }
 
     if (tracking > 0) {
       // Canvas has no letterSpacing in older engines; draw per character so
