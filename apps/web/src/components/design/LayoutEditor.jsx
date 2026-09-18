@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
   ChevronDown,
   ChevronUp,
   Download,
@@ -38,6 +40,7 @@ import {
   updateElement,
 } from '@/lib/design/layout';
 import { loadSpecImages, renderLayout } from '@/lib/design/renderLayout';
+import { alignRect } from '@/lib/design/snapping';
 import LayoutCanvas from '@/components/design/LayoutCanvas';
 
 const FONT_LABELS = {
@@ -387,6 +390,29 @@ export default function LayoutEditor({ spec, onSpecChange, booking, business, on
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
+            </div>
+
+            {/* Centre helpers — faster and more exact than dragging for the
+                most common alignment an operator wants. */}
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 flex-1 gap-1 px-2 text-xs"
+                onClick={() => patchSelected({ rect: alignRect(selected.rect, 'centerX') })}
+              >
+                <AlignCenterVertical className="h-3.5 w-3.5" /> Centre H
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 flex-1 gap-1 px-2 text-xs"
+                onClick={() => patchSelected({ rect: alignRect(selected.rect, 'centerY') })}
+              >
+                <AlignCenterHorizontal className="h-3.5 w-3.5" /> Centre V
+              </Button>
             </div>
 
             {selected.type === 'text' ? (

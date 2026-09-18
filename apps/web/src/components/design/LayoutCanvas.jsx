@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { hitTest } from '@/lib/design/layout';
 import { renderLayout } from '@/lib/design/renderLayout';
+import { snapRect } from '@/lib/design/snapping';
 
 // Corner + edge handles, expressed as unit offsets within the element.
 const HANDLES = [
@@ -44,6 +45,8 @@ export default function LayoutCanvas({
   // trigger a React render per frame.
   const dragRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  // Alignment guides currently showing, e.g. [{axis:'v', at:0.5}].
+  const [guides, setGuides] = useState([]);
 
   // Redraw whenever the design or loaded images change.
   useEffect(() => {
@@ -147,15 +150,30 @@ export default function LayoutCanvas({
         rect = { x, y, w, h };
       }
 
+      // Snap to the canvas and to sibling edges, and surface the guides that
+      // fired so the operator can see why it locked on. Holding Alt bypasses it
+      // for deliberate fine placement.
+      if (!e.altKey) {
+        const snapped = snapRect(rect, spec, {
+          excludeId: d.id,
+          resizing: d.mode === 'resize' ? d.handleId : null,
+        });
+        rect = snapped.rect;
+        setGuides(snapped.guides);
+      } else {
+        setGuides([]);
+      }
+
       onChange(d.id, { rect });
     },
-    [toFraction, onChange],
+    [toFraction, onChange, spec],
   );
 
   const endDrag = useCallback(() => {
     const d = dragRef.current;
     dragRef.current = null;
     setDragging(false);
+    setGuides([]);
     // Only push an undo entry if something actually moved — a plain click to
     // select should not create a history step.
     if (d?.moved) onCommit?.();
@@ -220,6 +238,20 @@ export default function LayoutCanvas({
             width: `${el.rect.w * 100}%`,
             height: `${el.rect.h * 100}%`,
           }}
+        />
+      ))}
+
+      {/* Alignment guides, shown only while dragging. */}
+      {guides.map((g, i) => (
+        <div
+          key={`guide-${g.axis}-${g.at}-${i}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute bg-rose-500/80"
+          style={
+            g.axis === 'v'
+              ? { left: `${g.at * 100}%`, top: 0, bottom: 0, width: 1 }
+              : { top: `${g.at * 100}%`, left: 0, right: 0, height: 1 }
+          }
         />
       ))}
 

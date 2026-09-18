@@ -76,6 +76,8 @@ export default function DesignStudio({ booking, business }) {
   );
   const [layoutTemplateId, setLayoutTemplateId] = useState('website_header');
   const [layoutExporting, setLayoutExporting] = useState(false);
+  const [savedLayouts, setSavedLayouts] = useState([]);
+  const [layoutSaving, setLayoutSaving] = useState(false);
   const previewRef = useRef(null);
 
   // Tokens resolve against the real booking, so the operator sees the finished
@@ -235,6 +237,39 @@ export default function DesignStudio({ booking, business }) {
     }
   }, [booking?.id, renderToCanvas, spec]);
 
+  const loadSavedLayouts = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/design/templates');
+      setSavedLayouts(Array.isArray(res.data) ? res.data.filter((t) => t.kind === 'layout') : []);
+    } catch {
+      setSavedLayouts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSavedLayouts();
+  }, [loadSavedLayouts]);
+
+  const handleLayoutSave = useCallback(async () => {
+    const name = window.prompt('Save this layout as:', 'My layout');
+    if (!name || !name.trim()) return;
+    setLayoutSaving(true);
+    try {
+      await axios.post('/api/design/templates', {
+        name: name.trim(),
+        kind: 'layout',
+        spec: layoutSpec,
+        booking_id: booking?.id || null,
+      });
+      toast.success('Layout saved — reuse it on any booking');
+      loadSavedLayouts();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Could not save this layout.');
+    } finally {
+      setLayoutSaving(false);
+    }
+  }, [layoutSpec, booking?.id, loadSavedLayouts]);
+
   const handleLayoutExport = useCallback(async () => {
     setLayoutExporting(true);
     try {
@@ -348,6 +383,15 @@ export default function DesignStudio({ booking, business }) {
             <Select
               value={layoutTemplateId}
               onValueChange={(id) => {
+                // Saved layouts are prefixed so they cannot collide with the
+                // built-in starter template ids.
+                if (id.startsWith('saved:')) {
+                  const saved = savedLayouts.find((x) => x.id === id.slice(6));
+                  if (!saved) return;
+                  setLayoutTemplateId(id);
+                  setLayoutSpec(toLayoutSpec(saved.spec));
+                  return;
+                }
                 const t = getLayoutTemplate(id);
                 if (!t) return;
                 setLayoutTemplateId(id);
@@ -363,8 +407,25 @@ export default function DesignStudio({ booking, business }) {
                     {t.name}
                   </SelectItem>
                 ))}
+                {savedLayouts.map((t) => (
+                  <SelectItem key={t.id} value={`saved:${t.id}`}>
+                    {t.name} (saved)
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1 text-xs"
+              disabled={layoutSaving}
+              onClick={handleLayoutSave}
+            >
+              {layoutSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save layout
+            </Button>
           </div>
           <LayoutEditor
             spec={layoutSpec}

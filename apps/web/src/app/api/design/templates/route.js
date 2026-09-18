@@ -3,16 +3,23 @@ import { requireSession } from "@/app/api/_utils/auth";
 import { hasProAccess } from "@/lib/entitlements";
 import { normalizeDesignSpec } from "@/lib/design/specs";
 import { normalizeMonogramSpec } from "@/lib/design/monogram";
+import { normalizeLayoutSpec } from "@/lib/design/layout";
 
 export const runtime = "nodejs";
 
 // Keeps one business from filling the table; well above any realistic library.
 const MAX_SAVED = 100;
 
-const KINDS = new Set(["strip", "monogram"]);
+// "layout" is the v2 free-positioned model; "strip" is the older fixed-slot
+// spec, kept so designs saved before the rebuild still open.
+const KINDS = new Set(["strip", "monogram", "layout"]);
 
 function normalizeByKind(kind, spec) {
-  return kind === "monogram" ? normalizeMonogramSpec(spec) : normalizeDesignSpec(spec);
+  if (kind === "monogram") return normalizeMonogramSpec(spec);
+  // A v2 layout must NOT go through normalizeDesignSpec — that normalizer knows
+  // nothing about `elements` and would silently drop the entire design.
+  if (kind === "layout") return normalizeLayoutSpec(spec);
+  return normalizeDesignSpec(spec);
 }
 
 function proGate(auth) {
