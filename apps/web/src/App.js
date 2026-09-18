@@ -1194,8 +1194,8 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
         <DialogHeader>
           <DialogTitle style={{ fontFamily: 'Manrope' }}>Design Studio</DialogTitle>
           <DialogDescription style={{ fontFamily: 'Inter' }}>
-            Design the photo strip for this booking. Names and dates fill in automatically, and
-            the PNG exports print-ready for Darkroom, LumaBooth, Snappic and similar.
+            Design the photo strip for this booking. Drag anything to move it, drop in your
+            client&apos;s logo, and export a print-ready PNG for Darkroom, LumaBooth, Snappic and similar.
           </DialogDescription>
         </DialogHeader>
         {designStudioOpen ? (

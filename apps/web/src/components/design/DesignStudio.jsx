@@ -32,6 +32,11 @@ import { resolveSpecTokens } from '@/lib/design/tokens';
 import { renderDesign } from '@/lib/design/render';
 import { STARTER_TEMPLATES } from '@/lib/design/templates';
 import MonogramPanel from '@/components/design/MonogramPanel';
+import LayoutEditor from '@/components/design/LayoutEditor';
+import { toLayoutSpec } from '@/lib/design/layout';
+import { LAYOUT_TEMPLATES, getLayoutTemplate } from '@/lib/design/layoutTemplates';
+import { loadSpecImages, renderLayout } from '@/lib/design/renderLayout';
+import { formatPixelSize as layoutPixelSize } from '@/lib/design/specs';
 
 const FONT_LABELS = {
   elegant: 'Elegant serif',
@@ -64,6 +69,13 @@ export default function DesignStudio({ booking, business }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState([]);
   const [sending, setSending] = useState(false);
+  // v2 free-layout editor: its own spec, separate from the v1 strip configurator
+  // which is kept so existing saved designs still open.
+  const [layoutSpec, setLayoutSpec] = useState(() =>
+    toLayoutSpec(getLayoutTemplate('website_header').spec),
+  );
+  const [layoutTemplateId, setLayoutTemplateId] = useState('website_header');
+  const [layoutExporting, setLayoutExporting] = useState(false);
   const previewRef = useRef(null);
 
   // Tokens resolve against the real booking, so the operator sees the finished
@@ -223,6 +235,38 @@ export default function DesignStudio({ booking, business }) {
     }
   }, [booking?.id, renderToCanvas, spec]);
 
+  const handleLayoutExport = useCallback(async () => {
+    setLayoutExporting(true);
+    try {
+      const { width, height } = layoutPixelSize(layoutSpec.format);
+      // Images must be decoded before drawing — canvas drawing is synchronous.
+      const images = await loadSpecImages(layoutSpec);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas unavailable');
+      renderLayout(ctx, layoutSpec, { width, height, mode: 'export', images });
+
+      const blob = await new Promise((res, rej) => {
+        canvas.toBlob((b) => (b ? res(b) : rej(new Error('Export failed'))), 'image/png');
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadFilename({ booking, formatId: layoutSpec.format });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error('Could not export this design.');
+      console.error('[DesignStudio] layout export failed:', err?.message);
+    } finally {
+      setLayoutExporting(false);
+    }
+  }, [layoutSpec, booking]);
+
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
@@ -276,6 +320,15 @@ export default function DesignStudio({ booking, business }) {
         <button
           type="button"
           role="tab"
+          aria-selected={mode === 'layout'}
+          className={tabClass(mode === 'layout')}
+          onClick={() => setMode('layout')}
+        >
+          Free layout
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={mode === 'monogram'}
           className={tabClass(mode === 'monogram')}
           onClick={() => setMode('monogram')}
@@ -286,6 +339,42 @@ export default function DesignStudio({ booking, business }) {
 
       {mode === 'monogram' ? (
         <MonogramPanel booking={booking} business={business} />
+      ) : mode === 'layout' ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Start from
+            </Label>
+            <Select
+              value={layoutTemplateId}
+              onValueChange={(id) => {
+                const t = getLayoutTemplate(id);
+                if (!t) return;
+                setLayoutTemplateId(id);
+                setLayoutSpec(toLayoutSpec(t.spec));
+              }}
+            >
+              <SelectTrigger className="h-8 w-[260px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LAYOUT_TEMPLATES.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <LayoutEditor
+            spec={layoutSpec}
+            onSpecChange={setLayoutSpec}
+            booking={booking}
+            business={business}
+            onExport={handleLayoutExport}
+            exporting={layoutExporting}
+          />
+        </div>
       ) : (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       {/* Preview */}
