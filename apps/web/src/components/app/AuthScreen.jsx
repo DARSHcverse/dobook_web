@@ -18,6 +18,7 @@ import { BUSINESS_TYPES, normalizeBusinessType } from "@/lib/businessTypeTemplat
 import { proPriceAmount, resolveProCurrency } from "@/lib/pricing";
 import { DEFAULT_COUNTRY_CODE, countryOptions, normalizeCountryCode, getCountryProfile } from "@/lib/countries";
 import { formatMoney } from "@/lib/money";
+import { MAX_BUSINESS_NAME, validateBusinessName } from "@/lib/signupGuard";
 import AuthBrandPanel from "@/components/app/AuthBrandPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "";
@@ -229,8 +230,11 @@ export default function AuthScreen() {
       }
 
       if (!isLogin && signupStep === 1) {
-        if (!formData.business_name || String(formData.business_name || "").trim().length < 2) {
-          toast.error("Business name is required");
+        // Same rule the server enforces, so the user hears about it here
+        // rather than after a round trip.
+        const nameError = validateBusinessName(formData.business_name);
+        if (nameError) {
+          toast.error(nameError);
           return;
         }
         if (!formData.email) {
@@ -445,6 +449,7 @@ export default function AuthScreen() {
                         onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
                         required={!isLogin}
                         autoComplete="organization"
+                        maxLength={MAX_BUSINESS_NAME}
                         className="bg-zinc-50 border-zinc-200 focus:ring-2 focus:ring-rose-100 focus:border-rose-500 rounded-xl h-12"
                       />
                     </div>

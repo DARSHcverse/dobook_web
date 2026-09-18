@@ -9,6 +9,7 @@ import { getCountryProfile } from "@/lib/countries";
 import { buildSessionCookieOptions, sanitizeBusiness, SESSION_COOKIE } from "@/app/api/_utils/auth";
 import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/lib/businessTypeSeeder";
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
+import { validateBusinessName } from "@/lib/signupGuard";
 import { rateLimit } from "@/app/api/_utils/rateLimit";
 
 export const runtime = "nodejs";
@@ -84,8 +85,11 @@ export async function POST(request) {
     return ["Open Booth", "Glam Booth", "Enclosed Booth"];
   };
 
-  if (!businessName || businessName.length < 2) {
-    return NextResponse.json({ detail: "Business name is required" }, { status: 400 });
+  // Blocks the spam pattern seen on 2026-09-17: a 422-character fake PayPal
+  // invoice stuffed into business_name so it would render in the admin panel.
+  const nameError = validateBusinessName(businessName);
+  if (nameError) {
+    return NextResponse.json({ detail: nameError }, { status: 400 });
   }
   if (!email) {
     return NextResponse.json({ detail: "Email is required" }, { status: 400 });
