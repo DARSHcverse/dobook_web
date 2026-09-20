@@ -59,13 +59,36 @@ export default function EnquiryFlow({ initialData, slug }) {
 
   // Skip booth step if 0/1 categories
   const hasMultipleCategories = categories.length > 1;
-  const initialStep = hasMultipleCategories ? 0 : 1;
+
+  // A visitor can arrive from the business's public profile with a package
+  // already chosen (?category=&package=). Honour it and start further along so
+  // they are not asked to re-pick what they just clicked.
+  const preselect = useMemo(() => {
+    if (typeof window === "undefined") return { categoryId: "", packageId: "" };
+    const q = new URLSearchParams(window.location.search);
+    const categoryId = String(q.get("category") || "").trim();
+    const packageId = String(q.get("package") || "").trim();
+    // Only trust ids that actually belong to this business.
+    const validCategory = categories.some((c) => c.id === categoryId) ? categoryId : "";
+    const pkg = packages.find((x) => x.id === packageId);
+    const validPackage = pkg ? packageId : "";
+    return {
+      categoryId: validCategory || (pkg?.category_id ?? ""),
+      packageId: validPackage,
+    };
+  }, [categories, packages]);
+
+  const initialStep = preselect.packageId
+    ? 2
+    : preselect.categoryId || !hasMultipleCategories
+      ? 1
+      : 0;
 
   const [stepIndex, setStepIndex] = useState(initialStep);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    !hasMultipleCategories && categories[0] ? categories[0].id : "",
+    preselect.categoryId || (!hasMultipleCategories && categories[0] ? categories[0].id : ""),
   );
-  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState(preselect.packageId);
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [form, setForm] = useState({
     first_name: "",

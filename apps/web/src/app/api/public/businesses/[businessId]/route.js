@@ -17,6 +17,10 @@ function sanitize(business) {
     booth_types: Array.isArray(business.booth_types) ? business.booth_types : [],
     public_services: Array.isArray(business.public_services) ? business.public_services : [],
     currency: business.currency || "aud",
+    // Public enquiry page, when the business has one enabled. The profile uses
+    // this to decide between "Get a quote" and "Book now".
+    slug: business.enquiry_page_enabled === false ? null : business.slug || null,
+    enquiry_enabled: Boolean(business.slug) && business.enquiry_page_enabled !== false,
   };
 }
 
@@ -30,7 +34,10 @@ export async function GET(_request, context) {
     const { data, error } = await sb
       .from("businesses")
       .select(
-        "id,business_name,industry,logo_url,business_address,public_enabled,public_description,public_postcode,public_photos,public_website,booth_types,public_services,currency",
+        // slug + enquiry_page_enabled let the profile send visitors to the quote
+        // flow when the business works that way, and to instant booking when it
+        // does not — a salon taking a haircut should not be pushed into a quote.
+        "id,business_name,industry,logo_url,business_address,public_enabled,public_description,public_postcode,public_photos,public_website,booth_types,public_services,currency,slug,enquiry_page_enabled",
       )
       .eq("id", businessId)
       .maybeSingle();

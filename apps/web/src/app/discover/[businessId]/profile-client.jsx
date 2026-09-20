@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,13 @@ import { formatMoney } from "@/lib/money";
 
 function asList(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function formatHours(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const rounded = Math.round(n * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)} ${rounded === 1 ? "hour" : "hours"}`;
 }
 
 function normalizeWebsiteUrl(raw) {
@@ -34,14 +41,87 @@ export default function BusinessProfileClient({ businessId }) {
   const [error, setError] = useState("");
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  // Real packages and booth categories, so the Services tab shows what the
+  // business actually sells (with prices) rather than a free-text list.
+  const [packages, setPackages] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const websiteUrl = useMemo(() => normalizeWebsiteUrl(business?.public_website), [business?.public_website]);
+
+  // Businesses that quote (photo booths, venues, events) send visitors to their
+  // enquiry flow; ones that take instant bookings (salons, clinics, tutors)
+  // keep "Book now". Promising an instant booking a business cannot honour is
+  // worse than asking for a couple of extra details.
+  const usesEnquiry = Boolean(business?.enquiry_enabled && business?.slug);
+  const ctaLabel = usesEnquiry ? "Get a quote" : "Book now";
+  const ctaHref = usesEnquiry ? `/enquiry/${business.slug}` : `/book/${business?.id}`;
   const photos = asList(business?.public_photos).filter(Boolean);
+
+  // Packages grouped under their booth category, so the tab mirrors how the
+  // business actually sells: "Open Booth -> 3 Hour Package, 4 Hour Package".
+  const packageGroups = useMemo(() => {
+    const list = Array.isArray(packages) ? packages : [];
+    if (!list.length) return [];
+
+    const cats = Array.isArray(categories) ? categories : [];
+    const groups = cats
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        packages: list.filter((p) => p.category_id === c.id),
+      }))
+      .filter((g) => g.packages.length);
+
+    // Packages with no category (or a category that is no longer active) still
+    // need to appear, or the tab would silently hide part of the price list.
+    const grouped = new Set(groups.flatMap((g) => g.packages.map((p) => p.id)));
+    const ungrouped = list.filter((p) => !grouped.has(p.id));
+    if (ungrouped.length) {
+      groups.push({ id: "__other", name: groups.length ? "Other packages" : "", packages: ungrouped });
+    }
+    return groups;
+  }, [packages, categories]);
+
+  // Deep-links into the enquiry flow with this package pre-selected.
+  const packageQuoteHref = useCallback(
+    (pkg) => {
+      const params = new URLSearchParams();
+      if (pkg?.category_id) params.set("category", pkg.category_id);
+      if (pkg?.id) params.set("package", pkg.id);
+      const qs = params.toString();
+      return `/enquiry/${business?.slug}${qs ? `?${qs}` : ""}`;
+    },
+    [business?.slug],
+  );
   const services = useMemo(() => {
     const list = asList(business?.public_services).filter(Boolean);
     if (list.length) return list;
     return asList(business?.booth_types).filter(Boolean).map((name) => ({ name }));
   }, [business?.booth_types, business?.public_services]);
+
+  useEffect(() => {
+    if (!businessId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [pkgRes, catRes] = await Promise.all([
+          fetch(`/api/public/businesses/${businessId}/packages`),
+          fetch(`/api/public/businesses/${businessId}/categories`),
+        ]);
+        if (cancelled) return;
+        setPackages(pkgRes.ok ? await pkgRes.json() : []);
+        setCategories(catRes.ok ? await catRes.json() : []);
+      } catch {
+        if (!cancelled) {
+          setPackages([]);
+          setCategories([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
 
   useEffect(() => {
     const run = async () => {
@@ -163,11 +243,16 @@ export default function BusinessProfileClient({ businessId }) {
                   <div className="grid gap-2">
                     {business?.public_booking_url ? (
                       <Button asChild className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl">
-                        <a href={business.public_booking_url} target="_blank" rel="noopener noreferrer">Book now</a>
+                        <a href={business.public_booking_url} target="_blank" rel="noopener noreferrer">
+                          {ctaLabel}
+                        </a>
                       </Button>
                     ) : (
-                      <Button className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl" onClick={() => router.push(`/book/${business.id}`)}>
-                        Book now
+                      <Button
+                        className="h-11 bg-rose-600 hover:bg-rose-700 rounded-xl"
+                        onClick={() => router.push(ctaHref)}
+                      >
+                        {ctaLabel}
                       </Button>
                     )}
                     {websiteUrl ? (
@@ -209,22 +294,68 @@ export default function BusinessProfileClient({ businessId }) {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="services" className="mt-6 space-y-3">
-                      {services.length ? (
+                    <TabsContent value="services" className="mt-6 space-y-5">
+                      {packageGroups.length ? (
+                        packageGroups.map((group) => (
+                          <div key={group.id}>
+                            {group.name ? (
+                              <div className="mb-2 text-sm font-semibold text-zinc-900">{group.name}</div>
+                            ) : null}
+                            <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 overflow-hidden">
+                              {group.packages.map((pkg) => (
+                                <div key={pkg.id} className="bg-white p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-zinc-900">{pkg.name}</div>
+                                      {pkg.duration_hours ? (
+                                        <div className="mt-0.5 text-xs text-zinc-500">
+                                          {formatHours(pkg.duration_hours)}
+                                        </div>
+                                      ) : null}
+                                      {pkg.description ? (
+                                        <div className="mt-1 text-sm text-zinc-600 whitespace-pre-line">
+                                          {pkg.description}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      {Number(pkg.price) > 0 ? (
+                                        <div className="text-sm font-semibold text-zinc-900 whitespace-nowrap">
+                                          {formatMoney(pkg.price, business?.currency || "aud")}
+                                        </div>
+                                      ) : null}
+                                      {usesEnquiry ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="mt-2 h-8 rounded-lg text-xs"
+                                          onClick={() => router.push(packageQuoteHref(pkg))}
+                                        >
+                                          Get a quote
+                                        </Button>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      ) : services.length ? (
                         <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 overflow-hidden">
-                          {services.map((s, idx) => (
-                            <div key={`${s?.name || "service"}-${idx}`} className="p-4 bg-white">
+                          {services.map((sv, idx) => (
+                            <div key={`${sv?.name || "service"}-${idx}`} className="p-4 bg-white">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-zinc-900 truncate">{s?.name || "Service"}</div>
-                                  {s?.description ? (
-                                    <div className="mt-1 text-sm text-zinc-600 whitespace-pre-line">{s.description}</div>
+                                  <div className="font-semibold text-zinc-900 truncate">{sv?.name || "Service"}</div>
+                                  {sv?.description ? (
+                                    <div className="mt-1 text-sm text-zinc-600 whitespace-pre-line">{sv.description}</div>
                                   ) : null}
                                 </div>
-                                {s?.price !== null && s?.price !== undefined && s?.price !== "" ? (
+                                {sv?.price !== null && sv?.price !== undefined && sv?.price !== "" ? (
                                   <div className="text-sm font-semibold text-zinc-900 whitespace-nowrap">
-                                    {formatMoney(s.price, business?.currency || "aud")}
-                                    {s?.unit ? <span className="text-zinc-500 font-medium">/{s.unit}</span> : null}
+                                    {formatMoney(sv.price, business?.currency || "aud")}
+                                    {sv?.unit ? <span className="text-zinc-500 font-medium">/{sv.unit}</span> : null}
                                   </div>
                                 ) : null}
                               </div>
