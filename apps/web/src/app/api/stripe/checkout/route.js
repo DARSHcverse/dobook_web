@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { requireSession } from "../../_utils/auth";
 import { hasStripeConfig, stripe, appBaseUrlFromRequest } from "@/lib/stripeServer";
 import { isOwnerBusiness } from "@/lib/entitlements";
-import { proStripePriceId, resolveProCurrency, DEFAULT_PRO_CURRENCY } from "@/lib/pricing";
+import {
+  billingCurrencyWarning,
+  proStripePriceId,
+  resolveProCurrency,
+  DEFAULT_PRO_CURRENCY,
+} from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
@@ -49,6 +54,14 @@ export async function POST(request) {
   // currency isn't configured in Stripe yet, fall back to the default (AUD) so
   // checkout still works rather than blocking the upgrade.
   const billingCurrency = resolveProCurrency(business?.currency);
+
+  // Make the fallback visible. Without this a Malaysian or Sri Lankan business
+  // is quietly charged in AUD and there is nothing in the logs explaining why.
+  const currencyWarning = billingCurrencyWarning(business?.currency);
+  if (currencyWarning) {
+    console.warn(`[stripe/checkout] business=${business?.id}: ${currencyWarning}`);
+  }
+
   const priceId = proStripePriceId(billingCurrency) || proStripePriceId(DEFAULT_PRO_CURRENCY);
   if (!priceId) {
     return NextResponse.json(

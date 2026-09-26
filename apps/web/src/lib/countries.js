@@ -19,6 +19,7 @@ export const COUNTRIES = {
   IN: { name: "India", currency: "inr", dial: "91", national_len: [10], distance_unit: "km", timezone: "Asia/Kolkata" },
   SG: { name: "Singapore", currency: "sgd", dial: "65", national_len: [8], distance_unit: "km", timezone: "Asia/Singapore" },
   MY: { name: "Malaysia", currency: "myr", dial: "60", national_len: [9, 10], distance_unit: "km", timezone: "Asia/Kuala_Lumpur" },
+  LK: { name: "Sri Lanka", currency: "lkr", dial: "94", national_len: [9], distance_unit: "km", timezone: "Asia/Colombo" },
   ZA: { name: "South Africa", currency: "zar", dial: "27", national_len: [9], distance_unit: "km", timezone: "Africa/Johannesburg" },
   AE: { name: "United Arab Emirates", currency: "aed", dial: "971", national_len: [9], distance_unit: "km", timezone: "Asia/Dubai" },
   DE: { name: "Germany", currency: "eur", dial: "49", national_len: [10, 11], distance_unit: "km", timezone: "Europe/Berlin" },
