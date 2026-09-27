@@ -176,7 +176,28 @@ export async function POST(request) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const expires_at = expiresAt.toISOString();
 
-  const { error: businessInsertError } = await sb.from("businesses").insert(business);
+  let { error: businessInsertError } = await sb.from("businesses").insert(business);
+  // The DB has a check constraint listing allowed business_type values. If the
+  // app knows a type the database has not been migrated for yet, the whole
+  // signup fails with a 400 — which is how 'photobooth' (the DEFAULT industry)
+  // and 'restaurant_venue' silently blocked registrations. Retry without the
+  // type rather than turning a deployment lag into a lost customer; the owner
+  // can set it in Settings, and the pending migration fixes it properly.
+  if (
+    businessInsertError &&
+    String(businessInsertError.message || "").includes("businesses_business_type_check")
+  ) {
+    console.warn(
+      `[auth/register] business_type "${business.business_type}" rejected by DB constraint — ` +
+        "retrying without it. Apply migration 20260927120000_business_types_photobooth_restaurant.sql.",
+    );
+    const retry = await sb.from("businesses").insert({ ...business, business_type: null });
+    if (!retry.error) {
+      business.business_type = null;
+      businessInsertError = null;
+    }
+  }
+
   if (businessInsertError) {
     if (String(businessInsertError.message || "").toLowerCase().includes("row-level security")) {
       return NextResponse.json(
