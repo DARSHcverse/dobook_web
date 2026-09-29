@@ -133,3 +133,37 @@ export function requestHasValidAdminUrlKey(request) {
   const actual = request.nextUrl.searchParams.get("key") || "";
   return safeEqual(actual, expected);
 }
+
+// A short, memorable entry path as an alternative to the long ?key= URL.
+//
+// Read from ADMIN_ENTRY_PATH rather than hardcoded, because this repo has a
+// public remote — committing the path would publish the secret and defeat the
+// point of having one. Unset means the feature is simply off.
+//
+// Note this is obscurity, not authentication: a path is weaker than the 256-bit
+// key (it leaks into access logs, browser history and the Referer header of any
+// outbound link). It only gets you to the admin LOGIN page — the owner-email
+// login is what actually protects the data.
+function getAdminEntryPath() {
+  const raw = String(process.env.ADMIN_ENTRY_PATH || "").trim();
+  if (!raw) return "";
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
+export function isAdminEntryPath(pathname) {
+  const entry = getAdminEntryPath();
+  if (!entry) return false;
+
+  // Browsers percent-encode characters like @ and $ in the path, so the raw
+  // pathname arrives as "/ad%40bookmn%241998booth". Compare the decoded form,
+  // and also the raw one in case the path contains no special characters.
+  const raw = String(pathname || "").replace(/\/+$/, "") || "/";
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    // Malformed encoding — fall back to the raw value rather than throwing.
+  }
+  const want = entry.replace(/\/+$/, "") || "/";
+  return safeEqual(decoded, want) || safeEqual(raw, want);
+}

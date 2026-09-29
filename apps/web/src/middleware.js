@@ -3,6 +3,7 @@ import {
   buildAdminAccessCookie,
   hasValidAdminAccessCookie,
   hasValidAdminSessionCookie,
+  isAdminEntryPath,
   requestHasValidAdminUrlKey,
 } from "@/lib/adminAccess";
 
@@ -82,6 +83,19 @@ export async function middleware(request) {
   }
 
   const csp = buildContentSecurityPolicy();
+
+  // Short entry path (ADMIN_ENTRY_PATH): grants the access cookie and forwards
+  // to /admin, so the long ?key= URL is not needed day to day. Redirects rather
+  // than rendering in place, so the secret path does not stay in the address
+  // bar, browser history, or the Referer of anything loaded on the page.
+  if (isAdminEntryPath(path)) {
+    const dest = url.clone();
+    dest.pathname = "/admin";
+    dest.search = "";
+    const response = NextResponse.redirect(dest, 307);
+    response.cookies.set(buildAdminAccessCookie());
+    return applyResponseSecurityHeaders(response, csp);
+  }
 
   if (isAdminPath(path)) {
     if (await hasValidAdminSessionCookie(request)) {
