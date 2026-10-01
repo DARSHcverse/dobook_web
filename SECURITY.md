@@ -121,6 +121,6 @@ who report valid vulnerabilities (with their permission).
 
 ## Contact
 
-Security issues: direct2digitalweb@gmail.com 
-General contact: direct2digitalweb@gmail.com
+Security issues: tradewebco@gmail.com 
+General contact: tradewebco@gmail.com
 Website: https://www.do-book.com
