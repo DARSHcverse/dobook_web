@@ -1,3 +1,5 @@
+import { FREE_PLAN_MAX_BOOKINGS_PER_MONTH } from "./entitlements";
+
 // Pro plan pricing per currency.
 //
 // We use round, locally-sensible prices per currency (not FX conversion), each
@@ -103,3 +105,46 @@ export function billingCurrencyWarning(currency) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// What each plan includes — the single source for every pricing card, the
+// comparison table and plan blurbs. List only what the code actually enforces
+// or ships; a row here is a promise to a paying customer.
+//
+//   - Monthly booking cap: FREE_PLAN_MAX_BOOKINGS_PER_MONTH (booking routes)
+//   - Automated reminders: Pro only (cron/send-reminders, business/profile)
+//   - Google Calendar sync: Pro only (auth/google/connect, google/sync)
+//   - Invoice PDFs: Pro only (dashboard upgrade gate)
+//
+// Deliberately absent: SMS (dropped by the owner, Oct 2026), staff limits and
+// "remove branding" (neither is implemented).
+// ---------------------------------------------------------------------------
+export { FREE_PLAN_MAX_BOOKINGS_PER_MONTH };
+
+// One setup-time claim, used everywhere it is stated.
+export const SETUP_TIME_LABEL = "about 10 minutes";
+
+export const PLAN_COMPARISON = [
+  { feature: "Bookings per month", free: String(FREE_PLAN_MAX_BOOKINGS_PER_MONTH), pro: "Unlimited" },
+  { feature: "Online booking page & widget", free: true, pro: true },
+  { feature: "Calendar & dashboard", free: true, pro: true },
+  { feature: "Booking confirmation emails", free: true, pro: true },
+  { feature: "Automated email reminders", free: false, pro: true },
+  { feature: "Google Calendar sync", free: false, pro: true },
+  { feature: "Invoice PDFs", free: false, pro: true },
+  { feature: "Priority support", free: false, pro: true },
+];
+
+// Bullet lists for the plan cards, derived from the table so they cannot drift.
+export const FREE_PLAN_FEATURES = [
+  `Up to ${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings/month`,
+  ...PLAN_COMPARISON.filter((r) => r.free === true).map((r) => r.feature),
+];
+export const PRO_PLAN_FEATURES = [
+  "Unlimited bookings",
+  ...PLAN_COMPARISON.filter((r) => r.pro === true && r.free !== true).map((r) => r.feature),
+  "Everything in Free",
+];
+
+export const FREE_PLAN_SUMMARY = `${FREE_PLAN_MAX_BOOKINGS_PER_MONTH} bookings/month • Confirmation emails`;
+export const PRO_PLAN_SUMMARY = "Unlimited bookings • Reminders • Google Calendar • Invoice PDFs";

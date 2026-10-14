@@ -113,7 +113,12 @@ export default function AuthScreen() {
   }, [searchParams]);
   const forceSignup = useMemo(() => {
     const mode = String(searchParams?.get("mode") || "").trim().toLowerCase();
-    return mode === "signup" || mode === "register";
+    if (mode === "login") return false;
+    if (mode === "signup" || mode === "register") return true;
+    // Every "Start free" / "Choose Pro" / industry CTA carries plan or
+    // industry. Nobody arriving with those is trying to log in, so default
+    // them to the signup form even if a link forgot mode=signup.
+    return ["plan", "industry", "business_type"].some((k) => searchParams?.get(k));
   }, [searchParams]);
   const initialBusinessType = useMemo(() => {
     const raw = String(searchParams?.get("business_type") || "").trim();

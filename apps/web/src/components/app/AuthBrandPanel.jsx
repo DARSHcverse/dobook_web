@@ -17,7 +17,7 @@ const PROOF_POINTS = [
   {
     icon: MessageSquare,
     title: "Fewer no-shows",
-    body: "Automatic email and SMS reminders keep your calendar full.",
+    body: "Automatic email reminders keep your calendar full.",
   },
   {
     icon: CreditCard,

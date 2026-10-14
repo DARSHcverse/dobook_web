@@ -5,6 +5,7 @@
 // imports — that coupling is exactly what made every landing visitor download
 // the bookings, staff, invoice and enquiry UI.
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   BarChart3,
@@ -27,7 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ThemeModeToggle from '@/components/app/ThemeModeToggle';
 import InstantSetupHero from '@/components/landing/InstantSetupHero';
-import { PRO_PRICE_AUD } from '@/lib/pricing';
+import { PRO_PRICE_AUD, PLAN_COMPARISON, FREE_PLAN_FEATURES, PRO_PLAN_FEATURES, SETUP_TIME_LABEL } from '@/lib/pricing';
 import { API, DOBOOK_LOGO_PNG, DOBOOK_LOGO_SVG, bookingStatusBadgeClass } from '@/lib/appShared';
 
 // ============= Landing Page =============
@@ -35,7 +36,6 @@ export default function LandingPage({
   heroPrefix = 'Online Booking System',
   heroAccent = 'for Businesses',
   heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
-  getStartedHref = '/auth',
   startFreeHref = '/auth?mode=signup&plan=free',
   customerHref = '/discover',
 } = {}) {
@@ -337,10 +337,7 @@ export default function LandingPage({
               if (typeof window !== 'undefined' && window.location.pathname === '/') {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                return;
               }
-              e.preventDefault();
-              router.push('/');
             }}
           >
             <img
@@ -366,17 +363,14 @@ export default function LandingPage({
               showLabel={false}
               className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
             />
-            <Button
-              type="button"
+            <Button asChild
               variant="ghost"
-              onClick={() => router.push(customerHref)}
               className="h-11 px-4 rounded-lg text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
-            >
+            ><Link href={customerHref}>
               Find services
-            </Button>
+            </Link></Button>
 
-            {authReady ? (
-              isAuthed ? (
+            {isAuthed ? (
                 <>
                   <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5">
                     <Avatar className="h-9 w-9">
@@ -390,36 +384,29 @@ export default function LandingPage({
                       <div className="text-[11px] text-zinc-500">Logged in</div>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => router.push('/dashboard')}
+                  <Button asChild
                     className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-                  >
+                  ><Link href="/dashboard">
                     Open dashboard
-                  </Button>
+                  </Link></Button>
                 </>
               ) : (
                 <>
-                  <Button
+                  <Button asChild
                     data-testid="login-btn"
-                    type="button"
                     variant="outline"
-                    onClick={() => router.push(getStartedHref)}
                     className="h-11 px-5 rounded-lg border-zinc-200"
-                  >
+                  ><Link href="/login">
                     Login
-                  </Button>
-                  <Button
+                  </Link></Button>
+                  <Button asChild
                     data-testid="get-started-btn"
-                    type="button"
-                    onClick={() => router.push(startFreeHref)}
                     className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-                  >
+                  ><Link href={startFreeHref}>
                     Start Free (Business)
-                  </Button>
+                  </Link></Button>
                 </>
-              )
-            ) : null}
+              )}
           </div>
 
           <div className="md:hidden flex items-center gap-2">
@@ -451,43 +438,33 @@ export default function LandingPage({
                   </a>
                 </div>
                 <div className="mt-2 grid gap-2">
-                  <Button
-                    type="button"
+                  <Button asChild
                     variant="outline"
                     className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-                    onClick={() => router.push(customerHref)}
-                  >
+                  ><Link href={customerHref}>
                     Find services near me
-                  </Button>
-                  {authReady ? (
-                    isAuthed ? (
-                      <Button
-                        type="button"
+                  </Link></Button>
+                  {isAuthed ? (
+                      <Button asChild
                         className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                        onClick={() => router.push('/dashboard')}
-                      >
+                      ><Link href="/dashboard">
                         Open dashboard
-                      </Button>
+                      </Link></Button>
                     ) : (
                       <>
-                        <Button
-                          type="button"
+                        <Button asChild
                           variant="outline"
                           className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-                          onClick={() => router.push(getStartedHref)}
-                        >
+                        ><Link href="/login">
                           Business login
-                        </Button>
-                        <Button
-                          type="button"
+                        </Link></Button>
+                        <Button asChild
                           className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                          onClick={() => router.push(startFreeHref)}
-                        >
+                        ><Link href={startFreeHref}>
                           Start Free (Business)
-                        </Button>
+                        </Link></Button>
                       </>
-                    )
-                  ) : null}
+                    )}
                 </div>
               </div>
             </details>
@@ -537,7 +514,7 @@ export default function LandingPage({
 
             <ul className="mt-6 grid gap-3 text-sm text-zinc-700" style={{ fontFamily: 'Inter' }} aria-label="Key benefits">
               <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Fill your calendar with <strong className="text-zinc-900">24/7 online bookings</strong>.</span></li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Reduce no‑shows with <strong className="text-zinc-900">email & SMS reminders</strong>.</span></li>
+              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Reduce no‑shows with <strong className="text-zinc-900">automated email reminders</strong>.</span></li>
               <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Get paid faster with <strong className="text-zinc-900">online payments</strong>.</span></li>
               <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</span></li>
             </ul>
@@ -545,23 +522,19 @@ export default function LandingPage({
             {!isAuthed && <InstantSetupHero />}
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Button
+              <Button asChild
                 data-testid="hero-get-started-btn"
-                type="button"
-                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
                 className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-              >
+              ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
                 {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-              </Button>
-              <Button
+              </Link></Button>
+              <Button asChild
                 data-testid="hero-customer-btn"
-                type="button"
                 variant="outline"
-                onClick={() => router.push(customerHref)}
                 className="h-14 px-10 rounded-xl border-zinc-200"
-              >
+              ><Link href={customerHref}>
                 Find services near me
-              </Button>
+              </Link></Button>
             </div>
 
             <div className="mt-3 text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
@@ -583,7 +556,7 @@ export default function LandingPage({
               </div>
               <div>
                 <div className="text-xs font-medium text-zinc-500">Setup</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">~5 minutes</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-900">{SETUP_TIME_LABEL}</div>
               </div>
             </div>
           </div>
@@ -689,7 +662,7 @@ export default function LandingPage({
             {[
               { icon: Calendar, title: 'Smart calendar & scheduling', desc: 'Availability rules, buffers, and clean views that prevent double bookings.' },
               { icon: FileText, title: 'Automatic invoicing (PDF)', desc: 'Generate invoices from bookings and share professional PDF invoices in seconds.' },
-              { icon: Bell, title: 'Email & SMS reminders', desc: 'Reduce no‑shows with confirmations, reminders, and follow-ups automatically.' },
+              { icon: Bell, title: 'Email reminders', desc: 'Reduce no‑shows with confirmations, reminders, and follow-ups automatically.' },
               { icon: CreditCard, title: 'Online payments', desc: 'Accept deposits or full payment at booking so cash flow stays predictable.' },
               { icon: Users, title: 'Client management', desc: 'Keep customer history, notes, and contact details organized for better service.' },
               { icon: BarChart3, title: 'Analytics dashboard', desc: 'See revenue trends, top services, and booking patterns at a glance.' },
@@ -876,9 +849,9 @@ export default function LandingPage({
                         <div className="truncate text-sm font-semibold text-zinc-900">{r.name}</div>
                         <div className="mt-1 text-xs text-zinc-500">{r.meta}</div>
                       </div>
-                      <Button type="button" className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white" onClick={() => router.push(customerHref)}>
+                      <Button asChild className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white"><Link href={customerHref}>
                         View
-                      </Button>
+                      </Link></Button>
                     </div>
                   ))}
                 </div>
@@ -950,20 +923,13 @@ export default function LandingPage({
             </CardHeader>
             <CardContent className="space-y-5">
               <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Free plan">
-                <li>• Up to 50 bookings/month</li>
-                <li>• Confirmation emails</li>
-                <li>• Calendar + dashboard</li>
-                <li>• Booking widget</li>
-                <li>• Basic client management</li>
-                <li>• Up to 2 staff members</li>
+                {FREE_PLAN_FEATURES.map((f) => <li key={f}>• {f}</li>)}
               </ul>
-              <Button
-                type="button"
-                onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+              <Button asChild
                 className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
-              >
+              ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
                 {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-              </Button>
+              </Link></Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>No credit card required.</div>
             </CardContent>
           </Card>
@@ -982,22 +948,13 @@ export default function LandingPage({
             </CardHeader>
             <CardContent className="space-y-5">
               <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Pro plan">
-                <li>• Unlimited bookings</li>
-                <li>• Unlimited staff members</li>
-                <li>• Invoice PDFs</li>
-                <li>• Automated email reminders</li>
-                <li>• SMS reminders (coming soon)</li>
-                <li>• Google Calendar sync (coming soon)</li>
-                <li>• Priority support</li>
-                <li>• Remove DoBook branding from booking page</li>
+                {PRO_PLAN_FEATURES.map((f) => <li key={f}>• {f}</li>)}
               </ul>
-              <Button
-                type="button"
-                onClick={() => router.push(isAuthed ? '/dashboard' : '/auth?plan=pro')}
+              <Button asChild
                 className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
-              >
+              ><Link href={isAuthed ? '/dashboard' : '/auth?mode=signup&plan=pro'}>
                 {isAuthed ? 'Open dashboard' : 'Choose Pro'}
-              </Button>
+              </Link></Button>
               <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime. No lock-in contracts.</div>
             </CardContent>
           </Card>
@@ -1014,21 +971,11 @@ export default function LandingPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[
-                { feature: 'Bookings per month', free: '50', pro: 'Unlimited' },
-                { feature: 'Staff members', free: '2', pro: 'Unlimited' },
-                { feature: 'Invoice PDFs', free: '❌', pro: '✅' },
-                { feature: 'Email reminders', free: '✅', pro: '✅' },
-                { feature: 'SMS reminders', free: '❌', pro: '✅' },
-                { feature: 'Google Calendar sync', free: '❌', pro: '✅' },
-                { feature: 'Custom booking fields', free: '❌', pro: '✅' },
-                { feature: 'Remove branding', free: '❌', pro: '✅' },
-                { feature: 'Priority support', free: '❌', pro: '✅' },
-              ].map(({ feature, free, pro }) => (
+              {PLAN_COMPARISON.map(({ feature, free, pro }) => (
                 <TableRow key={feature}>
                   <TableCell className="text-zinc-700 text-sm" style={{ fontFamily: 'Inter' }}>{feature}</TableCell>
-                  <TableCell className="text-center text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{free}</TableCell>
-                  <TableCell className="text-center text-sm bg-rose-50 text-zinc-700" style={{ fontFamily: 'Inter' }}>{pro}</TableCell>
+                  <TableCell className="text-center text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{free === true ? '✅' : free === false ? '—' : free}</TableCell>
+                  <TableCell className="text-center text-sm bg-rose-50 text-zinc-700" style={{ fontFamily: 'Inter' }}>{pro === true ? '✅' : pro === false ? '—' : pro}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1096,11 +1043,11 @@ export default function LandingPage({
           <div className="mt-10 grid gap-4 max-w-3xl">
             {[
               { q: 'Is the free plan actually free?', a: 'Yes. The Free plan covers 50 bookings a month with confirmation emails, and no card is required to start. You only pay if you want invoice PDFs, automated reminders and unlimited bookings.' },
-              { q: 'How fast can I set up DoBook?', a: 'Most businesses are taking bookings in about 10 minutes. Choose your industry and your services, booking form and reminder timings are pre-filled — you just adjust what does not match how you work.' },
+              { q: 'How fast can I set up DoBook?', a: `Most businesses are taking bookings in ${SETUP_TIME_LABEL}. Choose your industry and your services, booking form and reminder timings are pre-filled — you just adjust what does not match how you work.` },
               { q: 'Do my customers need an account?', a: 'No. They open your link, pick a time and enter their details. There is no app to download and no password to create, which is a large part of why people finish booking.' },
               { q: 'Can I cancel or switch away later?', a: 'Yes. There is no lock-in contract — cancel Pro at any time and you drop back to the Free plan rather than losing access. Your bookings and client records stay yours.' },
               { q: 'Can I take deposits or full payment online?', a: 'Yes. Choose per service whether to take a deposit, full payment, or keep payment optional.' },
-              { q: 'Do customers get confirmations and reminders?', a: 'Confirmations are included on Free. Pro adds automated email & SMS reminders to reduce no‑shows.' },
+              { q: 'Do customers get confirmations and reminders?', a: 'Confirmations are included on Free. Pro adds automated email reminders to reduce no‑shows.' },
               { q: 'What about cancellations and rescheduling?', a: 'Set your cancellation window and rescheduling rules to protect your time and keep your calendar stable.' },
               { q: 'Can I embed DoBook on my website?', a: 'Yes. Add a booking widget or link so visitors can schedule without leaving your brand.' },
               { q: 'Does it work on mobile?', a: 'Yes. The booking experience is mobile-first, and the dashboard is responsive for phones and tablets.' },
@@ -1126,22 +1073,18 @@ export default function LandingPage({
             Join service businesses using DoBook for appointment scheduling, payments, and invoices—without the admin overload.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
+            <Button asChild
               data-testid="cta-get-started-btn"
-              type="button"
-              onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
               className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
-            >
+            ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
               {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-            </Button>
-            <Button
-              type="button"
+            </Link></Button>
+            <Button asChild
               variant="outline"
-              onClick={() => router.push(customerHref)}
               className="h-14 px-10 rounded-xl border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white"
-            >
+            ><Link href={customerHref}>
               Find services near me
-            </Button>
+            </Link></Button>
           </div>
         </div>
       </section>
@@ -1151,10 +1094,9 @@ export default function LandingPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <button
-                type="button"
+              <Link
+                href="/"
                 className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
-                onClick={() => router.push('/')}
                 aria-label="Go to DoBook home"
               >
                 <img
@@ -1167,7 +1109,7 @@ export default function LandingPage({
                   }}
                 />
                 <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>DoBook</div>
-              </button>
+              </Link>
               <p className="mt-3 text-sm text-zinc-600 max-w-md" style={{ fontFamily: 'Inter' }}>
                 DoBook is an all‑in‑one online booking system for service businesses—appointment scheduling software with client management, invoices, reminders, and payments.
               </p>
@@ -1185,7 +1127,7 @@ export default function LandingPage({
                   <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
                     <a className="hover:text-zinc-900" href="#features">Features</a>
                     <a className="hover:text-zinc-900" href="#pricing">Pricing</a>
-                    <button type="button" className="text-left hover:text-zinc-900" onClick={() => router.push(customerHref)}>Find services</button>
+                    <Link className="text-left hover:text-zinc-900" href={customerHref}>Find services</Link>
                   </div>
                 </div>
                 <div>
@@ -1213,13 +1155,11 @@ export default function LandingPage({
                     Start free and turn your booking flow into a revenue engine.
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => router.push(isAuthed ? '/dashboard' : startFreeHref)}
+                <Button asChild
                   className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                >
+                ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
                   {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-                </Button>
+                </Link></Button>
               </div>
             </div>
           </div>

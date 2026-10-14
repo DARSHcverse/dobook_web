@@ -1212,7 +1212,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
           <DialogDescription style={{ fontFamily: 'Inter' }}>
             Design Studio is available on the Pro plan. Upgrade for {proPriceLabel}{' '}
             {proCurrency.toUpperCase()}/month to design photo strip templates from your bookings,
-            plus unlimited bookings, invoice PDFs and SMS reminders.
+            plus unlimited bookings, invoice PDFs and automated reminders.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
@@ -1240,7 +1240,7 @@ const BookingDetailsDialog = ({ booking, business, onClose }) => {
           <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
           <DialogDescription style={{ fontFamily: 'Inter' }}>
             Invoice PDFs are available on the Pro plan. Upgrade for {proPriceLabel} {proCurrency.toUpperCase()}/month and unlock unlimited
-            bookings, invoice PDFs, SMS reminders and more.
+            bookings, invoice PDFs, reminders and more.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
@@ -2274,7 +2274,7 @@ const SubscriptionSection = ({
   const FEATURES = [
     'Unlimited bookings',
     'Invoice PDFs',
-    'SMS reminders',
+    'Automated email reminders',
     'Google Calendar sync',
     'Enquiry page',
     'Priority support',
@@ -2482,7 +2482,7 @@ const SubscriptionSection = ({
                 <p>Your Pro access will end on <strong>{nextBilling}</strong>. After that you'll lose access to:</p>
                 <ul className="space-y-1 pl-1">
                   <li>❌ Invoice PDFs</li>
-                  <li>❌ SMS reminders</li>
+                  <li>❌ Automated email reminders</li>
                   <li>❌ Google Calendar sync</li>
                   <li>❌ Unlimited bookings</li>
                 </ul>
@@ -3455,7 +3455,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             <DialogTitle style={{ fontFamily: 'Manrope' }}>Upgrade to Pro</DialogTitle>
             <DialogDescription style={{ fontFamily: 'Inter' }}>
               This feature is available on the Pro plan. Upgrade for {proPriceLabel} {proCurrency.toUpperCase()}/month and unlock unlimited
-              bookings, invoice PDFs, SMS reminders and more.
+              bookings, invoice PDFs, reminders and more.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">

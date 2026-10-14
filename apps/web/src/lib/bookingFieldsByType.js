@@ -40,7 +40,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   photobooth: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "booking_date", label: "Event Date", type: "date", required: true, column: "booking_date" },
     { key: "event_location", label: "Event Location", type: "address", required: true, column: "event_location" },
     { key: "booth_type", label: "Select Booth Type", type: "select_services", required: true, column: "booth_type" },
@@ -55,7 +55,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   salon_barbershop: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Service Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Appointment Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Appointment Time", type: "time", required: true, column: "booking_time" },
@@ -65,7 +65,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   medical_wellness: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "booking_date", label: "Date of Appointment", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Time Slot", type: "time", required: true, column: "booking_time" },
     { key: "notes", label: "Notes", type: "text", required: false, column: "notes" },
@@ -75,7 +75,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "company_name", label: "Company Name", type: "text", required: true, column: null },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Session Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
@@ -85,7 +85,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   tutoring_education: [
     { key: "customer_name", label: "Student Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Session Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
@@ -95,7 +95,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   home_services_trades: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Type of Work", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     {
@@ -116,7 +116,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   cleaning_services: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Type of Clean", type: "select_services", required: true, column: "service_type" },
     { key: "event_location", label: "Property Address", type: "address", required: true, column: "event_location" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
@@ -138,7 +138,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   fitness_training: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Session Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
@@ -148,7 +148,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   pet_services: [
     { key: "customer_name", label: "Owner Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Service", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
@@ -158,7 +158,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   events_photography: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Package / Service", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Event Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Start Time", type: "time", required: true, column: "booking_time" },
@@ -169,7 +169,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   automotive: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: true, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: true, column: "customer_phone" },
     { key: "service_type", label: "Service Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Drop-off Time", type: "time", required: true, column: "booking_time" },
@@ -179,7 +179,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   beauty_spa: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Treatment", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Appointment Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Appointment Time", type: "time", required: true, column: "booking_time" },
@@ -190,7 +190,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "company_name", label: "Company / Organisation", type: "text", required: false, column: null },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Consultation Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Preferred Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Preferred Time", type: "time", required: true, column: "booking_time" },
@@ -200,7 +200,7 @@ export const BOOKING_FIELDS_BY_TYPE = {
   restaurant_venue: [
     { key: "customer_name", label: "Full Name", type: "text", required: true, column: "customer_name" },
     { key: "customer_email", label: "Email", type: "email", required: true, column: "customer_email" },
-    { key: "customer_phone", label: "Phone Number (for SMS reminders)", type: "tel", required: false, column: "customer_phone" },
+    { key: "customer_phone", label: "Phone Number", type: "tel", required: false, column: "customer_phone" },
     { key: "service_type", label: "Booking Type", type: "select_services", required: true, column: "service_type" },
     { key: "booking_date", label: "Date", type: "date", required: true, column: "booking_date" },
     { key: "booking_time", label: "Time", type: "time", required: true, column: "booking_time" },

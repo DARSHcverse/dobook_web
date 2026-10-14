@@ -17,7 +17,7 @@ export const INDUSTRY_CONTENT = {
       { title: "Event enquiry & quote flow", desc: "A branded multi-step form captures event date, venue, package and guest count, then sends an instant quote." },
       { title: "Travel fees calculated automatically", desc: "Charge by distance from your base — DoBook works out the travel fee from the event address." },
       { title: "Deposits & payment links", desc: "Secure the date with a deposit and share a payment link so you get paid on time." },
-      { title: "SMS & email reminders", desc: "Cut no-shows and last-minute cancellations with automatic reminders before every event." },
+      { title: "Automatic email reminders", desc: "Cut no-shows and last-minute cancellations with automatic reminders before every event." },
     ],
     useCases: ["Weddings", "Birthday parties", "Corporate events", "School formals", "Engagement parties"],
     faq: [
@@ -37,14 +37,14 @@ export const INDUSTRY_CONTENT = {
       "Fill your chairs without the phone tag. DoBook lets clients book haircuts, colour, and treatments online any time, choose their service and stylist, and get automatic reminders — so you spend less time on admin and more behind the chair.",
     benefits: [
       { title: "Service & stylist selection", desc: "Clients pick the exact service and preferred stylist, so every booking arrives with the right details." },
-      { title: "Fewer no-shows", desc: "Automatic SMS and email reminders keep your columns full and your day predictable." },
+      { title: "Fewer no-shows", desc: "Automatic email reminders keep your columns full and your day predictable." },
       { title: "Buffer times between clients", desc: "Set clean-up buffers so back-to-back bookings never overlap." },
       { title: "Client history & notes", desc: "Keep colour formulas and preferences on file for every returning client." },
     ],
     useCases: ["Haircuts", "Colour & balayage", "Blow dry & styling", "Beard trims", "Treatments"],
     faq: [
       { q: "Can clients choose their stylist?", a: "Yes. Clients select the service and their preferred staff member when booking." },
-      { q: "Will it reduce no-shows?", a: "Automatic reminders by SMS and email significantly reduce no-shows for salons and barbershops." },
+      { q: "Will it reduce no-shows?", a: "Automatic email reminders help reduce no-shows for salons and barbershops." },
       { q: "Can I set time between appointments?", a: "Yes — set buffer times so you have room to clean up and reset between clients." },
     ],
   },
@@ -67,7 +67,7 @@ export const INDUSTRY_CONTENT = {
     faq: [
       { q: "Is patient information kept private?", a: "Yes. Intake fields can be marked private so health details are visible only to your practice, never on public-facing views." },
       { q: "Can I offer different appointment types?", a: "Yes — set up consultations, follow-ups and treatments each with their own duration and details." },
-      { q: "Does it send appointment reminders?", a: "Yes, automatic email and SMS reminders help reduce missed appointments." },
+      { q: "Does it send appointment reminders?", a: "Yes, automatic email reminders help reduce missed appointments." },
     ],
   },
   consultant: {
@@ -304,14 +304,14 @@ export const INDUSTRY_CONTENT = {
       { title: "Tables and functions in one place", desc: "Handle everyday reservations and private venue hire from the same calendar." },
       { title: "Deposits on private hire", desc: "Require a deposit to hold a function date so bookings are committed." },
       { title: "Dietary notes up front", desc: "Collect allergies and dietary requirements with the booking, before service." },
-      { title: "Fewer no\u2011shows", desc: "Automatic SMS and email reminders the day before and a few hours ahead." },
+      { title: "Fewer no\u2011shows", desc: "Automatic email reminders the day before and a few hours ahead." },
     ],
     useCases: ["Table reservations", "Private functions", "Set menu dining", "Full venue hire", "Corporate events"],
     faq: [
       { q: "Can I take both table bookings and function enquiries?", a: "Yes. Everyday reservations can be booked instantly, while larger functions can come through as an enquiry you quote on." },
       { q: "Can I take a deposit for a private function?", a: "Yes \u2014 require a deposit at booking so a date is only held once a guest has committed." },
       { q: "Do guests tell us about allergies when they book?", a: "Yes. Dietary requirements and special requests are captured on the booking form and appear with the reservation." },
-      { q: "Will guests be reminded about their booking?", a: "Yes, DoBook sends automatic email and SMS reminders before the booking to reduce no\u2011shows." },
+      { q: "Will guests be reminded about their booking?", a: "Yes, DoBook sends automatic email reminders before the booking to reduce no\u2011shows." },
     ],
   },
 };

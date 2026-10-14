@@ -80,8 +80,7 @@ export default function IndustryPage({ params }) {
       <LandingPage
         heroPrefix="Booking system"
         heroAccent={`for ${cfg.label}`}
-        startFreeHref={`/auth?plan=free&industry=${encodeURIComponent(key)}`}
-        getStartedHref={`/auth?industry=${encodeURIComponent(key)}`}
+        startFreeHref={`/auth?mode=signup&plan=free&industry=${encodeURIComponent(key)}`}
       />
     </>
   );
