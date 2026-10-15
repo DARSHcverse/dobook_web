@@ -1166,7 +1166,17 @@ export default function LandingPage({
 
           <div className="mt-10 border-t border-zinc-200 pt-6 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
             <div>© {new Date().getFullYear()} DoBook. All rights reserved.</div>
-            <div>online booking system · appointment scheduling software · booking system for small business · service business scheduling</div>
+            <div>
+              Website by{' '}
+              <a
+                href="https://www.tradewebco.co.uk"
+                target="_blank"
+                rel="noopener"
+                className="font-medium text-zinc-700 underline-offset-4 hover:text-zinc-900 hover:underline"
+              >
+                Trade Web Co
+              </a>
+            </div>
           </div>
         </div>
       </footer>
