@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sanitizeHex } from "@/lib/brandTheme";
 import { getBusinessAvailability } from "@/lib/businessAvailability";
 import { safePaymentLink } from "@/lib/paymentLink";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -59,6 +60,7 @@ export async function GET(_request, context) {
     country_code: business.country_code || "AU",
     // Shown on the confirmation screen so customers can pay a deposit straight away.
     payment_link: safePaymentLink(business.payment_link),
+    brand_color: sanitizeHex(business.brand_color),
     // Mode only; the booking page fetches open dates/slots from
     // /api/public/availability so they are always current.
     availability: (() => {

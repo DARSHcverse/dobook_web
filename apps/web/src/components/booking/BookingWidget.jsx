@@ -29,6 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import AvailabilityPicker from '@/components/booking/AvailabilityPicker';
+import { BRAND_THEME_CSS, brandStyleVars } from '@/lib/brandTheme';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import {
   BOOKING_FIELDS_BY_TYPE,
@@ -284,7 +285,8 @@ export default function BookingWidget() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#fff9f5] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="min-h-screen bg-[#fff9f5] px-4 py-12 sm:px-6 sm:py-16" data-brand="" style={brandStyleVars(business?.brand_color)}>
+        <style>{BRAND_THEME_CSS}</style>
         <div className="mx-auto max-w-3xl">
           <Card
             data-testid="booking-success-card"
@@ -361,7 +363,8 @@ export default function BookingWidget() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fffaf7] px-4 py-8 sm:px-6 sm:py-12" data-testid="booking-widget">
+    <div className="relative min-h-screen overflow-hidden bg-[#fffaf7] px-4 py-8 sm:px-6 sm:py-12" data-testid="booking-widget" data-brand="" style={brandStyleVars(business?.brand_color)}>
+      <style>{BRAND_THEME_CSS}</style>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.18),transparent_34%),radial-gradient(circle_at_top_right,_rgba(251,191,36,0.16),transparent_24%)]" />
       <div className="pointer-events-none absolute bottom-0 left-1/2 h-80 w-[48rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(99,102,241,0.09),transparent_64%)] blur-3xl" />
 

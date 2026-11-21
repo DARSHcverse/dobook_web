@@ -2755,6 +2755,7 @@ const EnquirySettingsCard = ({ business, onUpdate }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Brand color</Label>
+            <p className="text-xs text-zinc-500 mt-1">Used on your booking page and enquiry page: buttons, selected dates and highlights.</p>
             <div className="flex items-center gap-2 mt-2">
               <input
                 type="color"

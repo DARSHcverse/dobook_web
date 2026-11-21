@@ -57,7 +57,8 @@ export default function AvailabilityPicker({ businessId, service, mode, date, ti
     const strip = stripRef.current;
     const chip = strip?.querySelector('[aria-checked="true"]');
     if (!strip || !chip) return;
-    const left = chip.offsetLeft - strip.offsetLeft;
+    // The strip is `relative`, so it is the chip's offsetParent.
+    const left = chip.offsetLeft;
     if (left < strip.scrollLeft || left + chip.offsetWidth > strip.scrollLeft + strip.clientWidth) {
       strip.scrollTo({ left: Math.max(0, left - 8), behavior: 'smooth' });
     }
