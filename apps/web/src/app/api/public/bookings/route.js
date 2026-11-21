@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { checkRequestedSlot, durationFor } from "@/lib/availability";
+import { businessNow, getBusinessAvailability, loadBlockingBookings } from "@/lib/businessAvailability";
 import { UNVERIFIED_PUBLIC_MESSAGE, isEmailVerified } from "@/lib/emailVerification";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -429,6 +431,35 @@ export async function POST(request) {
     }
   }
 
+  // Opening hours / double-booking guard. Only enforced once the business has
+  // set its availability; until then behaviour is unchanged.
+  const avail = getBusinessAvailability(business);
+  const requestedService = String(body?.booth_type || body?.service_type || "").trim();
+  if (avail.enabled) {
+    let existing;
+    try {
+      existing = await loadBlockingBookings(sb, businessId, bookingDateStr, bookingDateStr);
+    } catch (e) {
+      return NextResponse.json({ detail: e?.message || "Could not check availability" }, { status: 500 });
+    }
+    const slotCheck = checkRequestedSlot({
+      avail,
+      date: bookingDateStr,
+      time: bookingTimeStr,
+      serviceName: requestedService,
+      bookings: existing,
+      nowLocal: businessNow(business),
+    });
+    if (!slotCheck.ok) return reject(request, 409, slotCheck.reason, "slot_unavailable");
+  }
+
+  // Never trust a price typed by the customer: use the business's own listed
+  // price for the chosen service, or 0 for the owner to set later.
+  const listedService = (Array.isArray(business?.public_services) ? business.public_services : []).find(
+    (svc) => String(svc?.name || "").trim().toLowerCase() === requestedService.toLowerCase(),
+  );
+  const servicePrice = asMoney(listedService?.price);
+
   const packageId = String(body?.package_id || "").trim() || null;
   let pkg = null;
   if (packageId) {
@@ -469,12 +500,14 @@ export async function POST(request) {
   const invoice_id = invoiceRows?.[0]?.invoice_id || null;
 
   const travel = await computeTravelFee({ business, body });
-  const bodyWithComputed = { ...body, _computed_travel_fee: travel?.lineItem || null };
+  const bodyWithComputed = { ...body, price: servicePrice, _computed_travel_fee: travel?.lineItem || null };
 
   const directServiceType = String(body?.service_type || "Service").trim() || "Service";
   const directBoothType = String(body?.booth_type || "").trim();
   const directPackageDuration = String(body?.package_duration || "").trim();
-  const directDurationMinutes = Math.max(1, Number(body?.duration_minutes || 60));
+  const directDurationMinutes = avail.enabled
+    ? durationFor(avail, requestedService)
+    : Math.max(1, Number(body?.duration_minutes || 60));
 
   const service_type = pkg?.name || directServiceType;
   const booth_type = String(body?.category_name || directBoothType).trim();
@@ -505,7 +538,7 @@ export async function POST(request) {
     duration_minutes,
     parking_info: String(body?.parking_info || "").trim(),
     notes: String(body?.notes || "").trim(),
-    price: pkg ? asMoney(pkg.price) : asMoney(body?.price),
+    price: pkg ? asMoney(pkg.price) : servicePrice,
     quantity: pkg ? 1 : Math.max(1, Number(body?.quantity || 1)),
     line_items: pricing.line_items,
     total_amount: pricing.total_amount,

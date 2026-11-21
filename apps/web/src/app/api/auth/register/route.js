@@ -12,6 +12,8 @@ import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 import { validateBusinessName } from "@/lib/signupGuard";
 import { rateLimit } from "@/app/api/_utils/rateLimit";
 import { buildEmailVerifyUrl } from "@/lib/emailVerification";
+import { hasAvailabilityColumn, initialAvailability } from "@/lib/businessAvailability";
+import { inferBookingTypeKey } from "@/lib/bookingFieldsByType";
 import { resolveSiteUrl } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
@@ -229,6 +231,21 @@ export async function POST(request) {
     }
   } catch {
     // ignore seeding failures (business can apply from Settings later)
+  }
+
+  // New businesses get opening hours for their trade switched on, so the
+  // booking page offers real free slots from day one (skipped pre-migration).
+  try {
+    if (await hasAvailabilityColumn(sb)) {
+      const availability = initialAvailability({
+        businessType: inferBookingTypeKey({ businessType: business.business_type, industry: business.industry }),
+        bufferMins: business.buffer_mins,
+        minNoticeHrs: business.advance_booking_hrs,
+      });
+      await sb.from("businesses").update({ availability }).eq("id", id);
+    }
+  } catch (e) {
+    console.warn("[auth/register] could not seed availability:", e?.message);
   }
 
   // New accounts start unverified (column default NULL) and cannot take

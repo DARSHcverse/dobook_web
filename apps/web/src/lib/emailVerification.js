@@ -8,6 +8,7 @@
 // Tokens are stateless: base64url(payload).HMAC-SHA256(payload). The payload
 // binds the business id AND email, so changing the email voids old links.
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { columnExists } from "@/lib/dbProbe";
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const VERIFIED_COLUMN = "email_verified_at";
@@ -66,23 +67,10 @@ export function isEmailVerified(business) {
   return Boolean(business[VERIFIED_COLUMN]);
 }
 
-// Probes the column directly. (information_schema is not exposed through
-// PostgREST on this project, so dbSchema.getPublicTableColumns always returns
-// null.) Once present it is cached for the process; while missing it is
-// re-checked every minute so the migration takes effect without a redeploy.
-let verifiedColumnState = { exists: false, checkedAt: 0 };
-async function hasVerifiedColumn(sb) {
-  if (verifiedColumnState.exists) return true;
-  if (Date.now() - verifiedColumnState.checkedAt < 60_000) return false;
-  const { error } = await sb.from("businesses").select(VERIFIED_COLUMN).limit(1);
-  verifiedColumnState = { exists: !error, checkedAt: Date.now() };
-  return !error;
-}
-
 // For queries that list columns explicitly: append the verification column
 // only when the database has it, so the select never errors pre-migration.
 export async function selectWithVerifiedColumn(sb, columns) {
-  return (await hasVerifiedColumn(sb)) ? `${columns},${VERIFIED_COLUMN}` : columns;
+  return (await columnExists(sb, "businesses", VERIFIED_COLUMN)) ? `${columns},${VERIFIED_COLUMN}` : columns;
 }
 
 export const UNVERIFIED_PUBLIC_MESSAGE =

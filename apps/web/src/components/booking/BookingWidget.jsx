@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
+import AvailabilityPicker from '@/components/booking/AvailabilityPicker';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import {
   BOOKING_FIELDS_BY_TYPE,
@@ -66,6 +67,8 @@ export default function BookingWidget() {
   const [loading, setLoading] = useState(false);
   const [uploadingFields, setUploadingFields] = useState({});
   const [success, setSuccess] = useState(false);
+  // Bumped after a 409 (slot just taken) so the picker reloads fresh times.
+  const [availRefreshKey, setAvailRefreshKey] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -144,6 +147,17 @@ export default function BookingWidget() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const avail = business?.availability;
+    if (avail?.enabled) {
+      if (!formData.booking_date) {
+        toast.error('Please choose a date.');
+        return;
+      }
+      if (avail.mode !== 'day' && !formData.booking_time) {
+        toast.error('Please choose a time.');
+        return;
+      }
+    }
     if (formData.customer_phone && !isValidPhone(formData.customer_phone, business?.country_code)) {
       toast.error(phoneValidationHint(business?.country_code));
       return;
@@ -169,6 +183,10 @@ export default function BookingWidget() {
       // yet...) instead of a generic failure the customer cannot act on.
       const detail = error?.response?.data?.detail;
       toast.error(typeof detail === 'string' && detail.trim() ? detail : 'Booking failed. Please try again.');
+      if (error?.response?.status === 409) {
+        setFormData((prev) => ({ ...prev, booking_time: '' }));
+        setAvailRefreshKey((k) => k + 1);
+      }
     } finally {
       setLoading(false);
     }
@@ -203,6 +221,28 @@ export default function BookingWidget() {
   const isPhotoBooth = String(business?.industry || 'photobooth') === 'photobooth';
   const bookingTypeKey = inferBookingTypeKey({ businessType: business?.business_type, industry: business?.industry });
   const bookingFields = BOOKING_FIELDS_BY_TYPE[bookingTypeKey] || BOOKING_FIELDS_BY_TYPE.photobooth;
+  const availEnabled = Boolean(business?.availability?.enabled);
+  const availService = String(formData.booth_type || formData.service_type || '').trim();
+  // Earliest pickable date when availability is off (browser-local today).
+  const todayLocal = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const formatListedPrice = (amount) => {
+    try {
+      const currency = String(business?.currency || 'aud').toUpperCase();
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
+    } catch {
+      return `$${amount}`;
+    }
+  };
+  const listedPriceFor = (name) => {
+    const svc = (Array.isArray(business?.public_services) ? business.public_services : []).find(
+      (x) => String(x?.name || '').trim().toLowerCase() === String(name || '').trim().toLowerCase(),
+    );
+    const n = Number(svc?.price);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
   const bookingFieldKeys = new Set(bookingFields.map((f) => String(f?.key || '').trim()).filter(Boolean));
   const extraFormFields = (bookingFormFields || []).filter((f) => {
     const key = String(f?.field_key || '').trim();
@@ -355,7 +395,8 @@ export default function BookingWidget() {
               {bookingLead}
             </p>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            {/* Desktop only: on phones these pushed the form ~1000px down. */}
+            <div className="mt-8 hidden gap-3 lg:grid lg:grid-cols-1 xl:grid-cols-2">
               <div className="rounded-[24px] border border-white/80 bg-white/78 p-4 shadow-sm backdrop-blur">
                 <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
                   <CalendarDays className="h-4 w-4 text-rose-500" />
@@ -396,7 +437,7 @@ export default function BookingWidget() {
             </div>
 
             {(business?.phone || business?.email) ? (
-              <div className="mt-8 space-y-3">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:mt-8 lg:grid-cols-1">
                 {business?.phone ? (
                   <a
                     href={`tel:${String(business.phone).replace(/\s+/g, '')}`}
@@ -429,7 +470,7 @@ export default function BookingWidget() {
               </div>
             ) : null}
 
-            <div className="mt-8 rounded-[28px] bg-zinc-950 p-5 text-white shadow-[0_28px_60px_rgba(15,23,42,0.18)]">
+            <div className="mt-8 hidden rounded-[28px] bg-zinc-950 p-5 text-white shadow-[0_28px_60px_rgba(15,23,42,0.18)] lg:block">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
                   <CreditCard className="h-5 w-5" />
@@ -463,7 +504,7 @@ export default function BookingWidget() {
                     Email confirmation
                   </Badge>
                 </div>
-                <CardTitle className="mt-5 text-[clamp(1.9rem,2.8vw,2.8rem)] tracking-[-0.04em] text-zinc-950" style={{ fontFamily: 'Manrope' }}>
+                <CardTitle className="mt-5 text-[clamp(1.9rem,2.8vw,2.8rem)] leading-[1.08] tracking-[-0.03em] text-zinc-950" style={{ fontFamily: 'Manrope' }}>
                   Tell us about your booking
                 </CardTitle>
                 <CardDescription className="mt-3 max-w-2xl text-base leading-7 text-zinc-600" style={{ fontFamily: 'Inter' }}>
@@ -526,6 +567,34 @@ export default function BookingWidget() {
                           });
                         };
 
+                        // Customers never type a price: the server uses the business's
+                        // listed price for the chosen service.
+                        if (type === 'money') return null;
+
+                        if (availEnabled && type === 'date') {
+                          return (
+                            <div key={key} className={cn(fieldCardClassName, 'md:col-span-2')}>
+                              <AvailabilityPicker
+                                key={`${availRefreshKey}`}
+                                businessId={resolvedBusinessId}
+                                service={availService}
+                                mode={business.availability.mode}
+                                date={String(formData.booking_date || '')}
+                                time={String(formData.booking_time || '')}
+                                onChange={({ date, time }) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    booking_date: date,
+                                    ...(business.availability.mode === 'day' ? {} : { booking_time: time }),
+                                  }))
+                                }
+                              />
+                            </div>
+                          );
+                        }
+                        // In slots mode the picker sets the time as well.
+                        if (availEnabled && business.availability.mode !== 'day' && type === 'time') return null;
+
                         if (type === 'address') {
                           return (
                             <div key={key} className={`${fieldCardClassName} md:col-span-2`}>
@@ -566,6 +635,11 @@ export default function BookingWidget() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {listedPriceFor(selected) ? (
+                                <p className="mt-2 text-sm font-semibold text-zinc-700">
+                                  {formatListedPrice(listedPriceFor(selected))}
+                                </p>
+                              ) : null}
                             </div>
                           );
                         }
@@ -665,7 +739,7 @@ export default function BookingWidget() {
                                 data-testid={key === 'customer_phone' ? 'widget-phone-input' : undefined}
                                 type={inputType}
                                 step={type === 'money' ? '0.01' : undefined}
-                                min={type === 'money' || type === 'number' ? '0' : undefined}
+                                min={type === 'date' ? todayLocal : type === 'money' || type === 'number' ? '0' : undefined}
                                 value={String(value ?? '')}
                                 onChange={(e) => setValue(e.target.value)}
                                 placeholder={placeholder || undefined}

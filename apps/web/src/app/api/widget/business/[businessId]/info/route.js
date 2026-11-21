@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBusinessAvailability } from "@/lib/businessAvailability";
 import { safePaymentLink } from "@/lib/paymentLink";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -58,6 +59,14 @@ export async function GET(_request, context) {
     country_code: business.country_code || "AU",
     // Shown on the confirmation screen so customers can pay a deposit straight away.
     payment_link: safePaymentLink(business.payment_link),
+    // Mode only; the booking page fetches open dates/slots from
+    // /api/public/availability so they are always current.
+    availability: (() => {
+      const a = getBusinessAvailability(business);
+      return { enabled: a.enabled, mode: a.mode, service_durations: a.service_durations, default_duration_mins: a.default_duration_mins };
+    })(),
+    // Listed prices let the form show the price instead of asking for one.
+    public_services: Array.isArray(business.public_services) ? business.public_services : [],
     booth_types: business.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: business.booking_custom_fields || [],
     booking_form_fields: bookingFormFields || [],

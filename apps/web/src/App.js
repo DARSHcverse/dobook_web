@@ -69,6 +69,7 @@ import ThemeModeToggle from "@/components/app/ThemeModeToggle";
 import BusinessTypeSettingsCard from '@/components/app/BusinessTypeSettingsCard';
 import BusinessBookingSettingsCard from '@/components/app/BusinessBookingSettingsCard';
 import RegionSettingsCard from '@/components/app/RegionSettingsCard';
+import AvailabilitySettingsCard from '@/components/app/AvailabilitySettingsCard';
 import AiOnboardingCard from '@/components/app/AiOnboardingCard';
 import InstantSetupHero from '@/components/landing/InstantSetupHero';
 import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
@@ -3285,6 +3286,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     { id: 'payment-details', label: 'Payment', Icon: CreditCard },
     { id: 'additional-charges', label: 'Charges', Icon: DollarSign },
     { id: 'reminders', label: 'Reminders', Icon: Bell },
+    { id: 'availability', label: 'Availability', Icon: Clock },
     { id: 'integrations', label: 'Integrations', Icon: Plug },
     { id: 'booking-editor', label: 'Booking Editor', Icon: Package },
     { id: 'enquiry-settings', label: 'Enquiry', Icon: ClipboardList },
@@ -4205,6 +4207,10 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
       </Dialog>
 
       </>)}
+
+      {activeSection === 'availability' && (
+        <AvailabilitySettingsCard business={business} onUpdate={onUpdate} />
+      )}
 
       {activeSection === 'booking-editor' && (<>
       <AiOnboardingCard onApplied={onUpdate} />

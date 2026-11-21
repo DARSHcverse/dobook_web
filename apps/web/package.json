@@ -69,7 +69,8 @@
     "dev": "next dev",
     "build": "eslint src --quiet && next build",
     "start": "next start",
-    "lint": "eslint src --quiet"
+    "lint": "eslint src --quiet",
+    "test": "node --test --no-warnings \"src/**/*.test.mjs\""
   },
   "browserslist": {
     "production": [

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { normalizeAvailability } from "@/lib/availability";
+import { hasAvailabilityColumn } from "@/lib/businessAvailability";
 import { requireSession } from "../../_utils/auth";
 import { hasProAccess, isOwnerBusiness } from "@/lib/entitlements";
 import { getCountryProfile, normalizeCountryCode } from "@/lib/countries";
@@ -114,12 +116,20 @@ export async function PUT(request) {
     "confirmation_email_enabled",
     "sms_confirmations_enabled",
     "sms_staff_notifications_enabled",
+    "availability",
   ];
 
   if (auth.mode === "supabase") {
     const updates = {};
     for (const key of allowed) {
       if (!(key in body)) continue;
+      if (key === "availability") {
+        // Validated/normalised; skipped (not failed) before the migration runs.
+        if (await hasAvailabilityColumn(auth.supabase)) {
+          updates.availability = body.availability === null ? null : normalizeAvailability(body.availability);
+        }
+        continue;
+      }
       if (key === "onboarding_tour_completed_at") {
         const raw = body.onboarding_tour_completed_at;
         if (raw === null || raw === "") {
