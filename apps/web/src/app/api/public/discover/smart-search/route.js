@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isEmailVerified, selectWithVerifiedColumn } from "@/lib/emailVerification";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { rateLimit } from "@/app/api/_utils/rateLimit";
 import { interpretSearch, rankBusinesses } from "@/lib/discoverMatch";
@@ -59,15 +60,13 @@ export async function POST(request) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("businesses")
-    .select(
-      "id,business_name,business_type,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos",
-    )
+    .select(await selectWithVerifiedColumn(sb, "id,business_name,business_type,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos"))
     .eq("public_enabled", true)
     .limit(200);
 
   if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
 
-  const businesses = (data || []).map(pickPublicBusiness);
+  const businesses = (data || []).filter(isEmailVerified).map(pickPublicBusiness);
   const ranked = rankBusinesses(businesses, intent);
 
   return NextResponse.json({

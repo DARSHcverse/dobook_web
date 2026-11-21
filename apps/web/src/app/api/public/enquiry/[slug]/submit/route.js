@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { UNVERIFIED_PUBLIC_MESSAGE, isEmailVerified } from "@/lib/emailVerification";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendEnquiryCreatedEmails } from "@/lib/bookingMailer";
@@ -92,6 +93,9 @@ export async function POST(request, context) {
   }
   if (business.enquiry_page_enabled === false) {
     return NextResponse.json({ detail: "Enquiry page disabled" }, { status: 404 });
+  }
+  if (!isEmailVerified(business)) {
+    return NextResponse.json({ detail: UNVERIFIED_PUBLIC_MESSAGE }, { status: 403 });
   }
 
   const businessId = business.id;

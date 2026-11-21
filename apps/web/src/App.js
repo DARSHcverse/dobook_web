@@ -57,7 +57,7 @@ import dynamic from 'next/dynamic';
 import { addDays, addMinutes, addMonths, addWeeks, format, parseISO } from 'date-fns';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
 import { minimizeBusinessForStorage } from '@/lib/businessStorage';
-import { PRO_PRICE_AUD, proPriceAmount, resolveProCurrency } from '@/lib/pricing';
+import { PRO_PLAN_FEATURES, PRO_PRICE_AUD, proPriceAmount, resolveProCurrency } from '@/lib/pricing';
 import { formatMoney } from '@/lib/money';
 import { getFreePlanUsage } from '@/lib/entitlements';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -74,6 +74,10 @@ import InstantSetupHero from '@/components/landing/InstantSetupHero';
 import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey, RESERVED_CUSTOM_FIELD_KEYS } from "@/lib/bookingFieldsByType";
 import { cn } from '@/lib/utils';
 import { API, DOBOOK_LOGO_PNG, DOBOOK_LOGO_SVG, bookingStatusBadgeClass } from '@/lib/appShared';
+
+// SMS is dropped as a feature (owner decision, Oct 2026). Kept behind a flag
+// rather than deleted so it can return without rewriting the settings UI.
+const SMS_UI_ENABLED = false;
 
 axios.defaults.withCredentials = true;
 
@@ -1272,6 +1276,7 @@ const Dashboard = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [business, setBusiness] = useState(null);
+  const [verifyResendState, setVerifyResendState] = useState('idle');
   const [bookings, setBookings] = useState([]);
   const [bookingPrefill, setBookingPrefill] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1303,6 +1308,15 @@ const Dashboard = () => {
     }
     if (searchParams?.get('google_error')) {
       toast.error('Failed to connect Google Calendar. Please try again.');
+    }
+    const verify = searchParams?.get('verify');
+    if (verify === 'ok') {
+      toast.success('Email confirmed. Your booking page can now take bookings.');
+      refreshBusiness();
+    } else if (verify === 'invalid') {
+      toast.error('That confirmation link is invalid or has expired. Send a new one from the banner.');
+    } else if (verify === 'error') {
+      toast.error('We could not confirm your email just now. Please try the link again.');
     }
   }, [searchParams]);
 
@@ -1980,6 +1994,39 @@ const Dashboard = () => {
           </button>
         </div>
 
+        {/* Email verification. Shown only when the column exists and is null:
+            until then the public page refuses bookings and Discover hides it. */}
+        {business && business.email_verified_at === null && (
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              <strong>Confirm your email to go live.</strong> We sent a link to {business.email}. Until you click it, your booking page will not accept bookings.
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 shrink-0 border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+              disabled={verifyResendState === 'sending' || verifyResendState === 'sent'}
+              onClick={async () => {
+                setVerifyResendState('sending');
+                try {
+                  const res = await axios.post(`${API}/auth/verify-email/resend`);
+                  if (res.data?.already_verified) {
+                    refreshBusiness();
+                    return;
+                  }
+                  setVerifyResendState('sent');
+                  toast.success(`Sent. Check ${business.email} (and your spam folder).`);
+                } catch (err) {
+                  setVerifyResendState('idle');
+                  toast.error(err?.response?.data?.detail || 'Could not send the email. Try again shortly.');
+                }
+              }}
+            >
+              {verifyResendState === 'sending' ? 'Sending…' : verifyResendState === 'sent' ? 'Email sent' : 'Resend email'}
+            </Button>
+          </div>
+        )}
+
         {/* Google Calendar connect banner — Pro users who haven't connected yet */}
         {business && !googleBannerDismissed && googleCalendarStatus === null &&
           (String(business.account_role || '').toLowerCase() === 'owner' ||
@@ -2271,14 +2318,9 @@ const SubscriptionSection = ({
     }
   };
 
-  const FEATURES = [
-    'Unlimited bookings',
-    'Invoice PDFs',
-    'Automated email reminders',
-    'Google Calendar sync',
-    'Enquiry page',
-    'Priority support',
-  ];
+  // Shared with the marketing pricing cards so the two can never disagree
+  // (this list previously sold the enquiry page as Pro; it is free).
+  const FEATURES = PRO_PLAN_FEATURES.filter((f) => f !== 'Everything in Free');
 
   return (
     <>
@@ -3243,7 +3285,6 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
     { id: 'payment-details', label: 'Payment', Icon: CreditCard },
     { id: 'additional-charges', label: 'Charges', Icon: DollarSign },
     { id: 'reminders', label: 'Reminders', Icon: Bell },
-    { id: 'sms', label: 'SMS', Icon: MessageSquare },
     { id: 'integrations', label: 'Integrations', Icon: Plug },
     { id: 'booking-editor', label: 'Booking Editor', Icon: Package },
     { id: 'enquiry-settings', label: 'Enquiry', Icon: ClipboardList },
@@ -3965,7 +4006,9 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
             </div>
           </div>
 
-          {/* SMS Notifications */}
+          {/* SMS Notifications: hidden (SMS dropped, owner decision). Sending is
+              also off server-side unless SMS_ENABLED=true; see lib/sms.js. */}
+          {SMS_UI_ENABLED && (
           <div className="rounded-xl border border-zinc-200 p-4 space-y-4">
             <div>
               <div className="font-semibold">SMS Notifications</div>
@@ -4017,6 +4060,7 @@ const AccountSettingsTab = ({ business, bookings, onUpdate, onStartTour = () => 
               </>
             )}
           </div>
+          )}
 
           <Button
             type="button"
@@ -4659,6 +4703,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search bookings..."
+          aria-label="Search bookings"
           className="w-full sm:max-w-sm dark:bg-[#1E1E2E] dark:border-[#2E2E3E] dark:text-white dark:placeholder:text-gray-500 dark:focus-visible:border-[#E8193C] dark:focus-visible:ring-[#E8193C]/30"
         />
 
@@ -4694,7 +4739,7 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
               <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Price</TableHead>
               <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Payment</TableHead>
               <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:text-[0.78rem]">Status</TableHead>
-              <TableHead className="px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:text-[0.78rem]">Actions</TableHead>
+              <TableHead className="hidden px-4 py-3 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 sm:table-cell sm:text-[0.78rem]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -4720,6 +4765,10 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                     >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
                         <div className="font-medium text-[0.98rem] text-gray-900 dark:text-white">{booking.customer_name}</div>
+                        {/* Phones: the date column is hidden, so show it here. */}
+                        <div className="mt-0.5 text-sm font-medium text-gray-700 sm:hidden dark:text-gray-300">
+                          {formatBookingDateLong(booking.booking_date)} · {formatBookingTime12h(booking.booking_time)}
+                        </div>
                         <div className="mt-1 break-all text-sm text-gray-500 dark:text-gray-400">
                           {booking.customer_email}
                         </div>
@@ -4745,7 +4794,8 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                           {displayStatus}
                         </Badge>
                       </TableCell>
-                      <TableCell className="px-4 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                      {/* Hidden on phones: the whole row already opens the booking. */}
+                      <TableCell className="hidden px-4 py-4 align-top sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Button
                           data-testid={`view-booking-${booking.id}`}
                           onClick={() => handleViewBooking(booking)}
@@ -4784,6 +4834,10 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                     >
                       <TableCell className="px-4 py-4 align-top whitespace-normal">
                         <div className="font-medium text-[0.98rem] text-gray-900 dark:text-white">{booking.customer_name}</div>
+                        {/* Phones: the date column is hidden, so show it here. */}
+                        <div className="mt-0.5 text-sm font-medium text-gray-700 sm:hidden dark:text-gray-300">
+                          {formatBookingDateLong(booking.booking_date)} · {formatBookingTime12h(booking.booking_time)}
+                        </div>
                         <div className="mt-1 break-all text-sm text-gray-500 dark:text-gray-400">
                           {booking.customer_email}
                         </div>
@@ -4809,7 +4863,8 @@ const BookingsTab = ({ business, bookings, onRefresh, prefillBooking, onPrefillA
                           {displayStatus}
                         </Badge>
                       </TableCell>
-                      <TableCell className="px-4 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                      {/* Hidden on phones: the whole row already opens the booking. */}
+                      <TableCell className="hidden px-4 py-4 align-top sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Button
                           data-testid={`view-booking-${booking.id}`}
                           onClick={() => handleViewBooking(booking)}
@@ -5333,7 +5388,6 @@ const StaffTab = () => {
                 onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                 className="bg-zinc-50 mt-2"
               />
-              <p className="text-xs text-zinc-500 mt-1">For future SMS notifications</p>
             </div>
             <div className="flex items-center gap-3">
               <Checkbox
@@ -5610,6 +5664,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or email"
+              aria-label="Search clients by name or email"
               className="pl-9 bg-white border-zinc-200"
             />
           </div>
@@ -7056,6 +7111,7 @@ const PublicProfileTab = ({ business, onUpdate }) => {
               <p className="text-sm text-muted-foreground">Customers can find you via Find services.</p>
             </div>
             <Switch
+              aria-label="Show on directory"
               checked={Boolean(formData.public_enabled)}
               onCheckedChange={(v) => setFormData({ ...formData, public_enabled: Boolean(v) })}
             />
@@ -8874,6 +8930,7 @@ const WidgetTab = ({ businessId, business }) => {
     </div>
   );
 };
+
 
 
 export { Dashboard };

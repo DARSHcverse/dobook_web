@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isEmailVerified, selectWithVerifiedColumn } from "@/lib/emailVerification";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sanitizeBusiness } from "@/app/api/_utils/auth";
 
@@ -34,16 +35,15 @@ export async function GET(request) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("businesses")
-    .select(
-      "id,business_name,email,phone,business_address,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos,public_website",
-    )
+    .select(await selectWithVerifiedColumn(sb, "id,business_name,email,phone,business_address,industry,booth_types,public_services,public_enabled,public_description,public_postcode,public_photos,public_website"))
     .eq("public_enabled", true)
     .order("created_at", { ascending: false })
     .limit(100);
 
   if (error) return NextResponse.json({ detail: error.message }, { status: 500 });
 
-  let list = (data || []).map(pickPublicBusiness);
+  // Unverified (possibly spam) signups stay off Discover until verified.
+  let list = (data || []).filter(isEmailVerified).map(pickPublicBusiness);
 
   if (q) {
     list = list.filter((b) => {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safePaymentLink } from "@/lib/paymentLink";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function resolveLogoSrc({ businessId, logoUrl }) {
@@ -55,6 +56,8 @@ export async function GET(_request, context) {
     currency: business.currency || "aud",
     distance_unit: business.distance_unit || "km",
     country_code: business.country_code || "AU",
+    // Shown on the confirmation screen so customers can pay a deposit straight away.
+    payment_link: safePaymentLink(business.payment_link),
     booth_types: business.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
     booking_custom_fields: business.booking_custom_fields || [],
     booking_form_fields: bookingFormFields || [],

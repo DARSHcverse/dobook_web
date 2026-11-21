@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { UNVERIFIED_PUBLIC_MESSAGE, isEmailVerified } from "@/lib/emailVerification";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { scheduleBookingRemindersViaResend, sendBookingCreatedEmails } from "@/lib/bookingMailer";
@@ -396,6 +397,9 @@ export async function POST(request) {
 
   if (businessError) return NextResponse.json({ detail: businessError.message }, { status: 500 });
   if (!business) return reject(request, 404, "Business not found", "business_not_found");
+  if (!isEmailVerified(business)) {
+    return reject(request, 403, UNVERIFIED_PUBLIC_MESSAGE, "business_email_unverified");
+  }
 
   if (body?.customer_phone && !isValidPhone(body.customer_phone, business?.country_code)) {
     return reject(

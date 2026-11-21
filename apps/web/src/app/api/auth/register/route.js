@@ -11,6 +11,8 @@ import { deriveBusinessSeedFromType, seedBusinessTypeDefaultsOnSignup } from "@/
 import { normalizeBusinessType } from "@/lib/businessTypeTemplates";
 import { validateBusinessName } from "@/lib/signupGuard";
 import { rateLimit } from "@/app/api/_utils/rateLimit";
+import { buildEmailVerifyUrl } from "@/lib/emailVerification";
+import { resolveSiteUrl } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
 
@@ -229,8 +231,26 @@ export async function POST(request) {
     // ignore seeding failures (business can apply from Settings later)
   }
 
+  // New accounts start unverified (column default NULL) and cannot take
+  // public bookings until the owner clicks the link in the welcome email.
+  // Owner accounts are trusted and verified immediately.
+  let verifyUrl = "";
+  if (owner) {
+    const { error: verifyErr } = await sb
+      .from("businesses")
+      .update({ email_verified_at: new Date().toISOString() })
+      .eq("id", id);
+    if (verifyErr) console.warn("[auth/register] could not mark owner verified:", verifyErr.message);
+  } else {
+    try {
+      verifyUrl = buildEmailVerifyUrl({ site: resolveSiteUrl(), businessId: id, email });
+    } catch (e) {
+      console.error("[auth/register] could not build verification link:", e?.message);
+    }
+  }
+
   try {
-    await sendBusinessWelcomeEmail({ business });
+    await sendBusinessWelcomeEmail({ business, verifyUrl });
   } catch {
     // ignore email failures
   }

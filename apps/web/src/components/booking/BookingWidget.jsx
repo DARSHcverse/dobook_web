@@ -165,7 +165,10 @@ export default function BookingWidget() {
       setSuccess(true);
       toast.success('Booking confirmed! Check your email.');
     } catch (error) {
-      toast.error('Booking failed. Please try again.');
+      // Show the server's reason (invalid phone, monthly limit, page not live
+      // yet...) instead of a generic failure the customer cannot act on.
+      const detail = error?.response?.data?.detail;
+      toast.error(typeof detail === 'string' && detail.trim() ? detail : 'Booking failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -263,6 +266,22 @@ export default function BookingWidget() {
               <CardDescription className="mx-auto mt-4 max-w-xl text-base leading-7 text-zinc-600" style={{ fontFamily: 'Inter' }}>
                 Your booking request has been sent successfully. Check your inbox for the confirmation email and keep this tab open if you want to make another booking.
               </CardDescription>
+              {business?.payment_link ? (
+                <div className="relative mx-auto mt-6 max-w-md rounded-[24px] border border-rose-100 bg-rose-50/70 p-5 text-left">
+                  <div className="text-sm font-semibold text-zinc-900">Paying a deposit?</div>
+                  <p className="mt-1 text-sm leading-6 text-zinc-600">
+                    {businessName} takes payments through their own secure payment page.
+                  </p>
+                  <a
+                    href={business.payment_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-rose-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+                  >
+                    Pay {businessName}
+                  </a>
+                </div>
+              ) : null}
             </CardHeader>
             <CardContent className="px-6 pb-10 pt-2 sm:px-10">
               <div className="grid gap-3 sm:grid-cols-3">

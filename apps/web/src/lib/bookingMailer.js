@@ -1,4 +1,5 @@
 import { buildBusinessFrom, sendEmailViaResend } from "./email";
+import { safePaymentLink } from "./paymentLink";
 import { formatMoney } from "./money";
 import { generateInvoicePdfBase64 } from "./invoicePdf";
 import { hasProAccess, isOwnerBusiness, FREE_PLAN_MAX_BOOKINGS_PER_MONTH } from "./entitlements";
@@ -74,7 +75,7 @@ export async function sendOwnerNewSignupEmail({ business, requestedPlan }) {
   return sendEmailViaResend({ to, subject, html, text, replyTo: businessEmail !== "-" ? businessEmail : undefined });
 }
 
-export async function sendBusinessWelcomeEmail({ business }) {
+export async function sendBusinessWelcomeEmail({ business, verifyUrl = "" }) {
   const businessEmail = safeEmail(business?.email);
   if (!businessEmail) return { ok: false, skipped: true, error: "No business email" };
 
@@ -110,9 +111,10 @@ export async function sendBusinessWelcomeEmail({ business }) {
       ${paragraphHtml(`Welcome, <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>.`)}
       ${paragraphHtml("You’re all set up. When a client books you, they’ll receive a booking confirmation email, and you’ll get a notification email too.")}
       ${summaryHtml}
+      ${verifyUrl ? paragraphHtml("<strong style=\"color:#18181b;\">One last step:</strong> confirm your email so your booking page can start taking bookings.") : ""}
       <div style="margin-top:14px;">
-        <a href="${escapeHtml(`${site}/dashboard`)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
-          Go to dashboard
+        <a href="${escapeHtml(verifyUrl || `${site}/dashboard`)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          ${verifyUrl ? "Confirm my email" : "Go to dashboard"}
         </a>
       </div>
       <div style="padding:12px 14px; border:1px solid #e4e4e7; border-radius:12px; background:#fafafa; margin-top:12px;">
@@ -130,9 +132,31 @@ export async function sendBusinessWelcomeEmail({ business }) {
     (template
       ? `\nPre-filled for you${businessTypeLabel ? ` (${businessTypeLabel})` : ""}:\n- Service categories: ${servicesCount}\n- Booking fields: ${fieldsCount}\n- Add-ons: ${addonsCount}\n`
       : "") +
+    (verifyUrl ? `\nConfirm your email so your booking page can take bookings:\n${verifyUrl}\n` : "") +
     `\nDashboard: ${site}/dashboard\n`;
 
   return sendEmailViaResend({ to: businessEmail, subject, html, text });
+}
+
+export async function sendEmailVerificationEmail({ business, verifyUrl }) {
+  const businessEmail = safeEmail(business?.email);
+  if (!businessEmail || !verifyUrl) return { ok: false, skipped: true, error: "Missing email or link" };
+  const businessName = safeName(business?.business_name) || "your business";
+  const html = emailLayout({
+    title: "Confirm your email",
+    preheader: "One click and your booking page can take bookings.",
+    contentHtml: `
+      ${paragraphHtml(`Confirm this email address for <strong style="color:#18181b;">${escapeHtml(businessName)}</strong> so your DoBook booking page can start taking bookings.`)}
+      <div style="margin-top:14px;">
+        <a href="${escapeHtml(verifyUrl)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          Confirm my email
+        </a>
+      </div>
+      ${paragraphHtml("The link works for 7 days. If you did not sign up for DoBook, you can ignore this email.")}
+    `,
+  });
+  const text = `Confirm your email for ${businessName} so your DoBook booking page can take bookings:\n${verifyUrl}\n\nThe link works for 7 days. If you did not sign up for DoBook, ignore this email.\n`;
+  return sendEmailViaResend({ to: businessEmail, subject: "Confirm your DoBook email", html, text });
 }
 
 function formatCustomFieldValue(value) {
@@ -229,6 +253,9 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   const includeInvoicePdf = hasProAccess(business);
   const confirmationEnabled = business?.confirmation_email_enabled !== false;
   const logoUrl = { url: business?.logo_url || "", businessId: business?.id || "" };
+  // The business's own payment link, if set, so customers can pay a deposit
+  // from the confirmation (DoBook itself does not process payments).
+  const paymentLink = safePaymentLink(business?.payment_link);
 
   const attachments = [];
   if (includeInvoicePdf) {
@@ -280,6 +307,15 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
       ${bookingSummaryTableHtml({ booking, currency })}
       ${customFieldsTableHtml({ booking, fieldDefs })}
       ${meetingLinkHtml}
+      ${paymentLink
+        ? `
+          <div style="margin-top:14px;">
+            <a href="${escapeHtml(paymentLink)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+              Pay ${escapeHtml(businessName)}
+            </a>
+          </div>
+        `
+        : ""}
       <div style="margin-top:12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:12px; color:#71717a;">
         ${includeInvoicePdf ? "Invoice PDF attached." : "Booking confirmation only (no invoice PDF on the Free plan)."}
       </div>
@@ -289,7 +325,9 @@ export async function sendBookingCreatedEmails({ booking, business, template, fi
   const customerText =
     `Thanks for booking ${businessName}\n\n${summaryText}\n` +
     customFieldsText({ booking, fieldDefs }) +
-    `${meetingLinkText}\n${invoiceNoteText}`;
+    `${meetingLinkText}` +
+    (paymentLink ? `\nPay ${businessName}: ${paymentLink}\n` : "") +
+    `\n${invoiceNoteText}`;
 
   const businessHtml = emailLayout({
     title: "New booking",
@@ -463,7 +501,7 @@ export async function sendBookingReminderEmail({
   const currency = business?.currency || "aud";
   const lines = includeDetails ? bookingSummaryLines({ booking, currency }) : [];
   const summaryText = lines.join("\n");
-  const paymentLink = String(business?.payment_link || "").trim();
+  const paymentLink = safePaymentLink(business?.payment_link);
   const customNote = String(customMessage || "").trim();
 
   const html = emailLayout({
