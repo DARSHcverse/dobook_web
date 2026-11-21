@@ -40,6 +40,14 @@ function normalisePhone(raw) {
  * Returns the Twilio message SID on success, or null on skip/failure.
  */
 export async function sendSMS({ to, message }) {
+  // SMS is dropped as a product feature (owner decision, Oct 2026) and its
+  // settings are hidden in the dashboard, so businesses could no longer turn
+  // it off themselves. Sending is therefore opt-in via SMS_ENABLED=true.
+  // Before re-enabling: normalisePhone() below assumes Australia for every
+  // leading-0 number, which would text the wrong person for UK/LK customers.
+  if (String(process.env.SMS_ENABLED || "").trim().toLowerCase() !== "true") {
+    return null;
+  }
   const phone = normalisePhone(to);
   if (!phone) {
     console.log("[sms] skipped: no valid phone number");
