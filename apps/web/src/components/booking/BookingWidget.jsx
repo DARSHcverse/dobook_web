@@ -40,11 +40,40 @@ import { cn } from '@/lib/utils';
 import { API, DOBOOK_LOGO_PNG } from '@/lib/appShared';
 
 // ============= Public Booking Widget =============
-export default function BookingWidget() {
-  const { businessId } = useParams();
-  const resolvedBusinessId = Array.isArray(businessId) ? businessId[0] : businessId;
-  const [business, setBusiness] = useState(null);
-  const [formData, setFormData] = useState({
+// Form defaults that depend on the business (photo booth vs. other trades).
+// Pure, so it can seed initial state from server-rendered data.
+function withBusinessDefaults(prev, data) {
+  if (!data) return prev;
+  const boothTypes = Array.isArray(data?.booth_types) && data.booth_types.length
+    ? data.booth_types
+    : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
+  const isPhotoBooth = String(data?.industry || 'photobooth') === 'photobooth';
+  return {
+    ...prev,
+    booth_type: isPhotoBooth
+      ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'))
+      : '',
+    service_type: isPhotoBooth
+      ? 'Photo Booth'
+      : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
+    package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
+    duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : 60,
+    quantity: isPhotoBooth ? (prev.quantity || 1) : 1,
+    price: isPhotoBooth ? prev.price : 0,
+    event_location: isPhotoBooth ? prev.event_location : '',
+    event_location_geo: isPhotoBooth ? prev.event_location_geo : null,
+    parking_info: isPhotoBooth ? prev.parking_info : '',
+  };
+}
+
+// initialBusiness/businessId come from the server-rendered /book page so the
+// first paint already shows the business; without them it fetches as before.
+export default function BookingWidget({ initialBusiness = null, businessId: businessIdProp } = {}) {
+  const params = useParams();
+  const routeBusinessId = Array.isArray(params?.businessId) ? params.businessId[0] : params?.businessId;
+  const resolvedBusinessId = businessIdProp || routeBusinessId;
+  const [business, setBusiness] = useState(initialBusiness);
+  const [formData, setFormData] = useState(() => withBusinessDefaults({
     customer_name: '',
     customer_email: '',
     customer_phone: '',
@@ -64,12 +93,20 @@ export default function BookingWidget() {
     apply_cbd_fee: false,
     custom_fields: {},
     addon_ids: [],
-  });
+  }, initialBusiness));
   const [loading, setLoading] = useState(false);
   const [uploadingFields, setUploadingFields] = useState({});
   const [success, setSuccess] = useState(false);
   // Bumped after a 409 (slot just taken) so the picker reloads fresh times.
   const [availRefreshKey, setAvailRefreshKey] = useState(0);
+  // Earliest pickable date when availability is off. Set after mount: the
+  // page is server-rendered and the server's date (UTC) can differ from the
+  // customer's, which would otherwise cause a hydration mismatch.
+  const [todayLocal, setTodayLocal] = useState('');
+  useEffect(() => {
+    const d = new Date();
+    setTodayLocal(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -114,33 +151,16 @@ export default function BookingWidget() {
   }, []);
 
   useEffect(() => {
+    if (initialBusiness) return;
     loadBusiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedBusinessId]);
 
   const loadBusiness = async () => {
     try {
       const response = await axios.get(`${API}/widget/business/${resolvedBusinessId}/info`);
       setBusiness(response.data);
-      const boothTypes = Array.isArray(response.data?.booth_types) && response.data.booth_types.length
-        ? response.data.booth_types
-        : ['Open Booth', 'Glam Booth', 'Enclosed Booth'];
-      const isPhotoBooth = String(response.data?.industry || 'photobooth') === 'photobooth';
-      setFormData((prev) => ({
-        ...prev,
-        booth_type: isPhotoBooth
-          ? (boothTypes.includes(prev.booth_type) ? prev.booth_type : (boothTypes[0] || 'Open Booth'))
-          : '',
-        service_type: isPhotoBooth
-          ? 'Photo Booth'
-          : (boothTypes.includes(prev.service_type) ? prev.service_type : (boothTypes[0] || 'Service')),
-        package_duration: isPhotoBooth ? (prev.package_duration || '2 Hours') : '',
-        duration_minutes: isPhotoBooth ? (prev.duration_minutes || 120) : 60,
-        quantity: isPhotoBooth ? (prev.quantity || 1) : 1,
-        price: isPhotoBooth ? prev.price : 0,
-        event_location: isPhotoBooth ? prev.event_location : '',
-        event_location_geo: isPhotoBooth ? prev.event_location_geo : null,
-        parking_info: isPhotoBooth ? prev.parking_info : '',
-      }));
+      setFormData((prev) => withBusinessDefaults(prev, response.data));
     } catch (error) {
       console.error('Failed to load business:', error);
     }
@@ -224,11 +244,6 @@ export default function BookingWidget() {
   const bookingFields = BOOKING_FIELDS_BY_TYPE[bookingTypeKey] || BOOKING_FIELDS_BY_TYPE.photobooth;
   const availEnabled = Boolean(business?.availability?.enabled);
   const availService = String(formData.booth_type || formData.service_type || '').trim();
-  // Earliest pickable date when availability is off (browser-local today).
-  const todayLocal = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })();
   const formatListedPrice = (amount) => {
     try {
       const currency = String(business?.currency || 'aud').toUpperCase();
@@ -627,7 +642,7 @@ export default function BookingWidget() {
                                 {required ? <span className="text-rose-500"> *</span> : null}
                               </Label>
                               <Select value={selected} onValueChange={(val) => setValue(val)}>
-                                <SelectTrigger data-testid="widget-booth-select" className={selectTriggerClassName}>
+                                <SelectTrigger id={key} data-testid="widget-booth-select" className={selectTriggerClassName}>
                                   <SelectValue placeholder={placeholder || 'Select an option'} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -665,7 +680,7 @@ export default function BookingWidget() {
                                   });
                                 }}
                               >
-                                <SelectTrigger data-testid="widget-package-select" className={selectTriggerClassName}>
+                                <SelectTrigger id={key} data-testid="widget-package-select" className={selectTriggerClassName}>
                                   <SelectValue placeholder="Choose a duration" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -699,7 +714,7 @@ export default function BookingWidget() {
                                   });
                                 }}
                               >
-                                <SelectTrigger className={selectTriggerClassName}>
+                                <SelectTrigger id={key} className={selectTriggerClassName}>
                                   <SelectValue placeholder="Select a time window" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -742,7 +757,7 @@ export default function BookingWidget() {
                                 data-testid={key === 'customer_phone' ? 'widget-phone-input' : undefined}
                                 type={inputType}
                                 step={type === 'money' ? '0.01' : undefined}
-                                min={type === 'date' ? todayLocal : type === 'money' || type === 'number' ? '0' : undefined}
+                                min={type === 'date' ? (todayLocal || undefined) : type === 'money' || type === 'number' ? '0' : undefined}
                                 value={String(value ?? '')}
                                 onChange={(e) => setValue(e.target.value)}
                                 placeholder={placeholder || undefined}
@@ -832,7 +847,7 @@ export default function BookingWidget() {
                                   </div>
                                 ) : null}
                                 <Select value={String(value ?? '')} onValueChange={(v) => setValue(v)}>
-                                  <SelectTrigger className={selectTriggerClassName}>
+                                  <SelectTrigger aria-label={label} className={selectTriggerClassName}>
                                     <SelectValue placeholder="Select an option" />
                                   </SelectTrigger>
                                   <SelectContent>

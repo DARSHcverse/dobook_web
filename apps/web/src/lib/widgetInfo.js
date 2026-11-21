@@ -1,0 +1,88 @@
+import { sanitizeHex } from "@/lib/brandTheme";
+import { getBusinessAvailability } from "@/lib/businessAvailability";
+import { safePaymentLink } from "@/lib/paymentLink";
+
+function resolveLogoSrc({ businessId, logoUrl }) {
+  const s = String(logoUrl || "").trim();
+  if (!s) return "/brand/dobook-logo.png";
+  if (/^data:image\//i.test(s)) return `/api/public/business-logo?business_id=${encodeURIComponent(String(businessId || ""))}`;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return s;
+  return s;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Everything the public booking page needs about a business. Shared by the
+// API route and the server-rendered /book page so the page can paint with
+// real content instead of a loading screen.
+export async function buildWidgetInfo(sb, businessId) {
+  if (!UUID_RE.test(String(businessId || ""))) return { status: 404, body: { detail: "Business not found" } };
+  const { data: business, error } = await sb
+    .from("businesses")
+    .select("*")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  if (error) return { status: 500, body: { detail: error.message } };
+  if (!business) return { status: 404, body: { detail: "Business not found" } };
+
+  const [{ data: bookingFormFields }, { data: serviceAddons }, { data: packageCategories }] = await Promise.all([
+    sb
+      .from("booking_form_fields")
+      .select("field_key,field_name,field_type,required,is_private,sort_order,field_options")
+      .eq("business_id", businessId)
+      .order("sort_order", { ascending: true }),
+    sb
+      .from("service_addons")
+      .select("id,name,description,price,duration_extra_mins,is_active,sort_order")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    sb
+      .from("package_categories")
+      .select("id,name,description,image_url,sort_order")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  const hasPackageFlow = Array.isArray(packageCategories) && packageCategories.length > 0;
+
+  return { status: 200, body: {
+    business_name: business.business_name || business.name,
+    logo_src: resolveLogoSrc({ businessId, logoUrl: business.logo_url }),
+    email: business.email,
+    phone: business.phone,
+    business_type: business.business_type || null,
+    industry: business.industry || "photobooth",
+    currency: business.currency || "aud",
+    distance_unit: business.distance_unit || "km",
+    country_code: business.country_code || "AU",
+    // Shown on the confirmation screen so customers can pay a deposit straight away.
+    payment_link: safePaymentLink(business.payment_link),
+    brand_color: sanitizeHex(business.brand_color),
+    // Mode only; the booking page fetches open dates/slots from
+    // /api/public/availability so they are always current.
+    availability: (() => {
+      const a = getBusinessAvailability(business);
+      return { enabled: a.enabled, mode: a.mode, service_durations: a.service_durations, default_duration_mins: a.default_duration_mins };
+    })(),
+    // Listed prices let the form show the price instead of asking for one.
+    public_services: Array.isArray(business.public_services) ? business.public_services : [],
+    booth_types: business.booth_types || ["Open Booth", "Glam Booth", "Enclosed Booth"],
+    booking_custom_fields: business.booking_custom_fields || [],
+    booking_form_fields: bookingFormFields || [],
+    service_addons: serviceAddons || [],
+    package_categories: packageCategories || [],
+    has_package_flow: hasPackageFlow,
+    travel_fee_enabled: Boolean(business.travel_fee_enabled),
+    travel_fee_label: String(business.travel_fee_label || "Travel fee"),
+    travel_fee_amount: Number(business.travel_fee_amount || 0),
+    travel_fee_free_km: Number(business.travel_fee_free_km || 40),
+    travel_fee_rate_per_km: Number(business.travel_fee_rate_per_km || 0.4),
+    cbd_fee_enabled: Boolean(business.cbd_fee_enabled),
+    cbd_fee_label: String(business.cbd_fee_label || "CBD logistics"),
+    cbd_fee_amount: Number(business.cbd_fee_amount || 0),
+  } };
+}
