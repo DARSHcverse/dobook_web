@@ -1,57 +1,311 @@
 'use client';
 
-// Extracted from App.js so the marketing routes (/ and /industries/*) no longer
-// pull in the entire dashboard bundle. This module must stay free of dashboard
-// imports — that coupling is exactly what made every landing visitor download
-// the bookings, staff, invoice and enquiry UI.
+// Marketing page for / and /industries/*. Must stay free of dashboard imports
+// (see dobook-perf-root-cause): that coupling once made every visitor download
+// the whole dashboard bundle.
+//
+// Copy rule: every claim here must be true in the code today. In particular,
+// DoBook does NOT collect customer payments online (businesses add their own
+// payment link and track paid/deposit status), so never promise checkout,
+// deposits-at-booking or "get paid online". No volume-based social proof.
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
-  BarChart3,
-  Bell,
-  Calendar,
-  CreditCard,
-  FileText,
-  Link2,
+  ArrowRight,
+  BellRing,
+  CalendarCheck,
+  Camera,
+  Check,
+  Code2,
+  Globe,
+  Inbox,
   List,
-  MapPin,
-  MessageSquare,
+  MessageSquareText,
+  PawPrint,
+  Receipt,
+  Scissors,
   Search,
-  Smartphone,
-  Users,
+  Sparkles,
+  Star,
+  UserCog,
+  UtensilsCrossed,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ThemeModeToggle from '@/components/app/ThemeModeToggle';
 import InstantSetupHero from '@/components/landing/InstantSetupHero';
 import { PRO_PRICE_AUD, PLAN_COMPARISON, FREE_PLAN_FEATURES, PRO_PLAN_FEATURES, SETUP_TIME_LABEL } from '@/lib/pricing';
-import { API, DOBOOK_LOGO_PNG, DOBOOK_LOGO_SVG, bookingStatusBadgeClass } from '@/lib/appShared';
+import { BOOKING_FIELDS_BY_TYPE, inferBookingTypeKey } from '@/lib/bookingFieldsByType';
+import { API } from '@/lib/appShared';
 
-// ============= Landing Page =============
+const DOBOOK_LOGO_PNG = '/brand/dobook-logo-trim.png';
+
+const CONTAINER = 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-10';
+
+// Example businesses for the hero mock-up only. They are labelled "Example"
+// on screen; the form fields themselves come from the real per-trade config.
+const DEMO_TRADES = [
+  { key: 'salon_barbershop', label: 'Salon', icon: Scissors, biz: 'Fade & Co.', tagline: 'Barber · Cuts & beard trims', services: ['Skin fade', 'Beard trim', 'Kids cut'] },
+  { key: 'photobooth', label: 'Photo booth', icon: Camera, biz: 'Flash Booth Hire', tagline: 'Weddings & corporate events', services: ['Open booth', 'Glam booth', '360 booth'] },
+  { key: 'home_services_trades', label: 'Trades', icon: Wrench, biz: 'Northline Plumbing', tagline: 'Plumbing · Same-week jobs', services: ['Leak repair', 'Hot water', 'Blocked drain'] },
+  { key: 'pet_services', label: 'Pet care', icon: PawPrint, biz: 'Paws & Suds', tagline: 'Grooming · Bathing', services: ['Full groom', 'Nail trim', 'Puppy bath'] },
+  { key: 'restaurant_venue', label: 'Venues', icon: UtensilsCrossed, biz: 'The Laneway Room', tagline: 'Private dining & functions', services: ['Private dining', 'Function hire'] },
+];
+
+const CONTACT_KEYS = new Set(['customer_name', 'customer_email', 'customer_phone', 'notes', 'price']);
+
+function demoValueFor(field) {
+  switch (field.type) {
+    case 'date':
+      return 'Sat, 14 Dec';
+    case 'time':
+      return '10:30 am';
+    case 'address':
+      return 'Venue address';
+    case 'number':
+      return '80';
+    case 'package_duration':
+      return '3 hours';
+    default:
+      return 'Choose…';
+  }
+}
+
+function tradeFields(typeKey) {
+  const fields = BOOKING_FIELDS_BY_TYPE[typeKey] || BOOKING_FIELDS_BY_TYPE.photobooth;
+  return fields.filter((f) => !CONTACT_KEYS.has(f.key) && f.type !== 'select_services').slice(0, 4);
+}
+
+const INDUSTRIES = [
+  { slug: 'salon', label: 'Salons & Barbershops' },
+  { slug: 'beauty', label: 'Beauty & Spa' },
+  { slug: 'doctor', label: 'Clinics & Practitioners' },
+  { slug: 'fitness', label: 'Personal Trainers' },
+  { slug: 'pet', label: 'Pet Grooming & Sitting' },
+  { slug: 'cleaning', label: 'Cleaning Businesses' },
+  { slug: 'tradie', label: 'Tradies & Home Services' },
+  { slug: 'automotive', label: 'Mechanics & Auto' },
+  { slug: 'events', label: 'Photographers & Events' },
+  { slug: 'photobooth', label: 'Photo Booth Hire' },
+  { slug: 'tutor', label: 'Tutors & Educators' },
+  { slug: 'consultant', label: 'Consultants & Coaches' },
+  { slug: 'restaurant', label: 'Restaurants & Venue Hire' },
+  { slug: 'legal', label: 'Legal & Advisors' },
+];
+
+const BEFORE_AFTER = [
+  { before: 'Twelve messages to agree one date', after: 'One link. They pick the time themselves.' },
+  { before: '“What was the venue address again?”', after: 'Your form asks the questions your trade needs.' },
+  { before: 'Forgotten appointments and no-shows', after: 'Reminder emails go out on their own (Pro).' },
+  { before: 'Writing invoices at 11pm', after: 'The invoice is drafted from the booking (Pro).' },
+];
+
+const FAQS = [
+  { q: 'Is the free plan actually free?', a: 'Yes. Free covers 50 bookings a month with confirmation emails, and no card is needed to start. You only pay if you want unlimited bookings, automated reminders, Google Calendar sync and invoice PDFs.' },
+  { q: 'How fast can I set up DoBook?', a: `Most businesses are taking bookings in ${SETUP_TIME_LABEL}. Pick your trade and your services, booking form and reminder timings are pre-filled, or paste your website and we draft the page for you.` },
+  { q: 'Do my customers need an account?', a: 'No. They open your link, choose a time and enter their details. No app and no password, which is a big part of why people finish booking.' },
+  { q: 'I mostly get enquiries, not bookings. Does it fit?', a: 'Yes. Turn on an enquiry page: customers send their event details, you reply with a quote (DoBook can draft the reply for you), they confirm, and it becomes a booking in one click.' },
+  { q: 'Can customers pay online when they book?', a: 'Not inside DoBook yet. You can add your own payment link (Stripe, Square, PayPal and so on) to reminder emails, put your bank details on invoices, and mark each booking as unpaid, deposit paid or paid in full.' },
+  { q: 'Can I put booking on my own website?', a: 'Yes. Copy the embed code from your dashboard and paste it into your site, or simply link to your DoBook page from your website, Instagram bio or Google profile.' },
+  { q: 'Which countries does DoBook work in?', a: 'Each business sets its own country, currency and phone format, so your booking page and invoices match where you work. Pro is billed in AUD.' },
+  { q: 'Can I cancel later?', a: 'Yes. There is no contract. Cancel Pro any time and you drop back to Free rather than losing access, and your bookings and client records stay yours.' },
+];
+
+// Trimmed 274x112 logo (10 KB WebP). The original dobook-logo.png is 2 MB
+// and ~70% transparent padding, which is why it rendered tiny.
+function BrandLogo({ className = '', priority = false }) {
+  return (
+    <img
+      src="/brand/dobook-logo-trim.webp"
+      alt="DoBook"
+      width={274}
+      height={112}
+      fetchPriority={priority ? 'high' : undefined}
+      className={`w-auto select-none object-contain ${className}`}
+      draggable={false}
+      onError={(e) => {
+        if (!e.currentTarget.src.endsWith('.png')) e.currentTarget.src = DOBOOK_LOGO_PNG;
+      }}
+    />
+  );
+}
+
+function SectionHeading({ eyebrow, title, desc, center = false }) {
+  return (
+    <div className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
+      {eyebrow ? (
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">{eyebrow}</div>
+      ) : null}
+      <h2 className="font-display mt-3 text-3xl font-extrabold tracking-tight text-zinc-950 sm:text-4xl dark:text-white">{title}</h2>
+      {desc ? <p className="mt-4 text-base leading-7 text-zinc-600 sm:text-lg dark:text-zinc-400">{desc}</p> : null}
+    </div>
+  );
+}
+
+// Phone-sized mock of a real DoBook booking page, switching between trades to
+// show the one thing generic schedulers do not do: ask trade-specific questions.
+function TradePhoneDemo({ initialTypeKey }) {
+  const trades = useMemo(() => {
+    if (!initialTypeKey || DEMO_TRADES.some((t) => t.key === initialTypeKey)) {
+      const idx = DEMO_TRADES.findIndex((t) => t.key === initialTypeKey);
+      return idx > 0 ? [DEMO_TRADES[idx], ...DEMO_TRADES.filter((_, i) => i !== idx)] : DEMO_TRADES;
+    }
+    return [
+      { key: initialTypeKey, label: 'Your trade', icon: Sparkles, biz: 'Your business', tagline: 'Your booking page', services: [] },
+      ...DEMO_TRADES,
+    ];
+  }, [initialTypeKey]);
+
+  const [index, setIndex] = useState(0);
+  const [userPicked, setUserPicked] = useState(false);
+
+  useEffect(() => {
+    if (userPicked) return undefined;
+    let reduce = false;
+    try {
+      reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      reduce = false;
+    }
+    if (reduce) return undefined;
+    const id = window.setInterval(() => setIndex((i) => (i + 1) % trades.length), 3800);
+    return () => window.clearInterval(id);
+  }, [userPicked, trades.length]);
+
+  const trade = trades[index] || trades[0];
+  const fields = tradeFields(trade.key);
+  const TradeIcon = trade.icon;
+
+  return (
+    <div className="relative mx-auto w-full max-w-[25rem]">
+      <div className="mb-4 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Example booking pages by trade">
+        {trades.map((t, i) => {
+          const Icon = t.icon;
+          const active = i === index;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => {
+                setUserPicked(true);
+                setIndex(i);
+              }}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
+                active
+                  ? 'border-zinc-950 bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950'
+                  : 'border-zinc-200 bg-white/80 text-zinc-700 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="relative rounded-[2.4rem] border border-zinc-200 bg-zinc-950 p-2.5 shadow-[0_40px_80px_-30px_rgba(225,29,72,0.45),0_20px_40px_-20px_rgba(24,24,27,0.35)] dark:border-zinc-700">
+        <div className="overflow-hidden rounded-[1.9rem] bg-white dark:bg-zinc-900">
+          <div className="flex items-center justify-between px-5 pb-2 pt-3 text-[10px] font-semibold text-zinc-400">
+            <span>9:41</span>
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[9px] uppercase tracking-wider text-zinc-500 dark:bg-zinc-800">Example booking page</span>
+          </div>
+
+          <div key={trade.key} className="px-5 pb-6 animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-600 text-white">
+                <TradeIcon className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-display truncate text-base font-bold text-zinc-950 dark:text-white">{trade.biz}</div>
+                <div className="truncate text-xs text-zinc-500">{trade.tagline}</div>
+              </div>
+            </div>
+
+            {trade.services.length ? (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {trade.services.map((s, i) => (
+                  <span
+                    key={s}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      i === 0
+                        ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300'
+                        : 'border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400'
+                    }`}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 h-[26px]" aria-hidden="true" />
+            )}
+
+            {/* Fixed height for 4 fields so rotating trades never shifts the layout (CLS). */}
+            <div className="mt-4 min-h-[16rem] space-y-2.5">
+              {fields.map((f) => (
+                <div key={f.key}>
+                  <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                    {f.label}
+                    {f.required ? <span className="text-rose-600"> *</span> : null}
+                  </div>
+                  <div className="mt-1 flex h-9 items-center rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    {demoValueFor(f)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex h-11 items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white">
+              Request booking
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating notification: what the owner sees when the form is sent. */}
+      <div
+        aria-hidden="true"
+        className="absolute -bottom-7 -left-3 hidden w-56 rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:block lg:-left-16 dark:border-zinc-700 dark:bg-zinc-900/95 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 fill-mode-both motion-reduce:animate-none"
+      >
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            <CalendarCheck className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-zinc-950 dark:text-white">New booking request</div>
+            <div className="truncate text-[11px] text-zinc-500">{trade.services[0] || 'Appointment'} · Sat 14 Dec</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage({
-  heroPrefix = 'Online Booking System',
-  heroAccent = 'for Businesses',
-  heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
+  heroPrefix = 'Stop taking bookings',
+  heroAccent = 'in your DMs.',
+  heroDescription = 'DoBook gives your business one booking link with a form built for your trade, so customers book themselves, reminders go out on their own and every job is already in your calendar. Free for up to 50 bookings a month.',
   startFreeHref = '/auth?mode=signup&plan=free',
   customerHref = '/discover',
   // Industry pages render their own unique <h1> above this component.
   heroHeadingLevel = 'h1',
+  // Industry key (e.g. "salon") so the hero demo opens on that trade.
+  industryKey = '',
 } = {}) {
   const HeroHeading = heroHeadingLevel === 'h2' ? 'h2' : 'h1';
-  const router = useRouter();
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState({ authed: false, business: null });
-  const [heroPreviewTab, setHeroPreviewTab] = useState('bookings');
-  const [productPreviewTab, setProductPreviewTab] = useState('bookings');
   const [platformReviews, setPlatformReviews] = useState([]);
 
   const isAuthed = authReady && Boolean(session?.authed);
   const businessName = String(session?.business?.business_name || session?.business?.email || '').trim();
   const avatarUrl = String(session?.business?.logo_url || '').trim();
+  const primaryHref = isAuthed ? '/dashboard' : startFreeHref;
+  const primaryLabel = isAuthed ? 'Open dashboard' : 'Start free';
+  const demoTypeKey = industryKey ? inferBookingTypeKey({ industry: industryKey }) : '';
 
   const initials = useMemo(() => {
     const value = String(businessName || '').trim();
@@ -65,409 +319,135 @@ export default function LandingPage({
 
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
+    (async () => {
       try {
-        const res = await fetch("/api/auth/me", { method: "GET", credentials: "include" });
+        const res = await fetch('/api/auth/me', { method: 'GET', credentials: 'include' });
         if (cancelled) return;
         if (!res.ok) {
           setSession({ authed: false, business: null });
           return;
         }
         const data = await res.json();
-        if (cancelled) return;
-        setSession({ authed: true, business: data?.business || null });
+        if (!cancelled) setSession({ authed: true, business: data?.business || null });
       } catch {
         if (!cancelled) setSession({ authed: false, business: null });
       } finally {
         if (!cancelled) setAuthReady(true);
       }
-    };
-    run();
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const uiPreviewTabs = [
-    { id: 'bookings', label: 'Bookings' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'invoices', label: 'Invoices' },
-  ];
-
-  const tabClass = (active) =>
-    `h-9 px-3 rounded-full text-xs font-semibold border transition-colors ${
-      active
-        ? 'bg-rose-600 border-rose-600 text-white'
-        : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-    }`;
-
-  // One shared surface treatment for every marketing card. Previously each card
-  // was a flat `border + shadow-sm` box, which made the whole page read as one
-  // uniform sheet with no focal point. The lift on hover gives the grids a sense
-  // of depth and signals that the cards are worth reading.
-  const surfaceCard =
-    'group rounded-2xl border border-zinc-200/90 bg-white shadow-[0_1px_2px_rgba(24,24,27,0.04),0_8px_24px_-12px_rgba(24,24,27,0.10)] transition-all duration-300 hover:-translate-y-1 hover:border-rose-200 hover:shadow-[0_2px_4px_rgba(24,24,27,0.05),0_18px_40px_-16px_rgba(225,29,72,0.28)] motion-reduce:transform-none motion-reduce:transition-none';
-
-
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
+    (async () => {
       try {
         const res = await fetch(`${API}/public/platform-reviews`, { method: 'GET' });
         if (!res.ok) return;
         const json = await res.json();
-        if (cancelled) return;
-        setPlatformReviews(Array.isArray(json) ? json : []);
+        if (!cancelled) setPlatformReviews(Array.isArray(json) ? json : []);
       } catch {
-        // ignore
+        // Reviews are optional; the section simply stays hidden.
       }
-    };
-    run();
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  function UiPreviewContent({ tab }) {
-    const normalizedTab = new Set(['bookings', 'calendar', 'invoices']).has(tab) ? tab : 'bookings';
-    const Sidebar = () => (
-      <div className="hidden sm:block w-44 shrink-0 border-r border-zinc-200 bg-white">
-        <div className="p-4">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-xl bg-rose-600" aria-hidden="true" />
-            <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              DoBook
-            </div>
-          </div>
-        </div>
-        <div className="px-3 pb-4 space-y-1 text-xs" style={{ fontFamily: 'Inter' }}>
-          {[
-            { id: 'bookings', label: 'Bookings' },
-            { id: 'calendar', label: 'Calendar View' },
-            { id: 'invoices', label: 'Invoice Templates' },
-          ].map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between rounded-xl px-3 py-2 border ${
-                normalizedTab === item.id
-                  ? 'bg-rose-50 border-rose-100 text-rose-700'
-                  : 'bg-white border-transparent text-zinc-700'
-              }`}
-            >
-              <span className="font-medium">{item.label}</span>
-              {normalizedTab === item.id ? <span className="text-[10px] font-semibold">Active</span> : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+  const primaryBtn =
+    'h-12 rounded-xl bg-rose-600 px-7 text-base font-semibold text-white shadow-[0_10px_30px_-10px_rgba(225,29,72,0.7)] transition-all hover:bg-rose-700 hover:shadow-[0_14px_34px_-10px_rgba(225,29,72,0.8)] active:scale-[0.98]';
 
-    if (normalizedTab === 'bookings') {
-      return (
-        <div className="flex min-h-[22rem]">
-          <Sidebar />
-          <div className="flex-1 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  All bookings
-                </div>
-                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
-                  Manage appointments in one list
-                </div>
-              </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="h-9 w-24 rounded-full bg-rose-600 text-white text-xs font-semibold flex items-center justify-center">
-                  + Add booking
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] gap-2 px-4 py-3 text-[11px] font-semibold text-zinc-500 border-b border-zinc-200">
-                <div>Customer</div>
-                <div>Service</div>
-                <div>Date</div>
-                <div>Status</div>
-              </div>
-              {[
-                { name: 'Alex M.', service: 'Consult', date: '26 Mar', tone: 'success', status: 'confirmed' },
-                { name: 'Priya S.', service: 'Follow-up', date: '07 Mar', tone: 'success', status: 'confirmed' },
-                { name: 'Chris L.', service: 'Session', date: '21 Feb', tone: 'danger', status: 'cancelled' },
-                { name: 'Jordan P.', service: 'Initial', date: '17 Feb', tone: 'success', status: 'confirmed' },
-              ].map((row) => (
-                <div key={`${row.name}-${row.date}`} className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] gap-2 px-4 py-3 text-xs text-zinc-700 border-b border-zinc-100 last:border-b-0">
-                  <div className="flex min-w-0 items-center">
-                    <div className="truncate font-semibold text-zinc-900">{row.name}</div>
-                  </div>
-                  <div className="flex min-w-0 items-center">
-                    <div className="truncate font-medium">{row.service}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center whitespace-nowrap text-[11px] text-zinc-600">{row.date}</div>
-                  <div className="flex shrink-0 items-center justify-end">
-                    <Badge
-                      variant="outline"
-                      className={`${bookingStatusBadgeClass(String(row.status || 'confirmed').toLowerCase())} whitespace-nowrap`}
-                    >
-                      {String(row.status || 'confirmed').toLowerCase()}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (normalizedTab === 'calendar') {
-      return (
-        <div className="flex min-h-[22rem]">
-          <Sidebar />
-          <div className="flex-1 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  Calendar view
-                </div>
-                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
-                  Month / week / day scheduling
-                </div>
-              </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="h-9 w-24 rounded-full bg-rose-600 text-white text-xs font-semibold flex items-center justify-center">
-                  Month
-                </div>
-                <div className="h-9 w-24 rounded-full border border-zinc-200 bg-white text-zinc-700 text-xs font-semibold flex items-center justify-center">
-                  Week
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-3">
-              <div className="grid grid-cols-7 gap-2 text-[10px] font-semibold text-zinc-500 px-1">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                  <div key={d} className="text-center">{d}</div>
-                ))}
-              </div>
-              <div className="mt-2 grid grid-cols-7 gap-2">
-                {Array.from({ length: 28 }).map((_, i) => {
-                  const day = i + 1;
-                  const hasEvent = day === 17 || day === 19 || day === 20 || day === 28;
-                  return (
-                    <div
-                      key={day}
-                      className={`h-16 rounded-xl border border-zinc-200 bg-zinc-50 p-2 ${
-                        day === 22 ? 'bg-rose-50 border-rose-100' : ''
-                      }`}
-                    >
-                      <div className="text-[10px] font-semibold text-zinc-600">{String(day).padStart(2, '0')}</div>
-                      {hasEvent ? (
-                        <div className="mt-2 h-4 rounded-full bg-rose-600/90" aria-hidden="true" />
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (normalizedTab === 'invoices') {
-      return (
-        <div className="flex min-h-[22rem]">
-          <Sidebar />
-          <div className="flex-1 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  Invoice templates
-                </div>
-                <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
-                  Choose a style that fits your brand
-                </div>
-              </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="h-9 w-28 rounded-full bg-zinc-100 text-zinc-700 text-xs font-semibold flex items-center justify-center">
-                  Active: Sidebar
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {[
-                { name: 'Classic', accent: 'bg-zinc-900' },
-                { name: 'Clean', accent: 'bg-zinc-200' },
-                { name: 'Gradient', accent: 'bg-gradient-to-r from-rose-600 to-violet-600' },
-                { name: 'Sidebar', accent: 'bg-zinc-800 ring-2 ring-rose-200' },
-              ].map((t) => (
-                <div key={t.name} className="rounded-2xl border border-zinc-200 bg-white p-3">
-                  <div className={`h-8 rounded-xl ${t.accent}`} aria-hidden="true" />
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="text-xs font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{t.name}</div>
-                    {t.name === 'Sidebar' ? (
-                      <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700">
-                        Selected
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-2 h-10 rounded-xl bg-zinc-50 border border-zinc-200" aria-hidden="true" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return null;
-  }
+  const features = [
+    { icon: Inbox, title: 'Enquiries that turn into bookings', desc: 'Event and project work starts with a question. Customers send their details, you send a quote, they confirm, and it becomes a booking in one click.', tier: 'Free' },
+    { icon: MessageSquareText, title: 'Replies drafted for you', desc: 'DoBook drafts a reply to each enquiry from what the customer asked and what you offer. Edit it, send it, done.', tier: 'Free' },
+    { icon: BellRing, title: 'Reminders that cut no-shows', desc: 'Customers get reminder emails before the day, with your payment link if you use one. You never send one by hand.', tier: 'Pro' },
+    { icon: Receipt, title: 'Invoices written from the booking', desc: 'Pick a template once. Every booking can become a branded invoice PDF with your bank details on it.', tier: 'Pro' },
+    { icon: CalendarCheck, title: 'Google Calendar sync', desc: 'New bookings land in the calendar you already live in; cancellations come off it.', tier: 'Pro' },
+    { icon: UserCog, title: 'Your team, assigned', desc: 'Assign a booking to a staff member and they are emailed the details, so everyone knows where they need to be.', tier: 'Free' },
+    { icon: Code2, title: 'Booking on your own website', desc: 'Paste the embed code into your site, or link to your page from Instagram, Google and email signatures.', tier: 'Free' },
+    { icon: Globe, title: 'Get found on DoBook Discover', desc: 'Switch on a public profile with your services, photos and reviews so local customers can find and book you.', tier: 'Free' },
+  ];
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="min-h-screen overflow-x-clip bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <style>{`html{scroll-behavior:smooth} @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}`}</style>
-      
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/85 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-950/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3">
-          <a
-            href="/"
-            className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
-            aria-label="DoBook home"
-            onClick={(e) => {
-              if (typeof window !== 'undefined' && window.location.pathname === '/') {
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            }}
-          >
-            <img
-              src={DOBOOK_LOGO_PNG}
-              alt="DoBook"
-              className="h-[68px] md:h-[76px] w-auto object-contain select-none"
-              draggable={false}
-              onError={(e) => {
-                e.currentTarget.src = DOBOOK_LOGO_SVG;
-              }}
-            />
-          </a>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-zinc-700 dark:text-zinc-200" aria-label="Primary">
-            <a className="hover:text-zinc-900 dark:hover:text-white" href="#features">Features</a>
-            <a className="hover:text-zinc-900 dark:hover:text-white" href="#how">How it works</a>
-            <a className="hover:text-zinc-900 dark:hover:text-white" href="#pricing">Pricing</a>
-            <a className="hover:text-zinc-900 dark:hover:text-white" href="#faq">FAQ</a>
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/60 dark:bg-zinc-950/70">
+        <div className={`${CONTAINER} flex h-16 items-center justify-between gap-3`}>
+          <Link href="/" className="flex items-center rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300" aria-label="DoBook home">
+            <BrandLogo className="h-10 sm:h-11" priority />
+          </Link>
+
+          <nav className="hidden items-center gap-7 text-sm font-medium text-zinc-600 md:flex dark:text-zinc-300" aria-label="Primary">
+            <a className="hover:text-zinc-950 dark:hover:text-white" href="#features">Features</a>
+            <a className="hover:text-zinc-950 dark:hover:text-white" href="#industries">Industries</a>
+            <a className="hover:text-zinc-950 dark:hover:text-white" href="#pricing">Pricing</a>
+            <a className="hover:text-zinc-950 dark:hover:text-white" href="#faq">FAQ</a>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
-            <ThemeModeToggle
-              showLabel={false}
-              className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-            />
-            <Button asChild
-              variant="ghost"
-              className="h-11 px-4 rounded-lg text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
-            ><Link href={customerHref}>
-              Find services
-            </Link></Button>
-
+          <div className="hidden items-center gap-2 md:flex">
+            <ThemeModeToggle showLabel={false} className="h-10 w-10 rounded-full border-zinc-200 p-0 dark:border-zinc-800" />
             {isAuthed ? (
-                <>
-                  <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5">
-                    <Avatar className="h-9 w-9">
-                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={businessName || 'DoBook profile'} /> : null}
-                      <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="max-w-[14rem]">
-                      <div className="text-xs font-semibold text-zinc-900 truncate" style={{ fontFamily: 'Manrope' }}>
-                        {businessName || 'Your account'}
-                      </div>
-                      <div className="text-[11px] text-zinc-500">Logged in</div>
-                    </div>
-                  </div>
-                  <Button asChild
-                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-                  ><Link href="/dashboard">
-                    Open dashboard
-                  </Link></Button>
-                </>
-              ) : (
-                <>
-                  <Button asChild
-                    data-testid="login-btn"
-                    variant="outline"
-                    className="h-11 px-5 rounded-lg border-zinc-200"
-                  ><Link href="/login">
-                    Login
-                  </Link></Button>
-                  <Button asChild
-                    data-testid="get-started-btn"
-                    className="h-11 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-                  ><Link href={startFreeHref}>
-                    Start Free (Business)
-                  </Link></Button>
-                </>
-              )}
+              <>
+                <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white py-1 pl-1 pr-3 dark:border-zinc-800 dark:bg-zinc-900">
+                  <Avatar className="h-8 w-8">
+                    {avatarUrl ? <AvatarImage src={avatarUrl} alt={businessName || 'Your business'} /> : null}
+                    <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="max-w-[10rem] truncate text-xs font-semibold">{businessName || 'Your account'}</span>
+                </div>
+                <Button asChild className="h-10 rounded-xl bg-rose-600 px-5 font-semibold text-white hover:bg-rose-700">
+                  <Link href="/dashboard">Open dashboard</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild variant="ghost" data-testid="login-btn" className="h-10 rounded-xl px-4 text-zinc-700 dark:text-zinc-200">
+                  <Link href="/login">Log in</Link>
+                </Button>
+                <Button asChild data-testid="get-started-btn" className="h-10 rounded-xl bg-rose-600 px-5 font-semibold text-white hover:bg-rose-700">
+                  <Link href={startFreeHref}>Start free</Link>
+                </Button>
+              </>
+            )}
           </div>
 
-          <div className="md:hidden flex items-center gap-2">
-            <ThemeModeToggle
-              showLabel={false}
-              className="h-11 w-11 p-0 rounded-full border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-            />
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeModeToggle showLabel={false} className="h-11 w-11 rounded-full border-zinc-200 p-0 dark:border-zinc-800" />
             <details className="relative">
-              <summary className="list-none cursor-pointer">
+              <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
                 <span className="sr-only">Open menu</span>
-                <div className="inline-flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 dark:border-zinc-800/60 dark:bg-zinc-950/30 dark:text-zinc-200 dark:hover:bg-zinc-800/50">
-                  <List className="h-4 w-4" />
+                <span className="inline-flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+                  <List className="h-4 w-4" aria-hidden="true" />
                   Menu
-                </div>
+                </span>
               </summary>
-              <div className="absolute right-0 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-zinc-200 bg-white shadow-lg p-3 dark:border-zinc-800/60 dark:bg-zinc-950">
+              <div className="absolute right-0 mt-2 w-[min(92vw,20rem)] rounded-2xl border border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
                 <div className="grid gap-1">
-                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#features">
-                    Features
-                  </a>
-                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#how">
-                    How it works
-                  </a>
-                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#pricing">
-                    Pricing
-                  </a>
-                  <a className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/50" href="#faq">
-                    FAQ
-                  </a>
+                  {[
+                    ['#features', 'Features'],
+                    ['#industries', 'Industries'],
+                    ['#pricing', 'Pricing'],
+                    ['#faq', 'FAQ'],
+                  ].map(([href, label]) => (
+                    <a key={href} href={href} className="rounded-xl px-3 py-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-900">
+                      {label}
+                    </a>
+                  ))}
                 </div>
                 <div className="mt-2 grid gap-2">
-                  <Button asChild
-                    variant="outline"
-                    className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-                  ><Link href={customerHref}>
-                    Find services near me
-                  </Link></Button>
-                  {isAuthed ? (
-                      <Button asChild
-                        className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                      ><Link href="/dashboard">
-                        Open dashboard
-                      </Link></Button>
-                    ) : (
-                      <>
-                        <Button asChild
-                          variant="outline"
-                          className="h-11 rounded-lg border-zinc-200 dark:border-zinc-800/60 dark:hover:bg-zinc-800/50"
-                        ><Link href="/login">
-                          Business login
-                        </Link></Button>
-                        <Button asChild
-                          className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                        ><Link href={startFreeHref}>
-                          Start Free (Business)
-                        </Link></Button>
-                      </>
-                    )}
+                  {isAuthed ? null : (
+                    <Button asChild variant="outline" className="h-11 rounded-xl border-zinc-200 dark:border-zinc-800">
+                      <Link href="/login">Log in</Link>
+                    </Button>
+                  )}
+                  <Button asChild className="h-11 rounded-xl bg-rose-600 font-semibold text-white hover:bg-rose-700">
+                    <Link href={primaryHref}>{primaryLabel}</Link>
+                  </Button>
                 </div>
               </div>
             </details>
@@ -475,708 +455,487 @@ export default function LandingPage({
         </div>
       </header>
 
-      {/* Hero Section */}
-      {/* Hero. The soft radial wash and grid give the section depth so the page
-          does not read as one flat sheet of white cards. Both are pure CSS and
-          pointer-events-none, so they cost nothing and never trap clicks. */}
-      <section id="top" className="relative isolate overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              'radial-gradient(900px circle at 12% -10%, rgba(225,29,72,0.10), transparent 55%), radial-gradient(700px circle at 92% 0%, rgba(244,63,94,0.08), transparent 50%)',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.55] dark:opacity-[0.12]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(24,24,27,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(24,24,27,0.045) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-            maskImage: 'radial-gradient(700px circle at 50% 0%, #000 30%, transparent 75%)',
-            WebkitMaskImage: 'radial-gradient(700px circle at 50% 0%, #000 30%, transparent 75%)',
-          }}
-        />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-14 sm:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-          <div className="lg:col-span-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
-              <span className="inline-flex h-2 w-2 rounded-full bg-rose-600" aria-hidden="true" />
-              Online booking system · appointment scheduling software
+      <main>
+        {/* Hero */}
+        <section id="top" className="relative isolate overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background:
+                'radial-gradient(800px circle at 85% 10%, rgba(225,29,72,0.16), transparent 60%), radial-gradient(600px circle at 5% 90%, rgba(244,63,94,0.08), transparent 55%)',
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 opacity-60 dark:opacity-15"
+            style={{
+              backgroundImage: 'radial-gradient(rgba(24,24,27,0.10) 1px, transparent 1px)',
+              backgroundSize: '22px 22px',
+              maskImage: 'radial-gradient(600px circle at 70% 30%, #000 20%, transparent 70%)',
+              WebkitMaskImage: 'radial-gradient(600px circle at 70% 30%, #000 20%, transparent 70%)',
+            }}
+          />
+
+          <div className={`${CONTAINER} grid items-center gap-14 py-14 sm:py-20 lg:grid-cols-12 lg:gap-10 lg:py-24`}>
+            <div className="lg:col-span-7">
+              <div className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Booking pages built for your trade
+              </div>
+
+              <HeroHeading className="font-display mt-6 text-[2.6rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-zinc-950 sm:text-6xl lg:text-7xl dark:text-white">
+                {heroPrefix}{' '}
+                <span className="bg-gradient-to-r from-rose-600 to-rose-500 bg-clip-text text-transparent">{heroAccent}</span>
+              </HeroHeading>
+
+              <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">{heroDescription}</p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button asChild data-testid="hero-get-started-btn" className={primaryBtn}>
+                  <Link href={primaryHref}>
+                    {primaryLabel}
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-12 rounded-xl border-zinc-300 bg-white/70 px-6 text-base font-semibold dark:border-zinc-700 dark:bg-zinc-900/60">
+                  <a href="#how">See how it works</a>
+                </Button>
+              </div>
+
+              <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400" aria-label="Plan highlights">
+                {['Free plan, no card', '50 bookings a month free', 'Live in about 10 minutes', 'Cancel any time'].map((t) => (
+                  <li key={t} className="flex items-center gap-1.5">
+                    <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            <HeroHeading className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              {heroPrefix} <span className="text-rose-600">{heroAccent}</span>
-            </HeroHeading>
-
-            <p className="mt-4 text-lg text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              {heroDescription}
-            </p>
-
-            <ul className="mt-6 grid gap-3 text-sm text-zinc-700" style={{ fontFamily: 'Inter' }} aria-label="Key benefits">
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Fill your calendar with <strong className="text-zinc-900">24/7 online bookings</strong>.</span></li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Reduce no‑shows with <strong className="text-zinc-900">automated email reminders</strong>.</span></li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Get paid faster with <strong className="text-zinc-900">online payments</strong>.</span></li>
-              <li className="flex gap-3"><span className="mt-0.5 text-emerald-600" aria-hidden="true">✓</span><span>Look professional with <strong className="text-zinc-900">invoice PDFs</strong>.</span></li>
-            </ul>
-
-            {!isAuthed && <InstantSetupHero />}
-
-            <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Button asChild
-                data-testid="hero-get-started-btn"
-                className="h-14 px-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm hover:shadow-md transition-all active:scale-95"
-              ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
-                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-              </Link></Button>
-              <Button asChild
-                data-testid="hero-customer-btn"
-                variant="outline"
-                className="h-14 px-10 rounded-xl border-zinc-200"
-              ><Link href={customerHref}>
-                Find services near me
-              </Link></Button>
-            </div>
-
-            <div className="mt-3 text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
-              No credit card required for Free. Upgrade anytime.
-            </div>
-
-            {/* Every claim in this row must be verifiable. It previously read
-                "Used by 1,000+ businesses", which the data did not support. */}
-            <div className="mt-8 grid grid-cols-3 gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <div>
-                <div className="text-xs font-medium text-zinc-500">Price</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">
-                  Free plan, no card
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-zinc-500">Built for</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">Local service teams</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-zinc-500">Setup</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">{SETUP_TIME_LABEL}</div>
-              </div>
+            <div className="lg:col-span-5">
+              <TradePhoneDemo initialTypeKey={demoTypeKey} />
             </div>
           </div>
+        </section>
 
-          <div className="lg:col-span-6">
-            <div className="rounded-3xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
-                <div className="flex items-center gap-2" aria-hidden="true">
-                  <span className="h-3 w-3 rounded-full bg-red-400" />
-                  <span className="h-3 w-3 rounded-full bg-amber-400" />
-                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
+        {/* Instant setup band: the fastest route to a live page */}
+        {!isAuthed ? (
+          <section aria-labelledby="instant-heading" className="relative isolate overflow-hidden bg-zinc-950 text-white">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10"
+              style={{ background: 'radial-gradient(700px circle at 15% 0%, rgba(225,29,72,0.35), transparent 60%)' }}
+            />
+            <div className={`${CONTAINER} grid items-center gap-8 py-14 sm:py-16 lg:grid-cols-2 lg:gap-14`}>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-rose-400">Already have a website?</div>
+                <h2 id="instant-heading" className="font-display mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+                  Paste your link. We will draft your booking page in about 30 seconds.
+                </h2>
+                <p className="mt-4 text-zinc-400">
+                  DoBook reads your website or Instagram, picks out your services and builds a preview. No sign-up until you like what you see.
+                </p>
+              </div>
+              <div className="[&>div]:mt-0">
+                <InstantSetupHero />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {/* Before / after */}
+        <section className="border-b border-zinc-200 dark:border-zinc-800">
+          <div className={`${CONTAINER} py-20 sm:py-24`}>
+            <SectionHeading
+              eyebrow="Why switch"
+              title="Less chasing. More booked work."
+              desc="Most small businesses still book through texts, DMs and a notebook. Here is what changes."
+            />
+            <div className="mt-12 overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800">
+              <div className="hidden grid-cols-2 bg-zinc-50 text-xs font-bold uppercase tracking-wider text-zinc-500 sm:grid dark:bg-zinc-900">
+                <div className="px-6 py-3">Without DoBook</div>
+                <div className="border-l border-zinc-200 px-6 py-3 text-rose-600 dark:border-zinc-800">With DoBook</div>
+              </div>
+              {BEFORE_AFTER.map((row) => (
+                <div key={row.before} className="grid border-t border-zinc-200 first:border-t-0 sm:grid-cols-2 sm:first:border-t dark:border-zinc-800">
+                  <div className="px-6 pb-1 pt-5 text-zinc-500 line-through decoration-zinc-300 sm:py-5 dark:decoration-zinc-700">{row.before}</div>
+                  <div className="flex items-start gap-2.5 px-6 pb-5 pt-1 font-semibold text-zinc-900 sm:border-l sm:border-zinc-200 sm:py-5 dark:text-zinc-100 sm:dark:border-zinc-800">
+                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                    {row.after}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-xs font-medium text-zinc-500">UI preview</div>
-                  <span className="hidden sm:inline text-[11px] text-zinc-400">·</span>
-                  <div className="hidden sm:flex items-center gap-2" role="tablist" aria-label="UI preview tabs">
-                    {uiPreviewTabs.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={heroPreviewTab === t.id}
-                        className={tabClass(heroPreviewTab === t.id)}
-                        onClick={() => setHeroPreviewTab(t.id)}
-                      >
-                        {t.label}
-                      </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features bento */}
+        <section id="features" className="bg-zinc-50 dark:bg-zinc-900/40">
+          <div className={`${CONTAINER} py-20 sm:py-24`}>
+            <SectionHeading
+              eyebrow="Features"
+              title="Everything between “are you free?” and “thanks, paid”."
+              desc="One place for the booking, the conversation, the reminder and the invoice."
+            />
+
+            <div className="mt-12 grid gap-4 md:grid-cols-6">
+              {/* Signature card: the trade-specific form */}
+              <div className="relative overflow-hidden rounded-3xl bg-zinc-950 p-7 text-white md:col-span-4 md:row-span-2 sm:p-9">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-rose-600/30 blur-3xl"
+                />
+                <div className="relative">
+                  <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-rose-300">Free</span>
+                  <h3 className="font-display mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">A booking form that knows your trade</h3>
+                  <p className="mt-3 max-w-lg text-zinc-400">
+                    Generic schedulers ask for a name and a time. DoBook asks a photo booth for the venue and package, a groomer for the pet details, a venue for guest numbers. Fourteen trades, ready to go, and every field editable.
+                  </p>
+                  <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                    {[
+                      { label: 'Photo booth', fields: ['Event Location', 'Package Duration', 'Booth Type'] },
+                      { label: 'Pet care', fields: ['Service', 'Preferred Date', 'Pet Details'] },
+                      { label: 'Venues', fields: ['Booking Type', 'Number of Guests', 'Dietary needs'] },
+                    ].map((t) => (
+                      <div key={t.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="text-xs font-bold text-white">{t.label}</div>
+                        <ul className="mt-2 space-y-1.5">
+                          {t.fields.map((f) => (
+                            <li key={f} className="flex items-center gap-1.5 text-xs text-zinc-400">
+                              <span className="h-1 w-1 rounded-full bg-rose-400" aria-hidden="true" />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="p-5 bg-zinc-50">
-                <div className="sm:hidden flex flex-wrap gap-2 mb-4" role="tablist" aria-label="UI preview tabs">
-                  {uiPreviewTabs.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={heroPreviewTab === t.id}
-                      className={tabClass(heroPreviewTab === t.id)}
-                      onClick={() => setHeroPreviewTab(t.id)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden">
-                  <UiPreviewContent tab={heroPreviewTab} />
-                </div>
-              </div>
+              {features.map((f, i) => {
+                const Icon = f.icon;
+                return (
+                  <div
+                    key={f.title}
+                    className={`group rounded-3xl border border-zinc-200 bg-white p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-[0_18px_40px_-20px_rgba(225,29,72,0.35)] motion-reduce:transform-none dark:border-zinc-800 dark:bg-zinc-900 ${
+                      i < 2 ? 'md:col-span-2' : 'md:col-span-3 lg:col-span-2'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors group-hover:bg-rose-600 group-hover:text-white dark:bg-rose-950/50 dark:text-rose-300">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          f.tier === 'Pro'
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+                        }`}
+                      >
+                        {f.tier}
+                      </span>
+                    </div>
+                    <h3 className="font-display mt-4 text-lg font-bold text-zinc-950 dark:text-white">{f.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">{f.desc}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Social Proof */}
-      {/* Social proof section removed */}
-
-      {/* Features Section */}
-      <section id="who-for" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-            Who DoBook is for
-          </h2>
-          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-            Built for small to medium service businesses that want a booking system for small business needs—fast setup, clear schedules, and happier customers.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { title: 'Salons & barbershops', desc: 'Clients rebook themselves instead of DMing you at 9pm. Staff calendars, add-ons and regulars all in one place.' },
-            { title: 'Clinics & wellness', desc: 'Reminders that actually cut no-shows, plus private notes only your practice can see.' },
-            { title: 'Consultants & coaches', desc: 'Send one link, get a paid session in the diary and an invoice out the door — no back-and-forth.' },
-            { title: 'Tutors & educators', desc: 'Weekly sessions that repeat themselves, with families and term payments tracked for you.' },
-            { title: 'Trades & home services', desc: 'Job details, photos and site addresses captured before you drive anywhere.' },
-            { title: 'Photo booth & events', desc: 'Enquiries in, quotes out, deposits taken — so a date is only held once someone has committed.' },
-          ].map((item) => (
-            <Card key={item.title} className={surfaceCard}>
-              <CardContent className="p-6 space-y-2">
-                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{item.title}</div>
-                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{item.desc}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section id="features" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              Key features that drive bookings (and reduce admin)
-            </h2>
-            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              Everything you expect from modern appointment scheduling software—plus the essentials service businesses need day to day.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: Calendar, title: 'Smart calendar & scheduling', desc: 'Availability rules, buffers, and clean views that prevent double bookings.' },
-              { icon: FileText, title: 'Automatic invoicing (PDF)', desc: 'Generate invoices from bookings and share professional PDF invoices in seconds.' },
-              { icon: Bell, title: 'Email reminders', desc: 'Reduce no‑shows with confirmations, reminders, and follow-ups automatically.' },
-              { icon: CreditCard, title: 'Online payments', desc: 'Accept deposits or full payment at booking so cash flow stays predictable.' },
-              { icon: Users, title: 'Client management', desc: 'Keep customer history, notes, and contact details organized for better service.' },
-              { icon: BarChart3, title: 'Analytics dashboard', desc: 'See revenue trends, top services, and booking patterns at a glance.' },
-              { icon: Link2, title: 'Embed booking widget', desc: 'Add “Book now” to your website so clients can schedule without leaving your brand.' },
-              { icon: Smartphone, title: 'Mobile‑friendly booking', desc: 'A fast booking flow designed for phones—where most customers book.' },
-              { icon: MessageSquare, title: 'Multi‑staff support', desc: 'Assign services to staff and manage schedules as you grow.' },
-            ].map((f) => (
-              <Card key={f.title} className="group bg-white border border-zinc-200/80 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-16px_rgba(0,0,0,0.12)] hover:border-rose-200 hover:-translate-y-1 transition-all duration-300 ease-out">
-                <CardHeader className="space-y-3">
-                  <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:bg-rose-600">
-                    <f.icon className="h-6 w-6 text-rose-700 transition-colors duration-300 group-hover:text-white" aria-hidden="true" />
+        {/* How it works */}
+        <section id="how" className="border-y border-zinc-200 dark:border-zinc-800">
+          <div className={`${CONTAINER} py-20 sm:py-24`}>
+            <SectionHeading eyebrow="How it works" title="Live today, not next month." center />
+            <ol className="mt-14 grid gap-4 md:grid-cols-3" aria-label="How DoBook works">
+              {[
+                { title: 'Tell us your trade', desc: 'Pick your industry, or paste your website. Services, booking form and reminder timings are filled in. Change anything that does not fit.' },
+                { title: 'Share one link', desc: 'Put it in your Instagram bio, on your website, on your Google profile or at the end of every email.' },
+                { title: 'Customers book themselves', desc: 'They choose a time and answer your questions without an account. You get the request, confirmation emails go out automatically.' },
+              ].map((s, i) => (
+                <li key={s.title} className="relative rounded-3xl border border-zinc-200 p-7 dark:border-zinc-800">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-600 font-display text-sm font-extrabold text-white" aria-hidden="true">
+                    {i + 1}
                   </div>
-                  <CardTitle style={{ fontFamily: 'Manrope' }}>{f.title}</CardTitle>
-                  <CardDescription style={{ fontFamily: 'Inter' }}>{f.desc}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+                  <h3 className="font-display mt-5 text-xl font-bold text-zinc-950 dark:text-white">{s.title}</h3>
+                  <p className="mt-2 leading-7 text-zinc-600 dark:text-zinc-400">{s.desc}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-12 flex justify-center">
+              <Button asChild className={primaryBtn}>
+                <Link href={primaryHref}>
+                  {isAuthed ? 'Open dashboard' : 'Create my booking page'}
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* How it works */}
-      <section id="how" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-            How it works
-          </h2>
-          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-            A simple flow designed for real service business scheduling—set up once, then let customers book themselves.
-          </p>
-        </div>
-
-        <ol className="mt-10 grid gap-6 lg:grid-cols-4" aria-label="How DoBook works">
-          {[
-            { step: 'Step 1', title: 'Tell us your trade', desc: 'Pick your industry and your services, booking form and reminder timings are filled in for you. Edit anything that does not fit.' },
-            { step: 'Step 2', title: 'Share one link', desc: 'Put it in your Instagram bio, on your website, in your Google profile or at the end of an email.' },
-            { step: 'Step 3', title: 'Customers book themselves', desc: 'They pick a time, answer your questions and pay a deposit if you ask for one. No calls, no app, no account.' },
-            { step: 'Step 4', title: 'Turn up and get paid', desc: 'Reminders go out automatically, the invoice is already written, and every client detail is where you left it.' },
-          ].map((s) => (
-            <Card key={s.step} className={surfaceCard}>
-              <CardContent className="p-6 space-y-2">
-                <div className="text-xs font-semibold uppercase tracking-wide text-rose-700">{s.step}</div>
-                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{s.title}</div>
-                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{s.desc}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </ol>
-      </section>
-
-      {/* Product screenshots / UI preview */}
-      <section id="preview" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              Product preview
-            </h2>
-            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              A quick look at the core screens: bookings, calendar, and invoice templates.
-            </p>
+        {/* Industries: internal links help these pages get indexed */}
+        <section id="industries" className="bg-zinc-50 dark:bg-zinc-900/40">
+          <div className={`${CONTAINER} py-20 sm:py-24`}>
+            <SectionHeading
+              eyebrow="Industries"
+              title="Pick your trade. The setup is already done."
+              desc="Each one comes with its own services, booking questions and reminder timings."
+            />
+            <div className="mt-10 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
+              {INDUSTRIES.map((ind) => (
+                <a
+                  key={ind.slug}
+                  href={`/industries/${ind.slug}`}
+                  className="group flex min-h-[52px] items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-800 transition-all hover:border-rose-300 hover:shadow-[0_10px_24px_-14px_rgba(225,29,72,0.5)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                >
+                  <span>{ind.label}</span>
+                  <ArrowRight className="h-4 w-4 text-zinc-300 transition-all group-hover:translate-x-0.5 group-hover:text-rose-500" aria-hidden="true" />
+                </a>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Product preview tabs">
-            {uiPreviewTabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={productPreviewTab === t.id}
-                className={tabClass(productPreviewTab === t.id)}
-                onClick={() => setProductPreviewTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+        {/* Reviews: real, approved platform reviews only. Hidden when there are none. */}
+        {platformReviews.length ? (
+          <section id="reviews" className="border-y border-zinc-200 dark:border-zinc-800">
+            <div className={`${CONTAINER} py-20 sm:py-24`}>
+              <SectionHeading eyebrow="From businesses on DoBook" title="In their words." />
+              <div className={`mt-12 grid gap-5 md:grid-cols-2 ${platformReviews.length >= 3 ? 'lg:grid-cols-3' : 'max-w-4xl'}`}>
+                {platformReviews.slice(0, 6).map((r) => {
+                  const rating = Math.max(0, Math.min(5, Number(r.rating || 0)));
+                  return (
+                    <figure key={r.id} className="flex flex-col rounded-3xl border border-zinc-200 bg-white p-7 dark:border-zinc-800 dark:bg-zinc-900">
+                      <div className="flex gap-0.5 text-amber-400" role="img" aria-label={`Rated ${rating} out of 5`}>
+                        {Array.from({ length: rating }).map((_, i) => (
+                          <Star key={i} className="h-4 w-4 fill-current" aria-hidden="true" />
+                        ))}
+                      </div>
+                      <blockquote className="mt-4 flex-1 whitespace-pre-line text-base leading-7 text-zinc-800 dark:text-zinc-200">
+                        “{r.comment}”
+                      </blockquote>
+                      <figcaption className="mt-6 flex items-center gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-50 text-xs font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          {String(r.business_name || 'B').slice(0, 1).toUpperCase()}
+                        </span>
+                        <span className="text-sm font-bold text-zinc-950 dark:text-white">{r.business_name || 'DoBook business'}</span>
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
-          <div className="mt-6 rounded-3xl border border-zinc-200 bg-zinc-50 shadow-sm overflow-hidden">
-            <UiPreviewContent tab={productPreviewTab} />
-          </div>
-        </div>
-      </section>
+        {/* Pricing */}
+        <section id="pricing">
+          <div className={`${CONTAINER} py-20 sm:py-24`}>
+            <SectionHeading
+              eyebrow="Pricing"
+              title="Start free. Upgrade when it pays for itself."
+              desc="One missed appointment usually costs more than a month of Pro."
+              center
+            />
 
-      {/* Why choose DoBook */}
-      <section id="why" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-            Why choose DoBook
-          </h2>
-          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-            DoBook is built for local service businesses—simpler than complex systems, affordable, and truly all‑in‑one.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {[
-            { title: 'Set up in an afternoon, not a fortnight', desc: 'Pick your trade and DoBook pre-fills your services, booking form and reminders. Change anything you like — but you are live today, not next month.' },
-            { title: 'One tool instead of four', desc: 'Calendar, reminders, invoices and payments in one place. No stitching together a scheduler, an invoice app and a spreadsheet that never quite agree.' },
-            { title: 'Built around how your trade works', desc: 'A salon needs staff and add-ons. A tradie needs job photos and a site address. A venue needs guest numbers and a deposit. You get the right form, not a generic one.' },
-            { title: 'Free until it is worth paying for', desc: 'The free plan runs a real business — 50 bookings a month, no card. Upgrade when you want invoice PDFs, automated reminders and unlimited bookings.' },
-            { title: 'Your customers never see a login screen', desc: 'They tap your link, pick a time, and they are booked. No app to download, no account to create — which is exactly why they finish.' },
-          ].map((d) => (
-            <Card key={d.title} className={surfaceCard}>
-              <CardContent className="p-6 space-y-2">
-                <div className="text-base font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>{d.title}</div>
-                <div className="text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{d.desc}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Find services near me (secondary goal) */}
-      <section id="find" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
-            <div className="lg:col-span-6">
-              <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                Find services near me
-              </h2>
-              <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-                Customers can search for nearby businesses and book instantly. (Search routes to the DoBook directory.)
-              </p>
-
-              <form
-                className="mt-6 rounded-3xl border border-zinc-200 bg-zinc-50 p-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  const q = String(form.get('q') || '').trim();
-                  const postcode = String(form.get('postcode') || '').trim();
-                  const query = new URLSearchParams();
-                  if (q) query.set('q', q);
-                  if (postcode) query.set('postcode', postcode);
-                  router.push(`/discover${query.toString() ? `?${query.toString()}` : ''}`);
-                }}
-                aria-label="Find services"
-              >
-                <div className="grid gap-3 sm:grid-cols-5">
-                  <div className="sm:col-span-3">
-                    <label className="text-xs font-semibold text-zinc-700" htmlFor="discover_q">Service</label>
-                    <div className="mt-1 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3">
-                      <MapPin className="h-4 w-4 text-zinc-400" aria-hidden="true" />
-                      <input
-                        id="discover_q"
-                        name="q"
-                        type="text"
-                        placeholder="e.g., barber, physio, tutor"
-                        className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
-                      />
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-zinc-700" htmlFor="discover_postcode">Postcode</label>
-                    <input
-                      id="discover_postcode"
-                      name="postcode"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="e.g., 2000"
-                      className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-rose-100 focus:border-rose-500"
-                    />
-                  </div>
+            <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2">
+              <div className="flex flex-col rounded-3xl border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
+                <h3 className="font-display text-lg font-bold">Free</h3>
+                <p className="mt-1 text-sm text-zinc-500">For getting started and smaller diaries.</p>
+                <div className="mt-6 flex items-baseline gap-1">
+                  <span className="font-display text-5xl font-extrabold tracking-tight">$0</span>
+                  <span className="text-sm text-zinc-500">forever</span>
                 </div>
-                <Button type="submit" className="mt-3 h-11 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold">
-                  Search
+                <ul className="mt-6 flex-1 space-y-3 text-sm" aria-label="Free plan includes">
+                  {FREE_PLAN_FEATURES.map((f) => (
+                    <li key={f} className="flex gap-2.5">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild variant="outline" className="mt-8 h-12 rounded-xl border-zinc-300 text-base font-semibold dark:border-zinc-700">
+                  <Link href={primaryHref}>{isAuthed ? 'Open dashboard' : 'Start free, no card'}</Link>
                 </Button>
-              </form>
-            </div>
+              </div>
 
-            <div className="lg:col-span-6">
-              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  Nearby businesses
+              <div className="relative flex flex-col overflow-hidden rounded-3xl bg-zinc-950 p-8 text-white shadow-[0_30px_60px_-25px_rgba(225,29,72,0.55)] ring-1 ring-rose-500/40">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-rose-600/40 blur-3xl" />
+                <div className="relative flex items-center justify-between">
+                  <h3 className="font-display text-lg font-bold">Pro</h3>
+                  <span className="rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">Best value</span>
                 </div>
-                <div className="mt-4 grid gap-3">
-                  {[
-                    { name: 'Northside Barber Co.', meta: 'Barber · 1.2 km away' },
-                    { name: 'Calm Path Therapy', meta: 'Wellness · 2.6 km away' },
-                    { name: 'Ace Math Tutoring', meta: 'Tutoring · 3.9 km away' },
-                  ].map((r) => (
-                    <div key={r.name} className="rounded-2xl bg-white border border-zinc-200 p-4 flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-zinc-900">{r.name}</div>
-                        <div className="mt-1 text-xs text-zinc-500">{r.meta}</div>
-                      </div>
-                      <Button asChild className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 text-white"><Link href={customerHref}>
-                        View
-                      </Link></Button>
-                    </div>
+                <p className="relative mt-1 text-sm text-zinc-400">For a full diary that runs itself.</p>
+                <div className="relative mt-6 flex items-baseline gap-1">
+                  <span className="font-display text-5xl font-extrabold tracking-tight">${PRO_PRICE_AUD}</span>
+                  <span className="text-sm text-zinc-400">AUD / month</span>
+                </div>
+                <ul className="relative mt-6 flex-1 space-y-3 text-sm" aria-label="Pro plan includes">
+                  {PRO_PLAN_FEATURES.map((f) => (
+                    <li key={f} className="flex gap-2.5">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />
+                      {f}
+                    </li>
                   ))}
-                </div>
+                </ul>
+                <Button asChild className="relative mt-8 h-12 rounded-xl bg-rose-600 text-base font-semibold text-white hover:bg-rose-500">
+                  <Link href={isAuthed ? '/dashboard' : '/auth?mode=signup&plan=pro'}>{isAuthed ? 'Open dashboard' : 'Go Pro'}</Link>
+                </Button>
+                <p className="relative mt-3 text-center text-xs text-zinc-500">Cancel any time. No contract.</p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Industries Section — internal links help these pages get indexed and rank */}
-      <section id="industries" className="border-t border-zinc-200 bg-zinc-50/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              A booking system for your industry
-            </h2>
-            <p className="mt-3 text-lg text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              DoBook adapts to how your business works — with the right booking fields, services, and workflow for your trade.
-            </p>
-          </div>
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { slug: 'salon', label: 'Salons & Barbershops' },
-              { slug: 'beauty', label: 'Beauty & Spa' },
-              { slug: 'doctor', label: 'Clinics & Practitioners' },
-              { slug: 'fitness', label: 'Personal Trainers' },
-              { slug: 'pet', label: 'Pet Grooming & Sitting' },
-              { slug: 'cleaning', label: 'Cleaning Businesses' },
-              { slug: 'tradie', label: 'Tradies & Home Services' },
-              { slug: 'automotive', label: 'Mechanics & Auto' },
-              { slug: 'events', label: 'Photographers & Events' },
-              { slug: 'photobooth', label: 'Photo Booth Hire' },
-              { slug: 'tutor', label: 'Tutors & Educators' },
-              { slug: 'consultant', label: 'Consultants & Coaches' },
-              { slug: 'restaurant', label: 'Restaurants & Venue Hire' },
-              { slug: 'legal', label: 'Legal & Advisors' },
-            ].map((ind) => (
-              <a
-                key={ind.slug}
-                href={`/industries/${ind.slug}`}
-                className="group flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-rose-300 hover:bg-rose-50/50 hover:shadow-[0_8px_20px_-12px_rgba(225,29,72,0.4)] transition-all duration-200"
-              >
-                <span className="truncate">{ind.label}</span>
-                <span className="text-zinc-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all duration-200" aria-hidden="true">→</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-            Pricing
-          </h2>
-          <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-            Two plans. No surprises. Upgrade when you want invoice PDFs, reminders, and unlimited bookings.
-          </p>
-        </div>
-
-        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
-          <Card className="bg-white border border-zinc-200 rounded-3xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_16px_36px_-18px_rgba(0,0,0,0.14)] transition-shadow duration-300">
-            <CardHeader className="space-y-2">
-              <CardTitle style={{ fontFamily: 'Manrope' }}>FREE</CardTitle>
-              <CardDescription style={{ fontFamily: 'Inter' }}>
-                <span className="text-3xl font-bold text-zinc-900">$0</span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Free plan">
-                {FREE_PLAN_FEATURES.map((f) => <li key={f}>• {f}</li>)}
-              </ul>
-              <Button asChild
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
-              ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
-                {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-              </Link></Button>
-              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>No credit card required.</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border border-rose-200 rounded-3xl relative overflow-hidden ring-1 ring-rose-100 shadow-[0_8px_30px_-12px_rgba(225,29,72,0.25)] hover:shadow-[0_20px_44px_-16px_rgba(225,29,72,0.35)] hover:-translate-y-1 transition-all duration-300">
-            <div className="absolute -top-10 -right-10 h-40 w-40 bg-rose-100 rounded-full blur-2xl" aria-hidden="true" />
-            <div className="absolute top-4 right-4 bg-rose-600 text-white text-xs font-semibold px-3 py-1 rounded-full" style={{ fontFamily: 'Inter' }}>
-              Most Popular
+            <div className="mx-auto mt-12 max-w-4xl overflow-x-auto rounded-3xl border border-zinc-200 dark:border-zinc-800">
+              <table className="w-full min-w-[30rem] text-sm">
+                <caption className="sr-only">Free and Pro plans compared</caption>
+                <thead>
+                  <tr className="bg-zinc-50 text-left dark:bg-zinc-900">
+                    <th scope="col" className="px-5 py-3 font-semibold">Feature</th>
+                    <th scope="col" className="w-28 px-5 py-3 text-center font-semibold">Free</th>
+                    <th scope="col" className="w-28 px-5 py-3 text-center font-semibold text-rose-600">Pro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PLAN_COMPARISON.map(({ feature, free, pro }) => (
+                    <tr key={feature} className="border-t border-zinc-200 dark:border-zinc-800">
+                      <th scope="row" className="px-5 py-3 text-left font-normal text-zinc-700 dark:text-zinc-300">{feature}</th>
+                      {[free, pro].map((v, i) => (
+                        <td key={i} className="px-5 py-3 text-center text-zinc-700 dark:text-zinc-300">
+                          {v === true ? (
+                            <Check className="mx-auto h-4 w-4 text-emerald-600" aria-label="Included" />
+                          ) : v === false ? (
+                            <span className="text-zinc-300 dark:text-zinc-600" aria-label="Not included">–</span>
+                          ) : (
+                            v
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <CardHeader className="space-y-2">
-              <CardTitle style={{ fontFamily: 'Manrope' }}>PRO</CardTitle>
-              <CardDescription style={{ fontFamily: 'Inter' }}>
-                <span className="text-3xl font-bold text-zinc-900">${PRO_PRICE_AUD}</span>{' '}
-                <span className="text-sm font-medium text-zinc-600">AUD/month</span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <ul className="text-sm text-zinc-700 space-y-2" style={{ fontFamily: 'Inter' }} aria-label="Pro plan">
-                {PRO_PLAN_FEATURES.map((f) => <li key={f}>• {f}</li>)}
-              </ul>
-              <Button asChild
-                className="w-full h-12 bg-rose-600 hover:bg-rose-700 rounded-xl font-semibold text-white"
-              ><Link href={isAuthed ? '/dashboard' : '/auth?mode=signup&plan=pro'}>
-                {isAuthed ? 'Open dashboard' : 'Choose Pro'}
-              </Link></Button>
-              <div className="text-xs text-zinc-500 text-center" style={{ fontFamily: 'Inter' }}>Cancel anytime. No lock-in contracts.</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Feature comparison table */}
-        <div className="mt-12 max-w-5xl overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-zinc-700 font-semibold" style={{ fontFamily: 'Manrope' }}>Feature</TableHead>
-                <TableHead className="text-center text-zinc-700 font-semibold" style={{ fontFamily: 'Manrope' }}>Free</TableHead>
-                <TableHead className="text-center bg-rose-50 text-rose-700 font-semibold rounded-t-lg" style={{ fontFamily: 'Manrope' }}>Pro</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {PLAN_COMPARISON.map(({ feature, free, pro }) => (
-                <TableRow key={feature}>
-                  <TableCell className="text-zinc-700 text-sm" style={{ fontFamily: 'Inter' }}>{feature}</TableCell>
-                  <TableCell className="text-center text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{free === true ? '✅' : free === false ? '—' : free}</TableCell>
-                  <TableCell className="text-center text-sm bg-rose-50 text-zinc-700" style={{ fontFamily: 'Inter' }}>{pro === true ? '✅' : pro === false ? '—' : pro}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-
-      {/* Reviews */}
-      <section id="reviews" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              What businesses say
-            </h2>
-            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              Reviews from businesses using DoBook.
-            </p>
           </div>
+        </section>
 
-          {Array.isArray(platformReviews) && platformReviews.length ? (
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {platformReviews.slice(0, 6).map((r) => (
-                <Card key={r.id} className="bg-zinc-50 border border-zinc-200 shadow-sm rounded-3xl">
-                  <CardContent className="p-6 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-semibold text-zinc-900 truncate" style={{ fontFamily: 'Manrope' }}>
-                        {r.business_name || 'Business'}
-                      </div>
-                      <div className="text-sm text-zinc-700" aria-label={`Rating ${r.rating || 0} out of 5`}>
-                        {'★'.repeat(Math.max(0, Math.min(5, Number(r.rating || 0))))}
-                      </div>
-                    </div>
-                    <div className="text-sm text-zinc-700 leading-6 whitespace-pre-line" style={{ fontFamily: 'Inter' }}>
-                      {r.comment}
-                    </div>
-                    {r.created_at ? (
-                      <div className="text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+        {/* FAQ */}
+        <section id="faq" className="border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className={`${CONTAINER} grid gap-10 py-20 sm:py-24 lg:grid-cols-12`}>
+            <div className="lg:col-span-4">
+              <SectionHeading eyebrow="FAQ" title="Questions, answered." />
+              <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+                Something else? Email{' '}
+                <a className="font-semibold text-rose-600 underline-offset-4 hover:underline" href="mailto:support@do-book.com">
+                  support@do-book.com
+                </a>
+                .
+              </p>
+            </div>
+            <div className="space-y-3 lg:col-span-8">
+              {FAQS.map((item) => (
+                <details key={item.q} className="group rounded-2xl border border-zinc-200 bg-white px-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-base font-semibold text-zinc-950 dark:text-white [&::-webkit-details-marker]:hidden">
+                    {item.q}
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-transform group-open:rotate-45 dark:border-zinc-700" aria-hidden="true">
+                      +
+                    </span>
+                  </summary>
+                  <p className="pb-5 leading-7 text-zinc-600 dark:text-zinc-400">{item.a}</p>
+                </details>
               ))}
             </div>
-          ) : (
-            <div className="mt-10 rounded-3xl border border-zinc-200 bg-zinc-50 p-8 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              No published reviews yet.
-            </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* FAQ */}
-      <section id="faq" className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-16">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-              FAQ
+        {/* Final CTA */}
+        <section className="relative isolate overflow-hidden bg-rose-600">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{ background: 'radial-gradient(700px circle at 80% 0%, rgba(255,255,255,0.22), transparent 60%), radial-gradient(500px circle at 0% 100%, rgba(24,24,27,0.25), transparent 60%)' }}
+          />
+          <div className={`${CONTAINER} py-20 text-center sm:py-24`}>
+            <h2 className="font-display mx-auto max-w-3xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+              Your next booking could make itself.
             </h2>
-            <p className="mt-2 text-zinc-600" style={{ fontFamily: 'Inter' }}>
-              Quick answers about setup, payments, and how the booking flow works.
+            <p className="mx-auto mt-5 max-w-xl text-lg text-rose-100">
+              Set up your page in about 10 minutes. Free for your first 50 bookings every month.
             </p>
+            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+              <Button asChild data-testid="cta-get-started-btn" className="h-12 rounded-xl bg-white px-8 text-base font-semibold text-rose-700 shadow-lg hover:bg-rose-50">
+                <Link href={primaryHref}>
+                  {primaryLabel}
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-12 rounded-xl border-white/40 bg-transparent px-8 text-base font-semibold text-white hover:bg-white/10 hover:text-white">
+                <a href="#pricing">Compare plans</a>
+              </Button>
+            </div>
           </div>
-
-          <div className="mt-10 grid gap-4 max-w-3xl">
-            {[
-              { q: 'Is the free plan actually free?', a: 'Yes. The Free plan covers 50 bookings a month with confirmation emails, and no card is required to start. You only pay if you want invoice PDFs, automated reminders and unlimited bookings.' },
-              { q: 'How fast can I set up DoBook?', a: `Most businesses are taking bookings in ${SETUP_TIME_LABEL}. Choose your industry and your services, booking form and reminder timings are pre-filled — you just adjust what does not match how you work.` },
-              { q: 'Do my customers need an account?', a: 'No. They open your link, pick a time and enter their details. There is no app to download and no password to create, which is a large part of why people finish booking.' },
-              { q: 'Can I cancel or switch away later?', a: 'Yes. There is no lock-in contract — cancel Pro at any time and you drop back to the Free plan rather than losing access. Your bookings and client records stay yours.' },
-              { q: 'Can I take deposits or full payment online?', a: 'Yes. Choose per service whether to take a deposit, full payment, or keep payment optional.' },
-              { q: 'Do customers get confirmations and reminders?', a: 'Confirmations are included on Free. Pro adds automated email reminders to reduce no‑shows.' },
-              { q: 'What about cancellations and rescheduling?', a: 'Set your cancellation window and rescheduling rules to protect your time and keep your calendar stable.' },
-              { q: 'Can I embed DoBook on my website?', a: 'Yes. Add a booking widget or link so visitors can schedule without leaving your brand.' },
-              { q: 'Does it work on mobile?', a: 'Yes. The booking experience is mobile-first, and the dashboard is responsive for phones and tablets.' },
-            ].map((item) => (
-              <details key={item.q} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                <summary className="cursor-pointer text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>
-                  {item.q}
-                </summary>
-                <div className="mt-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>{item.a}</div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-rose-600 py-20">
-        <div className="max-w-5xl mx-auto text-center px-4 sm:px-6">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'Manrope' }}>
-            Start taking bookings today
-          </h2>
-          <p className="text-rose-100 text-lg mb-8" style={{ fontFamily: 'Inter' }}>
-            Join service businesses using DoBook for appointment scheduling, payments, and invoices—without the admin overload.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild
-              data-testid="cta-get-started-btn"
-              className="h-14 px-10 bg-white text-rose-700 hover:bg-zinc-50 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
-            ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
-              {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-            </Link></Button>
-            <Button asChild
-              variant="outline"
-              className="h-14 px-10 rounded-xl border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white"
-            ><Link href={customerHref}>
-              Find services near me
-            </Link></Button>
-          </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12">
+      <footer className="bg-white dark:bg-zinc-950">
+        <div className={`${CONTAINER} py-14`}>
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-200"
-                aria-label="Go to DoBook home"
-              >
-                <img
-                  src={DOBOOK_LOGO_PNG}
-                  alt="DoBook"
-                  className="h-[68px] md:h-[76px] w-auto object-contain select-none"
-                  draggable={false}
-                  onError={(e) => {
-                    e.currentTarget.src = DOBOOK_LOGO_SVG;
-                  }}
-                />
-                <div className="text-lg font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>DoBook</div>
+              <Link href="/" className="inline-flex rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300" aria-label="DoBook home">
+                <BrandLogo className="h-11" />
               </Link>
-              <p className="mt-3 text-sm text-zinc-600 max-w-md" style={{ fontFamily: 'Inter' }}>
-                DoBook is an all‑in‑one online booking system for service businesses—appointment scheduling software with client management, invoices, reminders, and payments.
+              <p className="mt-3 max-w-sm text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                Online booking for service businesses: booking pages built for your trade, enquiries and quotes, reminders and invoices in one place.
               </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="Twitter (placeholder)">Twitter</a>
-                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="LinkedIn (placeholder)">LinkedIn</a>
-                <a className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" href="#" aria-label="Instagram (placeholder)">Instagram</a>
-              </div>
+              <Link
+                href={customerHref}
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-rose-300 hover:text-rose-700 dark:border-zinc-800 dark:text-zinc-300"
+              >
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Looking to book a local business?
+              </Link>
             </div>
 
-            <div className="lg:col-span-7">
-              <div className="grid gap-8 sm:grid-cols-3">
-                <div>
-                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Product</div>
-                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
-                    <a className="hover:text-zinc-900" href="#features">Features</a>
-                    <a className="hover:text-zinc-900" href="#pricing">Pricing</a>
-                    <Link className="text-left hover:text-zinc-900" href={customerHref}>Find services</Link>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Company</div>
-                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
-                    <a className="hover:text-zinc-900" href="#">About</a>
-                    <a className="hover:text-zinc-900" href="mailto:support@do-book.com">Contact</a>
-                    <a className="hover:text-zinc-900" href="#">Careers</a>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Legal</div>
-                  <div className="mt-3 grid gap-2 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
-                    <a className="hover:text-zinc-900" href="/privacy">Privacy</a>
-                    <a className="hover:text-zinc-900" href="/terms">Terms</a>
-                    <a className="hover:text-zinc-900" href="/policies/cancellation">Cancellation policy</a>
-                  </div>
-                </div>
+            <div className="grid gap-8 sm:grid-cols-3 lg:col-span-7">
+              <div>
+                <div className="text-sm font-bold text-zinc-950 dark:text-white">Product</div>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="#features">Features</a></li>
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="#pricing">Pricing</a></li>
+                  <li><Link className="hover:text-zinc-950 dark:hover:text-white" href={customerHref}>Find a local business</Link></li>
+                  <li><Link className="hover:text-zinc-950 dark:hover:text-white" href="/login">Log in</Link></li>
+                </ul>
               </div>
-
-              <div className="mt-10 rounded-3xl border border-zinc-200 bg-zinc-50 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-zinc-900" style={{ fontFamily: 'Manrope' }}>Ready to grow?</div>
-                  <div className="mt-1 text-sm text-zinc-600" style={{ fontFamily: 'Inter' }}>
-                    Start free and turn your booking flow into a revenue engine.
-                  </div>
-                </div>
-                <Button asChild
-                  className="h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-                ><Link href={isAuthed ? '/dashboard' : startFreeHref}>
-                  {isAuthed ? 'Open dashboard' : 'Start Free (Business)'}
-                </Link></Button>
+              <div>
+                <div className="text-sm font-bold text-zinc-950 dark:text-white">Popular trades</div>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  {INDUSTRIES.slice(0, 5).map((ind) => (
+                    <li key={ind.slug}>
+                      <a className="hover:text-zinc-950 dark:hover:text-white" href={`/industries/${ind.slug}`}>{ind.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-zinc-950 dark:text-white">Company</div>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="mailto:support@do-book.com">Contact</a></li>
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="/privacy">Privacy</a></li>
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="/terms">Terms</a></li>
+                  <li><a className="hover:text-zinc-950 dark:hover:text-white" href="/policies/cancellation">Cancellation policy</a></li>
+                </ul>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 border-t border-zinc-200 pt-6 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-xs text-zinc-500" style={{ fontFamily: 'Inter' }}>
+          <div className="mt-12 flex flex-col gap-2 border-t border-zinc-200 pt-6 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
             <div>© {new Date().getFullYear()} DoBook. All rights reserved.</div>
             <div>
               Website by{' '}
-              <a
-                href="https://www.tradewebco.co.uk"
-                target="_blank"
-                rel="noopener"
-                className="font-medium text-zinc-700 underline-offset-4 hover:text-zinc-900 hover:underline"
-              >
+              <a href="https://www.tradewebco.co.uk" target="_blank" rel="noopener" className="font-medium text-zinc-700 underline-offset-4 hover:underline dark:text-zinc-300">
                 Trade Web Co
               </a>
             </div>

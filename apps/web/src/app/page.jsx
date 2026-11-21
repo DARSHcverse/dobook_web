@@ -11,7 +11,7 @@ function resolveSiteUrl() {
 export async function generateMetadata() {
   const title = "Online Booking System for Businesses | Free & Pro Plans | DoBook";
   const description =
-    "DoBook is an all-in-one online booking system and appointment scheduling software. A booking system for small business and service business scheduling—manage appointments, clients, invoices, reminders, and payments.";
+    "DoBook is an all-in-one online booking system and appointment scheduling software. A booking system for small business and service business scheduling—manage appointments, clients, enquiries, invoices, reminders and payment tracking.";
 
   const siteUrl = resolveSiteUrl();
   const metadataBase = new URL(siteUrl);

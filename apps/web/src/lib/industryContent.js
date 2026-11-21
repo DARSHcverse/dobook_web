@@ -9,21 +9,21 @@ export const INDUSTRY_CONTENT = {
     slug: "photobooth",
     title: "Online Booking System for Photo Booth Businesses | DoBook",
     metaDescription:
-      "Take photo booth bookings online 24/7. DoBook handles event enquiries, quotes, deposits, travel fees, and reminders — built for photo booth hire businesses.",
+      "Take photo booth bookings online 24/7. DoBook handles event enquiries, quotes, deposit tracking, travel fees, and reminders — built for photo booth hire businesses.",
     h1: "The booking system built for photo booth businesses",
     intro:
-      "Stop juggling DMs and spreadsheets. DoBook gives your photo booth hire business a professional enquiry-to-booking flow — customers pick a package, get an instant quote, pay a deposit, and you both get automatic reminders before the event.",
+      "Stop juggling DMs and spreadsheets. DoBook gives your photo booth hire business a professional enquiry-to-booking flow — customers pick a package, get a quote, confirm it, and get automatic reminders before the event.",
     benefits: [
       { title: "Event enquiry & quote flow", desc: "A branded multi-step form captures event date, venue, package and guest count, then sends an instant quote." },
       { title: "Travel fees calculated automatically", desc: "Charge by distance from your base — DoBook works out the travel fee from the event address." },
-      { title: "Deposits & payment links", desc: "Secure the date with a deposit and share a payment link so you get paid on time." },
+      { title: "Deposit tracking & payment links", desc: "Add your own payment link to reminder emails and mark each booking as deposit paid or paid in full." },
       { title: "Automatic email reminders", desc: "Cut no-shows and last-minute cancellations with automatic reminders before every event." },
     ],
     useCases: ["Weddings", "Birthday parties", "Corporate events", "School formals", "Engagement parties"],
     faq: [
       { q: "Can customers request a quote before paying?", a: "Yes. DoBook's enquiry flow lets customers submit event details and receive an instant or manual quote before any payment." },
       { q: "Does it handle travel fees for events?", a: "Yes — set your rate per km and free radius, and DoBook calculates the travel fee from the event address automatically." },
-      { q: "Can I take a deposit to lock in the date?", a: "Yes. You can require a deposit and send a secure payment link so the booking is confirmed." },
+      { q: "Can I take a deposit to lock in the date?", a: "DoBook does not take card payments itself. Add your own payment link (Stripe, Square, PayPal) to reminder emails or put bank details on the invoice, then mark the booking as deposit paid. Only confirm the date once it arrives." },
     ],
   },
   salon: {
@@ -75,19 +75,19 @@ export const INDUSTRY_CONTENT = {
     slug: "consultant",
     title: "Booking System for Consultants & Coaches | DoBook",
     metaDescription:
-      "Let clients book paid discovery calls and strategy sessions online. DoBook is scheduling software for consultants and coaches — with deposits and meeting-format options.",
+      "Let clients book paid discovery calls and strategy sessions online. DoBook is scheduling software for consultants and coaches — with intake questions, meeting-format options and invoices.",
     h1: "Online scheduling for consultants and coaches",
     intro:
-      "Turn interest into booked, paid sessions. DoBook lets clients book discovery calls, strategy sessions and workshops, choose video or in-person, and pay a deposit up front — so your calendar fills with committed clients.",
+      "Turn interest into booked, paid sessions. DoBook lets clients book discovery calls, strategy sessions and workshops, choose video or in-person, and answer your intake questions up front — so every session starts prepared.",
     benefits: [
-      { title: "Paid sessions & deposits", desc: "Require a deposit or full payment so only serious clients take your time." },
+      { title: "Invoices & payment tracking", desc: "Send an invoice from the booking, share your payment link, and see at a glance which sessions are paid." },
       { title: "Meeting format selection", desc: "Clients choose video, phone or in-person when they book." },
       { title: "Advance-notice controls", desc: "Set minimum lead time so you're never booked with no prep." },
       { title: "Company & goal capture", desc: "Every booking arrives with the client's company and the goal for the session." },
     ],
     useCases: ["Discovery calls", "Strategy sessions", "Ongoing retainers", "Workshops"],
     faq: [
-      { q: "Can I charge for a consultation up front?", a: "Yes. You can require a deposit or full payment via a secure link before the session is confirmed." },
+      { q: "Can I charge for a consultation up front?", a: "Yes, using your own payment link or bank details. DoBook puts them on the invoice and reminder emails, and you mark the session paid before confirming. DoBook does not process card payments itself." },
       { q: "Can clients choose video or in-person?", a: "Yes — meeting format is a booking option, so you know how to prepare." },
       { q: "Can I stop last-minute bookings?", a: "Yes, set a minimum advance-notice window so you always have prep time." },
     ],
@@ -207,20 +207,20 @@ export const INDUSTRY_CONTENT = {
     slug: "events",
     title: "Booking System for Photographers & Event Businesses | DoBook",
     metaDescription:
-      "Take shoot and event bookings online. DoBook is scheduling software for photographers and event businesses — with quotes, deposits, venue details and travel fees.",
+      "Take shoot and event bookings online. DoBook is scheduling software for photographers and event businesses — with quotes, deposit tracking, venue details and travel fees.",
     h1: "Booking software for photographers and events",
     intro:
-      "Book more shoots with less admin. DoBook lets clients enquire and book portrait sessions, weddings and event coverage online, capture the event type, venue and guest count, request a quote, and pay a deposit to lock the date.",
+      "Book more shoots with less admin. DoBook lets clients enquire and book portrait sessions, weddings and event coverage online, capture the event type, venue and guest count, and request a quote you can confirm in one click.",
     benefits: [
       { title: "Enquiry & quote flow", desc: "Clients submit event details and receive a quote before committing." },
-      { title: "Deposits secure the date", desc: "Require a deposit so your calendar holds only confirmed bookings." },
+      { title: "Deposit tracking", desc: "Share your payment link and mark each booking as deposit paid, so you know which dates are truly committed." },
       { title: "Venue & guest details", desc: "Every booking includes the event type, venue and estimated guests." },
       { title: "Add-ons for packages", desc: "Offer extra hours, a second shooter or albums as booking add-ons." },
     ],
     useCases: ["Portrait sessions", "Wedding coverage", "Corporate events", "Product shoots", "Videography"],
     faq: [
       { q: "Can clients request a quote first?", a: "Yes. The enquiry flow captures event details and returns a quote before any payment." },
-      { q: "Can I take a deposit to hold the date?", a: "Yes — require a deposit via a secure payment link to confirm the booking." },
+      { q: "Can I take a deposit to hold the date?", a: "Yes, with your own payment link or bank details on the invoice. Mark the booking as deposit paid when it arrives. DoBook does not process card payments itself." },
       { q: "Can I offer package add-ons?", a: "Yes, extras like extra hours, a second shooter or albums can be added at booking." },
     ],
   },
@@ -273,20 +273,20 @@ export const INDUSTRY_CONTENT = {
     slug: "legal",
     title: "Booking System for Legal & Professional Advisors | DoBook",
     metaDescription:
-      "Let clients book consultations online with confidential intake. DoBook is scheduling software for lawyers, accountants and advisors — with deposits and matter capture.",
+      "Let clients book consultations online with confidential intake. DoBook is scheduling software for lawyers, accountants and advisors — with private notes and matter capture.",
     h1: "Consultation booking for legal and professional advisors",
     intro:
-      "Give clients a professional way to book while protecting sensitive information. DoBook lets clients book consultations and document reviews online, capture the matter type and company, keep confidential notes private, and pay a deposit up front.",
+      "Give clients a professional way to book while protecting sensitive information. DoBook lets clients book consultations and document reviews online, capture the matter type and company, and keep confidential notes private to your practice.",
     benefits: [
       { title: "Confidential matter capture", desc: "Collect the matter type and confidential notes marked private for your firm." },
-      { title: "Paid consultations", desc: "Require a deposit so consultations are booked by committed clients." },
+      { title: "Invoices for consultations", desc: "Turn a consultation into an invoice with your bank details, and track which are paid." },
       { title: "Meeting format options", desc: "Clients choose video, phone or in-person when booking." },
       { title: "Professional booking page", desc: "A clean, branded page builds trust from the first interaction." },
     ],
     useCases: ["Initial consultations", "Follow-up meetings", "Document reviews", "Ongoing retainers"],
     faq: [
       { q: "Is client information kept confidential?", a: "Yes. Matter details and notes can be marked private, visible only to your firm." },
-      { q: "Can I charge for a consultation?", a: "Yes — require a deposit or payment via a secure link before confirming." },
+      { q: "Can I charge for a consultation?", a: "Yes, using your own payment link or bank details on the invoice; you mark it paid before confirming. DoBook does not process card payments itself." },
       { q: "Can clients choose the meeting format?", a: "Yes, clients select video, phone or in-person when they book." },
     ],
   },
@@ -296,20 +296,20 @@ export const INDUSTRY_CONTENT = {
     slug: "restaurant",
     title: "Restaurant Booking System & Venue Hire Software | DoBook",
     metaDescription:
-      "Take table reservations and function bookings online. DoBook is restaurant booking software for venues \u2014 guest numbers, dietary notes, deposits and automatic reminders.",
+      "Take table reservations and function bookings online. DoBook is restaurant booking software for venues \u2014 guest numbers, dietary notes, deposit tracking and automatic reminders.",
     h1: "Table reservations and venue hire bookings, handled online",
     intro:
-      "Stop losing bookings to missed calls and a paper diary. DoBook lets guests reserve a table or enquire about a function online, captures guest numbers and dietary requirements up front, takes a deposit on private hire, and sends reminders that cut no\u2011shows.",
+      "Stop losing bookings to missed calls and a paper diary. DoBook lets guests reserve a table or enquire about a function online, captures guest numbers and dietary requirements up front, tracks deposits on private hire, and sends reminders that cut no\u2011shows.",
     benefits: [
       { title: "Tables and functions in one place", desc: "Handle everyday reservations and private venue hire from the same calendar." },
-      { title: "Deposits on private hire", desc: "Require a deposit to hold a function date so bookings are committed." },
+      { title: "Deposit tracking on private hire", desc: "Share your payment link for a function deposit and mark it paid, so you only hold dates that are committed." },
       { title: "Dietary notes up front", desc: "Collect allergies and dietary requirements with the booking, before service." },
       { title: "Fewer no\u2011shows", desc: "Automatic email reminders the day before and a few hours ahead." },
     ],
     useCases: ["Table reservations", "Private functions", "Set menu dining", "Full venue hire", "Corporate events"],
     faq: [
       { q: "Can I take both table bookings and function enquiries?", a: "Yes. Everyday reservations can be booked instantly, while larger functions can come through as an enquiry you quote on." },
-      { q: "Can I take a deposit for a private function?", a: "Yes \u2014 require a deposit at booking so a date is only held once a guest has committed." },
+      { q: "Can I take a deposit for a private function?", a: "Yes, with your own payment link or bank details. Mark the booking as deposit paid when it arrives, and only hold the date once it has. DoBook does not process card payments itself." },
       { q: "Do guests tell us about allergies when they book?", a: "Yes. Dietary requirements and special requests are captured on the booking form and appear with the reservation." },
       { q: "Will guests be reminded about their booking?", a: "Yes, DoBook sends automatic email reminders before the booking to reduce no\u2011shows." },
     ],
