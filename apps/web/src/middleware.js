@@ -9,7 +9,14 @@ import {
 
 const isProd = process.env.NODE_ENV === "production";
 
-function buildContentSecurityPolicy() {
+// Customer pages that businesses embed on their own sites via the iframe
+// snippet in the dashboard. Everything else (dashboard, admin, auth) stays
+// unframeable to prevent clickjacking.
+function isEmbeddablePath(pathname) {
+  return /^\/(book|enquiry)\//.test(pathname || "");
+}
+
+function buildContentSecurityPolicy(pathname = "") {
   const connectSrc = [
     "'self'",
     "https:",
@@ -29,7 +36,7 @@ function buildContentSecurityPolicy() {
     "default-src": ["'self'"],
     "base-uri": ["'self'"],
     "object-src": ["'none'"],
-    "frame-ancestors": ["'none'"],
+    "frame-ancestors": isEmbeddablePath(pathname) ? ["'self'", "https:"] : ["'none'"],
     "form-action": ["'self'"],
     "img-src": ["'self'", "https:", "data:", "blob:"],
     "script-src": scriptSrc,
@@ -79,10 +86,10 @@ export async function middleware(request) {
     dest.protocol = "https:";
     dest.host = canonicalHost();
     const redirectResponse = NextResponse.redirect(dest, 308);
-    return applyResponseSecurityHeaders(redirectResponse, buildContentSecurityPolicy());
+    return applyResponseSecurityHeaders(redirectResponse, buildContentSecurityPolicy(path));
   }
 
-  const csp = buildContentSecurityPolicy();
+  const csp = buildContentSecurityPolicy(path);
 
   // Short entry path (ADMIN_ENTRY_PATH): grants the access cookie and forwards
   // to /admin, so the long ?key= URL is not needed day to day. Redirects rather

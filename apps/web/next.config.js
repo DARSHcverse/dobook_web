@@ -10,9 +10,14 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // DENY framing everywhere except the embeddable customer pages
+        // (/book/*, /enquiry/*); middleware's CSP frame-ancestors mirrors this.
+        source: "/((?!book/|enquiry/).*)",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
