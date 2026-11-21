@@ -22,7 +22,12 @@ function sanitizeInvite(invite) {
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function getInviteByTokenSupabase({ sb, token }) {
+  // token is a uuid column: a malformed link should be "not found", not a
+  // 500 that echoes a Postgres cast error back to the visitor.
+  if (!UUID_RE.test(String(token || ""))) return null;
   const { data, error } = await sb
     .from("review_invites")
     .select("id,token,business_id,booking_id,customer_email,customer_name,used_at,review_id,created_at,expires_at,updated_at")

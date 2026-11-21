@@ -13,7 +13,16 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const manrope = Manrope({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display", display: "swap" });
 
+function siteUrl() {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.do-book.com");
+  } catch {
+    return new URL("https://www.do-book.com");
+  }
+}
+
 export const metadata = {
+  metadataBase: siteUrl(),
   title: "DoBook",
   description: "DoBook web app",
   manifest: "/site.webmanifest",

@@ -38,7 +38,10 @@ export default function LandingPage({
   heroDescription = 'DoBook is an all-in-one online booking system and appointment scheduling software for service businesses. Manage appointments, clients, invoices, reminders, and payments — free or Pro plans available.',
   startFreeHref = '/auth?mode=signup&plan=free',
   customerHref = '/discover',
+  // Industry pages render their own unique <h1> above this component.
+  heroHeadingLevel = 'h1',
 } = {}) {
+  const HeroHeading = heroHeadingLevel === 'h2' ? 'h2' : 'h1';
   const router = useRouter();
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState({ authed: false, business: null });
@@ -504,9 +507,9 @@ export default function LandingPage({
               Online booking system · appointment scheduling software
             </div>
 
-            <h1 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-zinc-900" style={{ fontFamily: 'Manrope' }}>
+            <HeroHeading className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight text-zinc-900" style={{ fontFamily: 'Manrope' }}>
               {heroPrefix} <span className="text-rose-600">{heroAccent}</span>
-            </h1>
+            </HeroHeading>
 
             <p className="mt-4 text-lg text-zinc-600" style={{ fontFamily: 'Inter' }}>
               {heroDescription}

@@ -78,6 +78,7 @@ export default function IndustryPage({ params }) {
       <IndustrySeoSection content={cfg} />
       {/* Shared interactive landing experience below the unique content. */}
       <LandingPage
+        heroHeadingLevel="h2"
         heroPrefix="Booking system"
         heroAccent={`for ${cfg.label}`}
         startFreeHref={`/auth?mode=signup&plan=free&industry=${encodeURIComponent(key)}`}

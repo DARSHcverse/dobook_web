@@ -78,7 +78,6 @@ export default function ImageUpload({ value, onChange, label, disabled }) {
           className="relative group rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50 cursor-pointer"
           style={{ maxHeight: 220 }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
             alt=""

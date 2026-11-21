@@ -8,6 +8,10 @@ export default function ClientShell({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Only these routes act on the result. Skipping the check elsewhere saves
+    // two DB queries per page view on customer-facing pages (/book, /enquiry).
+    const relevant = pathname === "/auth" || pathname?.startsWith("/dashboard");
+    if (!relevant) return undefined;
     let cancelled = false;
     const check = async () => {
       try {

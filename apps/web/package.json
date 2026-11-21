@@ -67,9 +67,9 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "eslint src --quiet && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint src --quiet"
   },
   "browserslist": {
     "production": [

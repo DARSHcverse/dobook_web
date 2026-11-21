@@ -3,6 +3,9 @@ const path = require("path");
 
 const nextConfig = {
   reactStrictMode: true,
+  // Lint runs as its own step before `next build` (package.json) using
+  // eslint.config.mjs; skip Next's duplicate pass.
+  eslint: { ignoreDuringBuilds: true },
   outputFileTracingRoot: path.join(__dirname, "..", ".."),
   async headers() {
     return [

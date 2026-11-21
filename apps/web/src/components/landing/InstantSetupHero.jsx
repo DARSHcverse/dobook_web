@@ -69,7 +69,7 @@ export default function InstantSetupHero() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="yourwebsite.com or instagram.com/yourbiz"
-          className="flex-1 h-12 rounded-xl border border-zinc-200 px-4 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+          className="w-full sm:flex-1 h-12 shrink-0 rounded-xl border border-zinc-200 px-4 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
           disabled={loading}
           aria-label="Your website or social link"
         />

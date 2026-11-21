@@ -29,6 +29,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressAutocomplete from '@/components/app/AddressAutocomplete';
 import { isValidPhone, phoneValidationHint } from '@/lib/phone';
+import {
+  BOOKING_FIELDS_BY_TYPE,
+  RESERVED_CUSTOM_FIELD_KEYS,
+  inferBookingTypeKey,
+} from '@/lib/bookingFieldsByType';
 import { cn } from '@/lib/utils';
 import { API, DOBOOK_LOGO_PNG } from '@/lib/appShared';
 
@@ -139,8 +144,8 @@ export default function BookingWidget() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.customer_phone && !isValidPhone(formData.customer_phone)) {
-      toast.error(phoneValidationHint());
+    if (formData.customer_phone && !isValidPhone(formData.customer_phone, business?.country_code)) {
+      toast.error(phoneValidationHint(business?.country_code));
       return;
     }
     setLoading(true);
@@ -205,7 +210,6 @@ export default function BookingWidget() {
   });
 
   const businessName = String(business?.business_name || 'DoBook');
-  const hasSmsField = bookingFields.some((field) => String(field?.key || '').trim() === 'customer_phone');
   const serviceOptions = boothTypes.map((item) => String(item || '').trim()).filter(Boolean);
   const visibleServiceOptions = serviceOptions.slice(0, 4);
   const hiddenServiceCount = Math.max(0, serviceOptions.length - visibleServiceOptions.length);
@@ -274,10 +278,10 @@ export default function BookingWidget() {
                 <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/80 p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
                     <Smartphone className="h-4 w-4 text-rose-500" />
-                    SMS reminders
+                    Booking updates
                   </div>
                   <p className="mt-2 text-sm leading-6 text-zinc-600">
-                    {hasSmsField ? 'If you added a phone number, reminder messages can be sent there too.' : 'This booking page uses email confirmation for follow-up.'}
+                    Your confirmation and any changes to the booking arrive by email.
                   </p>
                 </div>
                 <div className="rounded-[24px] border border-zinc-200 bg-zinc-50/80 p-4">
@@ -339,7 +343,7 @@ export default function BookingWidget() {
                   What happens next
                 </div>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  Submit your request, choose any extras, and receive confirmation by email{hasSmsField ? ' with optional SMS reminders' : ''}.
+                  Submit your request, choose any extras, and receive confirmation by email.
                 </p>
               </div>
 
@@ -437,7 +441,7 @@ export default function BookingWidget() {
                     Booking form
                   </Badge>
                   <Badge variant="outline" className="rounded-full border-zinc-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
-                    {hasSmsField ? 'Email + SMS reminders' : 'Email confirmation'}
+                    Email confirmation
                   </Badge>
                 </div>
                 <CardTitle className="mt-5 text-[clamp(1.9rem,2.8vw,2.8rem)] tracking-[-0.04em] text-zinc-950" style={{ fontFamily: 'Manrope' }}>
@@ -653,7 +657,7 @@ export default function BookingWidget() {
                             )}
                             {key === 'customer_phone' ? (
                               <p className="mt-2 text-xs leading-5 text-zinc-500">
-                                0400 000 000 or +61400000000. Add a mobile number if you want SMS confirmations and reminders.
+                                {phoneValidationHint(business?.country_code)} The business uses this to reach you about the booking.
                               </p>
                             ) : null}
                           </div>
@@ -1017,7 +1021,7 @@ export default function BookingWidget() {
                           Ready to send
                         </div>
                         <p className="mt-3 text-sm leading-7 text-white/72">
-                          Your booking request goes directly to {businessName}. {hasSmsField ? 'Add a phone number if you want text reminders as well as email confirmation.' : 'You’ll receive confirmation by email after submitting.'}
+                          Your booking request goes directly to {businessName}. You’ll receive confirmation by email after submitting.
                         </p>
                       </div>
                       <Button
