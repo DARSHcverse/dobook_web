@@ -115,6 +115,8 @@ export function billingCurrencyWarning(currency) {
 //   - Automated reminders: Pro only (cron/send-reminders, business/profile)
 //   - Google Calendar sync: Pro only (auth/google/connect, google/sync)
 //   - Invoice PDFs: Pro only (dashboard upgrade gate)
+//   - Availability / slot picker: all plans (lib/availability.js)
+//   - Rebooking reminders: Pro only (api/clients/[email]/rebook)
 //
 // Deliberately absent: SMS (dropped by the owner, Oct 2026), staff limits and
 // "remove branding" (neither is implemented).
@@ -127,11 +129,13 @@ export const SETUP_TIME_LABEL = "about 10 minutes";
 export const PLAN_COMPARISON = [
   { feature: "Bookings per month", free: String(FREE_PLAN_MAX_BOOKINGS_PER_MONTH), pro: "Unlimited" },
   { feature: "Online booking page & widget", free: true, pro: true },
+  { feature: "Live availability & double-booking protection", free: true, pro: true },
   { feature: "Calendar & dashboard", free: true, pro: true },
   { feature: "Booking confirmation emails", free: true, pro: true },
   { feature: "Automated email reminders", free: false, pro: true },
   { feature: "Google Calendar sync", free: false, pro: true },
   { feature: "Invoice PDFs", free: false, pro: true },
+  { feature: "Rebooking reminders for regular clients", free: false, pro: true },
   { feature: "Priority support", free: false, pro: true },
 ];
 

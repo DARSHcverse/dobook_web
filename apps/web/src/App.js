@@ -2219,6 +2219,8 @@ const Dashboard = () => {
         {activeTab === 'clients' && (
           <ClientsTab
             bookings={bookings}
+            isPro={String(business?.subscription_plan || '').toLowerCase() === 'pro' || String(business?.account_role || '').toLowerCase() === 'owner'}
+            onUpgrade={() => { window.location.hash = 'subscription'; setActiveTab('settings'); }}
             onNewBooking={(client) => {
               setBookingPrefill({
                 customer_name: client?.customer_name || '',
@@ -5425,7 +5427,42 @@ const StaffTab = () => {
 };
 
 // ============= Clients Tab =============
-const ClientsTab = ({ bookings, onNewBooking }) => {
+// Retention badge for the CRM list (lib/clientInsights.js statuses).
+function RebookBadge({ status }) {
+  const map = {
+    overdue: ['Overdue', 'border-amber-300 bg-amber-100 text-amber-900'],
+    due: ['Due soon', 'border-amber-200 bg-amber-50 text-amber-800'],
+    booked: ['Booked', 'border-emerald-200 bg-emerald-50 text-emerald-700'],
+  };
+  const m = map[status];
+  if (!m) return null;
+  return <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${m[1]}`}>{m[0]}</span>;
+}
+
+function csvCell(value) {
+  const v = String(value ?? '');
+  // Quote, and neutralise spreadsheet formulas (=, +, -, @) from customer input.
+  const safe = /^[=+\-@]/.test(v) ? `'${v}` : v;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function exportClientsCsv(clients) {
+  const header = ['Name', 'Email', 'Phone', 'Visits', 'Total bookings', 'Total spent', 'First booking', 'Last visit', 'Usual gap (days)', 'Next due', 'Upcoming', 'Status'];
+  const rows = clients.map((c) => [
+    c.customer_name, c.customer_email, c.customer_phone, c.visits, c.total_bookings, c.total_spent,
+    c.first_booking_date, c.last_visit_date || c.last_booking_date, c.usual_gap_days, c.next_due_date, c.upcoming_date, c.rebook_status,
+  ]);
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dobook-clients-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const ClientsTab = ({ bookings, onNewBooking, isPro = false, onUpgrade }) => {
+  const [sendingRebook, setSendingRebook] = useState(false);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -5480,10 +5517,13 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
     const totalClients = clients.length;
     const repeatClients = clients.filter((c) => Number(c?.total_bookings || 0) > 1).length;
     const revenue = clients.reduce((sum, c) => sum + Number(c?.total_spent || 0), 0);
+    const dueToRebook = clients.filter((c) => c?.rebook_status === 'overdue' || c?.rebook_status === 'due').length;
     return {
       totalClients,
       repeatClients,
+      repeatRate: totalClients ? Math.round((repeatClients / totalClients) * 100) : 0,
       revenue,
+      dueToRebook,
     };
   }, [clients]);
 
@@ -5519,6 +5559,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
       if (!matches) return false;
       if (statusFilter === 'all') return true;
       if (statusFilter === 'vip') return isVipClient(client);
+      if (statusFilter === 'rebook') return client?.rebook_status === 'overdue' || client?.rebook_status === 'due';
       const lastDate = parseDateValue(client?.last_booking_date);
       const isActive = lastDate ? lastDate >= cutoff : false;
       return statusFilter === 'active' ? isActive : !isActive;
@@ -5664,6 +5705,10 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
             All customers who have booked with you
           </p>
         </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Button type="button" variant="outline" className="h-10 border-zinc-200" onClick={() => exportClientsCsv(sortedClients)} disabled={!sortedClients.length}>
+            Export CSV
+          </Button>
         <div className="w-full sm:w-80">
           <div className="relative">
             <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -5676,9 +5721,10 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
             />
           </div>
         </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
           <CardHeader>
             <CardDescription style={{ fontFamily: 'Inter' }}>Total Clients</CardDescription>
@@ -5692,9 +5738,19 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
             <CardDescription style={{ fontFamily: 'Inter' }}>Repeat Clients</CardDescription>
             <CardTitle className="text-3xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>
               {stats.repeatClients}
+              <span className="ml-2 text-sm font-semibold text-zinc-500">{stats.repeatRate}%</span>
             </CardTitle>
           </CardHeader>
         </Card>
+        <button
+          type="button"
+          onClick={() => setStatusFilter('rebook')}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-left shadow-sm transition-colors hover:bg-amber-100"
+        >
+          <div className="text-sm text-amber-800" style={{ fontFamily: 'Inter' }}>Due to rebook</div>
+          <div className="mt-1.5 text-3xl font-bold text-amber-900" style={{ fontFamily: 'Manrope' }}>{stats.dueToRebook}</div>
+          <div className="mt-1 text-xs text-amber-800">Regulars past their usual visit gap</div>
+        </button>
         <Card className="bg-white border border-zinc-200 shadow-sm rounded-xl">
           <CardHeader>
             <CardDescription style={{ fontFamily: 'Inter' }}>Total Revenue from Clients</CardDescription>
@@ -5720,6 +5776,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                 { id: 'active', label: 'Active' },
                 { id: 'inactive', label: 'Inactive' },
                 { id: 'vip', label: 'VIP' },
+                { id: 'rebook', label: `Due to rebook${stats.dueToRebook ? ` (${stats.dueToRebook})` : ''}` },
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -5788,6 +5845,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                           <div className="flex items-center gap-2">
                             <span>{client.customer_name || client.customer_email}</span>
                             {isVipClient(client) ? <VipBadge /> : null}
+                            <RebookBadge status={client.rebook_status} />
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-zinc-600">{client.customer_email}</td>
@@ -5817,6 +5875,7 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                         <div className="flex items-center gap-2">
                           <div className="font-semibold truncate">{client.customer_name || client.customer_email}</div>
                           {isVipClient(client) ? <VipBadge className="shrink-0" /> : null}
+                          <RebookBadge status={client.rebook_status} />
                         </div>
                         <div className="text-xs text-zinc-500 truncate">{client.customer_email}</div>
                       </div>
@@ -5859,6 +5918,45 @@ const ClientsTab = ({ bookings, onNewBooking }) => {
                 <div className="text-sm text-zinc-600">{clientInfo.customer_email || '—'}</div>
                 <div className="text-sm text-zinc-600">{clientInfo.customer_phone || '—'}</div>
               </div>
+
+              {selectedClient?.usual_gap_days || selectedClient?.upcoming_date ? (
+                <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-amber-900">
+                    {selectedClient.upcoming_date ? (
+                      <>Next visit booked for <strong>{formatDate(selectedClient.upcoming_date)}</strong>.</>
+                    ) : (
+                      <>
+                        Usually books every <strong>{selectedClient.usual_gap_days} days</strong>. Next visit due{' '}
+                        <strong>{formatDate(selectedClient.next_due_date)}</strong>.
+                      </>
+                    )}
+                  </div>
+                  {!selectedClient.upcoming_date ? (
+                    <Button
+                      type="button"
+                      className="h-9 shrink-0 bg-rose-600 text-white hover:bg-rose-700"
+                      disabled={sendingRebook}
+                      onClick={async () => {
+                        if (!isPro) {
+                          toast.message('Rebooking reminders are part of Pro.', { action: { label: 'Upgrade', onClick: () => onUpgrade?.() } });
+                          return;
+                        }
+                        setSendingRebook(true);
+                        try {
+                          await axios.post(`${API}/clients/${encodeURIComponent(selectedClient.customer_email)}/rebook`, {});
+                          toast.success(`Reminder sent to ${selectedClient.customer_name || selectedClient.customer_email}`);
+                        } catch (err) {
+                          toast.error(err?.response?.data?.detail || 'Could not send the reminder');
+                        } finally {
+                          setSendingRebook(false);
+                        }
+                      }}
+                    >
+                      {sendingRebook ? 'Sending…' : isPro ? 'Send rebook reminder' : 'Send rebook reminder (Pro)'}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">

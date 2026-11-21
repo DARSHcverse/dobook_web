@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/app/api/_utils/auth";
+import { clientRetention } from "@/lib/clientInsights";
+import { businessNow } from "@/lib/businessAvailability";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -77,11 +79,13 @@ export async function GET(request) {
         last_booking_date: dateKey || "",
         _first_ts: ts || 0,
         _last_ts: ts || 0,
+        _bookings: [],
       };
       byEmail.set(email, entry);
     }
 
     entry.total_bookings += 1;
+    entry._bookings.push({ booking_date: dateKey, status: booking?.status });
     if (!isCancelled) {
       entry.total_spent += bookingTotalAmount(booking);
     }
@@ -103,7 +107,9 @@ export async function GET(request) {
     }
   }
 
+  const today = businessNow(auth.business).date;
   const clients = Array.from(byEmail.values()).map((entry) => ({
+    ...clientRetention(entry._bookings, today),
     customer_email: entry.customer_email,
     customer_name: entry.customer_name,
     customer_phone: entry.customer_phone,

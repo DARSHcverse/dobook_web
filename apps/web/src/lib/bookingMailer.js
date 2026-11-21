@@ -906,3 +906,37 @@ export async function sendSubscriptionCancelledEmail({ business, cancelAt }) {
     from: buildBusinessFrom(business),
   });
 }
+
+// "Time for your next visit" nudge to a returning client (Pro, CRM).
+export async function sendRebookNudgeEmail({ business, customerEmail, customerName, bookingUrl, message }) {
+  const to = safeEmail(customerEmail);
+  if (!to || !bookingUrl) return { ok: false, skipped: true, error: "Missing email or link" };
+  const businessName = safeName(business?.business_name) || "us";
+  const name = safeName(customerName) || "there";
+  const note = String(message || "").trim().slice(0, 600);
+  const html = emailLayout({
+    title: `Time for your next visit?`,
+    preheader: `Book your next appointment with ${businessName}.`,
+    logoUrl: { url: business?.logo_url || "", businessId: business?.id || "" },
+    logoAlt: businessName,
+    senderName: businessName,
+    contentHtml: `
+      ${paragraphHtml(`Hi <strong style="color:#18181b;">${escapeHtml(name)}</strong>, it has been a little while since your last visit to <strong style="color:#18181b;">${escapeHtml(businessName)}</strong>.`)}
+      ${note ? paragraphHtml(escapeHtml(note)) : paragraphHtml("When you are ready, you can pick a time that suits you online.")}
+      <div style="margin-top:14px;">
+        <a href="${escapeHtml(bookingUrl)}" style="display:inline-block; background:#e11d48; color:#ffffff; padding:10px 14px; border-radius:999px; text-decoration:none; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size:13px; font-weight:700;">
+          Book my next visit
+        </a>
+      </div>
+    `,
+  });
+  const text = `Hi ${name}, it has been a little while since your last visit to ${businessName}.\n\n${note || "When you are ready, you can pick a time that suits you online."}\n\nBook: ${bookingUrl}\n`;
+  return sendEmailViaResend({
+    to,
+    subject: `Time for your next visit to ${businessName}?`,
+    html,
+    text,
+    from: buildBusinessFrom(business),
+    replyTo: safeEmail(business?.email) || undefined,
+  });
+}
